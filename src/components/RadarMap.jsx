@@ -29,8 +29,8 @@ function buildIcon(ac, isSelected) {
 
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg"
-         width="40" height="40"
-         viewBox="-20 -20 40 40">
+         width="44" height="44"
+         viewBox="-22 -22 44 44">
       <g transform="rotate(${heading})">
         ${shadow}
         <path d="${pathD}"
@@ -44,8 +44,8 @@ function buildIcon(ac, isSelected) {
 
   return L.divIcon({
     html: svg,
-    iconSize: [40, 40],
-    iconAnchor: [20, 20],
+    iconSize: [44, 44],
+    iconAnchor: [22, 22],
     className: '',
   })
 }

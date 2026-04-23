@@ -12,11 +12,11 @@ export const SHAPES = {
 
   // Szerokokadłubowy (B747, B777, A380, C-5)
   heavy:
-    'M0,-19 L2,-7 L17,5 L17,8 L2,3 L3,12 L8,15 L8,16 L0,15 L-8,16 L-8,15 L-3,12 L-2,3 L-17,8 L-17,5 L-2,-7 Z',
+    'M0,-19 L2,-7 L15,4 L15,7 L2,3 L3,12 L7,15 L7,16 L0,15 L-7,16 L-7,15 L-3,12 L-2,3 L-15,7 L-15,4 L-2,-7 Z',
 
   // 4-silnikowy (B747/A340 — silniki widoczne jako zgrubienia)
   quad:
-    'M0,-19 L2,-7 L17,5 L17,7 L12,5 L12,7 L2,3 L3,12 L8,15 L8,16 L0,15 L-8,16 L-8,15 L-3,12 L-2,3 L-12,7 L-12,5 L-17,7 L-17,5 L-2,-7 Z',
+    'M0,-19 L2,-7 L15,4 L15,6 L11,5 L11,7 L2,3 L3,12 L7,15 L7,16 L0,15 L-7,16 L-7,15 L-3,12 L-2,3 L-11,7 L-11,5 L-15,6 L-15,4 L-2,-7 Z',
 
   // ── Myśliwce ───────────────────────────────────────────────────────────────
 
@@ -75,26 +75,26 @@ export const SHAPES = {
 
   // Jednowirnikowy (UH-60, AH-64, Mi-8, W-3)
   helicopter:
-    // Kadłub
-    'M-3.5,-7 L3.5,-7 L5,6 L2,10 L0,11 L-2,10 L-5,6 Z ' +
-    // Główny wirnik — dwa ramiona (krzyż)
-    'M-17,-2 L17,-2 L17,-0.5 L-17,-0.5 Z ' +
-    'M-12,-6 L12,2 L12,3.5 L-12,-4.5 Z ' +
+    // Kadłub — dominujący element
+    'M-4,-9 L4,-9 L5.5,6 L3,11 L0,12 L-3,11 L-5.5,6 Z ' +
+    // Główny wirnik — krótsze ramiona (±11 zamiast ±17)
+    'M-11,-2 L11,-2 L11,-0.5 L-11,-0.5 Z ' +
+    'M-8,-6 L8,2 L8,3.5 L-8,-4.5 Z ' +
     // Belka ogonowa
-    'M2,8 L3.5,15 L-0.5,14 Z ' +
+    'M-1,9 L1,9 L1.5,16 L-1.5,16 Z ' +
     // Wirnik ogonowy
-    'M3,14 L7,14 L7,15.5 L3,15.5 Z',
+    'M1.5,14 L4.5,14 L4.5,16 L1.5,16 Z',
 
   // Dwuwirnikowy tandem (CH-47 Chinook)
   tandem:
-    // Kadłub
-    'M-4,-11 L4,-11 L5,11 L4,14 L-4,14 L-5,11 Z ' +
-    // Przedni wirnik
-    'M-14,-9 L14,-9 L14,-7.5 L-14,-7.5 Z ' +
-    'M-10,-13 L10,-5 L10,-3.5 L-10,-11.5 Z ' +
-    // Tylny wirnik
-    'M-14,9 L14,9 L14,10.5 L-14,10.5 Z ' +
-    'M-10,5 L10,13 L10,14.5 L-10,6.5 Z',
+    // Kadłub (wysoki i wyraźny)
+    'M-4,-12 L4,-12 L5,12 L4,15 L-4,15 L-5,12 Z ' +
+    // Przedni wirnik (±10)
+    'M-10,-10 L10,-10 L10,-8.5 L-10,-8.5 Z ' +
+    'M-7,-14 L7,-6 L7,-4.5 L-7,-12.5 Z ' +
+    // Tylny wirnik (±10)
+    'M-10,8 L10,8 L10,9.5 L-10,9.5 Z ' +
+    'M-7,4 L7,12 L7,13.5 L-7,5.5 Z',
 
   // ── Drony / UAV ───────────────────────────────────────────────────────────
 
