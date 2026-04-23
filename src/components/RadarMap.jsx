@@ -17,12 +17,22 @@ function buildIcon(ac, isSelected) {
   const altM = ftToM(ac.alt_baro)
   const color = isSelected ? '#ffffff' : altToColor(altM)
   const shapeKey = getShapeKey(ac.t)
-  const pathD = SHAPES[shapeKey] || SHAPES.jet
+  const shape = SHAPES[shapeKey] || SHAPES.jet
 
-  // Cień pod ikoną dla czytelności na mapie
-  const shadow = `<path d="${pathD}" fill="rgba(0,0,0,0.45)" transform="translate(1.5,1.5)"/>`
+  const { cx, cy, scale } = shape
+  const paths = Array.isArray(shape.path) ? shape.path : [shape.path]
 
-  // Obramowanie zaznaczenia
+  // normalize transform: centre the original-coordinate paths onto our -22..22 space
+  const tx = `scale(${scale}) translate(${-cx} ${-cy})`
+
+  const mainPaths = paths.map(d =>
+    `<path d="${d}" fill="${color}" stroke="rgba(0,0,0,0.55)" stroke-width="${0.7 / scale}" stroke-linejoin="round"/>`
+  ).join('')
+
+  const shadowPaths = paths.map(d =>
+    `<path d="${d}" fill="rgba(0,0,0,0.4)"/>`
+  ).join('')
+
   const selectionRing = isSelected
     ? `<circle r="16" fill="none" stroke="#ffffff" stroke-width="2" opacity="0.9"/>`
     : ''
@@ -32,12 +42,8 @@ function buildIcon(ac, isSelected) {
          width="44" height="44"
          viewBox="-22 -22 44 44">
       <g transform="rotate(${heading})">
-        ${shadow}
-        <path d="${pathD}"
-              fill="${color}"
-              stroke="rgba(0,0,0,0.6)"
-              stroke-width="0.5"
-              stroke-linejoin="round"/>
+        <g transform="translate(1.2,1.2)"><g transform="${tx}">${shadowPaths}</g></g>
+        <g transform="${tx}">${mainPaths}</g>
       </g>
       ${selectionRing}
     </svg>`
