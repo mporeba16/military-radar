@@ -60,6 +60,23 @@
   color: #e0e8f0;
 }
 
+.popup-adsbx-link {
+  display: block;
+  margin-top: 10px;
+  color: #00aaff;
+  font-size: 11px;
+  text-decoration: none;
+  letter-spacing: 0.5px;
+  opacity: 0.85;
+  transition: opacity 0.15s;
+}
+
+.popup-adsbx-link:hover {
+  opacity: 1;
+  color: #33ccff;
+  text-decoration: underline;
+}
+
 .map-overlay-count {
   position: absolute;
   bottom: 24px;

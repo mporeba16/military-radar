@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import RadarMap from './components/RadarMap'
 import ControlPanel from './components/ControlPanel'
 import AircraftList from './components/AircraftList'
@@ -19,48 +19,65 @@ export default function App() {
   const [dataSource, setDataSource] = useState(null)
   const [mode, setMode] = useState('gps')
   const [radius, setRadius] = useState(100)
-  const [alertedHex, setAlertedHex] = useState(new Set())
   const [selectedHex, setSelectedHex] = useState(null)
+
+  // Bug 1 fix: use ref so alertedHex mutations don't recreate fetchData
+  const alertedHexRef = useRef(new Set())
 
   const { location, locationError, requestLocation } = useGeolocation()
   const { isSubscribed, subscribe, permissionState } = usePushNotifications()
   const pollRef = useRef(null)
 
-  const center = mode === 'poland' ? POLAND_CENTER : (location ? [location.lat, location.lon] : POLAND_CENTER)
+  // Bug 1 fix: memoize center by value so array identity stays stable
+  const center = useMemo(
+    () => mode === 'poland' ? POLAND_CENTER : (location ? [location.lat, location.lon] : POLAND_CENTER),
+    [mode, location?.lat, location?.lon]
+  )
 
   const fetchData = useCallback(async () => {
     setIsLoading(true)
     setError(null)
     try {
-      const { aircraft: data, source, isDemo } = await fetchMilitaryAircraft(center, mode === 'poland' ? 800 : radius)
-      setAircraft(data)
+      const { aircraft: data, source, isDemo } = await fetchMilitaryAircraft(
+        center,
+        mode === 'poland' ? 800 : radius
+      )
+
+      // Bug 3 fix: mark aircraft within radius
+      const enriched = data.map(ac => {
+        if (mode === 'gps' && location) {
+          const dist = haversine(location.lat, location.lon, ac.lat, ac.lon)
+          return { ...ac, _inRadius: dist <= radius, _dist: dist }
+        }
+        return ac
+      })
+
+      setAircraft(enriched)
       setDataSource(isDemo ? 'demo' : source)
       setLastUpdate(new Date())
 
+      // Bug 4 fix: clear selectedHex if that aircraft is no longer visible
+      const currentHexes = new Set(data.map(a => a.hex))
+      setSelectedHex(prev => (prev && !currentHexes.has(prev) ? null : prev))
+
+      // Bug 1 fix: mutate ref instead of setState — no re-render, no loop
       if (mode === 'gps' && location) {
-        data.forEach(ac => {
-          if (!alertedHex.has(ac.hex)) {
-            const dist = haversine(location.lat, location.lon, ac.lat, ac.lon)
-            if (dist <= radius) {
-              triggerNotification(ac, dist)
-              setAlertedHex(prev => new Set(prev).add(ac.hex))
-            }
+        enriched.forEach(ac => {
+          if (!alertedHexRef.current.has(ac.hex) && ac._dist <= radius) {
+            triggerNotification(ac, ac._dist)
+            alertedHexRef.current.add(ac.hex)
           }
         })
+        for (const h of alertedHexRef.current) {
+          if (!currentHexes.has(h)) alertedHexRef.current.delete(h)
+        }
       }
-
-      const currentHexes = new Set(data.map(a => a.hex))
-      setAlertedHex(prev => {
-        const next = new Set(prev)
-        for (const h of prev) if (!currentHexes.has(h)) next.delete(h)
-        return next
-      })
     } catch (err) {
       setError(err.message)
     } finally {
       setIsLoading(false)
     }
-  }, [center, radius, mode, location, alertedHex])
+  }, [center, radius, mode, location]) // no alertedHex in deps — Bug 1 fix
 
   useEffect(() => {
     fetchData()

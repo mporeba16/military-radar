@@ -129,7 +129,7 @@ export default function RadarMap({ aircraft, center, radius, mode, selectedHex, 
               if (el) markersRef.current[ac.hex] = el
               else delete markersRef.current[ac.hex]
             }}
-            eventHandlers={{ click: () => onSelect?.(ac.hex) }}
+            eventHandlers={{ click: () => onSelect?.(ac.hex === selectedHex ? null : ac.hex) }}
           >
             <Popup className="ac-popup">
               <AircraftPopup ac={ac} />
@@ -176,6 +176,14 @@ function AircraftPopup({ ac }) {
           ))}
         </tbody>
       </table>
+      <a
+        className="popup-adsbx-link"
+        href={`https://globe.adsbexchange.com/?icao=${ac.hex}`}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        Otwórz w ADS-B Exchange ↗
+      </a>
     </div>
   )
 }
