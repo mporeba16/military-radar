@@ -1,0 +1,8 @@
+.status-bar {
+  font-size: 12px;
+  letter-spacing: 1px;
+}
+
+.status-ok { color: var(--accent); }
+.status-loading { color: var(--text-dim); }
+.status-err { color: var(--warning); }

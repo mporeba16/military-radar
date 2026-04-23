@@ -1,0 +1,153 @@
+.control-panel {
+  padding: 12px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.cp-section {
+  margin-bottom: 16px;
+}
+
+.cp-label {
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+}
+
+.btn-group {
+  display: flex;
+  gap: 6px;
+}
+
+.btn-mode {
+  flex: 1;
+  padding: 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  letter-spacing: 1px;
+  transition: all 0.15s;
+}
+
+.btn-mode.active {
+  background: var(--bg-deep);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.gps-status {
+  margin-top: 8px;
+  font-size: 11px;
+}
+
+.ok { color: var(--accent); }
+.err { color: var(--warning); }
+
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.range-slider {
+  width: 100%;
+  -webkit-appearance: none;
+  height: 3px;
+  background: var(--border);
+  outline: none;
+  border-radius: 2px;
+}
+
+.range-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+}
+
+.range-marks {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+
+.type-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.btn-filter {
+  padding: 4px 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+  transition: all 0.15s;
+}
+
+.btn-filter.active {
+  background: var(--bg-deep);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btn-subscribe {
+  width: 100%;
+  padding: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  letter-spacing: 1px;
+  transition: all 0.15s;
+}
+
+.btn-subscribe:hover {
+  background: var(--accent);
+  color: var(--bg-deep);
+}
+
+.cp-refresh {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-refresh {
+  padding: 6px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  transition: all 0.15s;
+}
+
+.btn-refresh:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.info-text {
+  font-size: 11px;
+  color: var(--text-dim);
+}

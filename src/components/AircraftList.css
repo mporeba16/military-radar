@@ -1,0 +1,90 @@
+.ac-list {
+  flex: 1;
+  overflow-y: auto;
+  border-top: 1px solid var(--border);
+}
+
+.ac-list.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--text-dim);
+}
+
+.empty-icon {
+  font-size: 32px;
+  opacity: 0.3;
+}
+
+.empty-text {
+  font-size: 12px;
+  letter-spacing: 1px;
+}
+
+.ac-list-header {
+  padding: 8px 12px;
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--bg-panel);
+}
+
+.ac-list-items {
+  padding: 4px 0;
+}
+
+.ac-item {
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(30, 58, 95, 0.5);
+  cursor: default;
+  transition: background 0.1s;
+}
+
+.ac-item:hover {
+  background: var(--bg-card);
+}
+
+.ac-item.in-radius {
+  border-left: 2px solid var(--warning);
+}
+
+.ac-item-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 3px;
+}
+
+.ac-callsign {
+  font-size: 13px;
+  font-weight: bold;
+  color: var(--accent);
+}
+
+.ac-dist {
+  font-size: 11px;
+  color: var(--warning);
+}
+
+.ac-item-bottom {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ac-type {
+  font-size: 11px;
+  color: var(--text);
+  background: var(--bg-card);
+  padding: 1px 4px;
+}
+
+.ac-alt, .ac-speed, .ac-squawk {
+  font-size: 10px;
+  color: var(--text-dim);
+}
