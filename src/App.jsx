@@ -17,6 +17,7 @@ export default function App() {
   const [lastUpdate, setLastUpdate] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [dataSource, setDataSource] = useState(null)
   const [mode, setMode] = useState('gps') // 'gps' | 'poland'
   const [radius, setRadius] = useState(100)
   const [typeFilter, setTypeFilter] = useState('all')
@@ -32,8 +33,9 @@ export default function App() {
     setIsLoading(true)
     setError(null)
     try {
-      const data = await fetchMilitaryAircraft(center, mode === 'poland' ? 800 : radius)
+      const { aircraft: data, source, isDemo } = await fetchMilitaryAircraft(center, mode === 'poland' ? 800 : radius)
       setAircraft(data)
+      setDataSource(isDemo ? 'demo' : source)
       setLastUpdate(new Date())
 
       // powiadomienia dla nowych samolotów w zasięgu
@@ -93,6 +95,7 @@ export default function App() {
           isLoading={isLoading}
           error={error}
           count={filteredAircraft.length}
+          source={dataSource}
         />
       </header>
 

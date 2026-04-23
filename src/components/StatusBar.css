@@ -6,3 +6,19 @@
 .status-ok { color: var(--accent); }
 .status-loading { color: var(--text-dim); }
 .status-err { color: var(--warning); }
+
+.status-source {
+  margin-left: 8px;
+  font-size: 10px;
+  color: var(--text-dim);
+  background: var(--border);
+  padding: 1px 5px;
+  border-radius: 3px;
+  letter-spacing: 1px;
+}
+
+.status-source.demo {
+  color: var(--warning);
+  border: 1px solid var(--warning);
+  background: transparent;
+}

@@ -86,6 +86,65 @@ function stateToAircraft(s) {
   }
 }
 
+async function tryOpenSky(lamin, lomin, lamax, lomax) {
+  try {
+    const url = `https://opensky-network.org/api/states/all?lamin=${lamin}&lomin=${lomin}&lamax=${lamax}&lomax=${lomax}`
+    const fetchOpts = {
+      signal: AbortSignal.timeout(8000),
+      headers: {
+        'User-Agent': 'MilitaryRadarPL/1.0',
+        'Accept': 'application/json',
+      }
+    }
+    if (OPENSKY_USER && OPENSKY_PASS) {
+      fetchOpts.headers['Authorization'] =
+        'Basic ' + Buffer.from(`${OPENSKY_USER}:${OPENSKY_PASS}`).toString('base64')
+    }
+    const res = await fetch(url, fetchOpts)
+    if (!res.ok) return null
+    const data = await res.json()
+    const states = data.states || []
+    const military = states
+      .filter(s => s[5] != null && s[6] != null && !s[8] && isMilitary(s))
+      .map(stateToAircraft)
+    return { aircraft: military, _source: 'opensky' }
+  } catch {
+    return null
+  }
+}
+
+// adsb.fi — publiczne API, działa z serverless, pokrywa Europę
+async function tryADSBfi(lamin, lomin, lamax, lomax) {
+  try {
+    const url = `https://api.adsb.fi/v1/mil`
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(8000),
+      headers: { 'User-Agent': 'MilitaryRadarPL/1.0', 'Accept': 'application/json' }
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    const ac = (data.aircraft || data.ac || []).filter(a =>
+      a.lat != null && a.lon != null &&
+      a.lat >= lamin && a.lat <= lamax &&
+      a.lon >= lomin && a.lon <= lomax
+    ).map(a => ({
+      hex: a.hex || a.icao,
+      flight: (a.flight || a.callsign || a.hex || '').trim(),
+      t: a.t || a.type || '',
+      lat: a.lat,
+      lon: a.lon,
+      alt_baro: a.alt_baro || a.altitude || null,
+      gs: a.gs || a.speed || null,
+      track: a.track || a.heading || null,
+      squawk: a.squawk || null,
+      country: a.r || '',
+    }))
+    return { aircraft: ac, _source: 'adsbfi' }
+  } catch {
+    return null
+  }
+}
+
 export const handler = async (event) => {
   const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -113,52 +172,15 @@ export const handler = async (event) => {
   const lomin = lonN - degLon
   const lomax = lonN + degLon
 
-  try {
-    const url = `https://opensky-network.org/api/states/all?lamin=${lamin}&lomin=${lomin}&lamax=${lamax}&lomax=${lomax}`
+  // Próbuj kolejne źródła danych
+  const result = await tryOpenSky(lamin, lomin, lamax, lomax)
+    || await tryADSBfi(lamin, lomin, lamax, lomax)
+    || { aircraft: mockAircraft(latN, lonN), _demo: true }
 
-    const fetchOpts = { headers: {} }
-    if (OPENSKY_USER && OPENSKY_PASS) {
-      fetchOpts.headers['Authorization'] =
-        'Basic ' + Buffer.from(`${OPENSKY_USER}:${OPENSKY_PASS}`).toString('base64')
-    }
-
-    const res = await fetch(url, fetchOpts)
-
-    if (res.status === 429) {
-      // Rate limit — zwróć mock żeby frontend nie wysypał błędu
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({ aircraft: mockAircraft(latN, lonN), _ratelimited: true })
-      }
-    }
-
-    if (!res.ok) {
-      return {
-        statusCode: res.status,
-        headers,
-        body: JSON.stringify({ error: `OpenSky error ${res.status}` })
-      }
-    }
-
-    const data = await res.json()
-    const states = data.states || []
-
-    const military = states
-      .filter(s => s[5] != null && s[6] != null && !s[8] && isMilitary(s))
-      .map(stateToAircraft)
-
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({ aircraft: military, total: states.length })
-    }
-  } catch (err) {
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ error: err.message })
-    }
+  return {
+    statusCode: 200,
+    headers,
+    body: JSON.stringify(result)
   }
 }
 

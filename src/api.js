@@ -11,7 +11,11 @@ export async function fetchMilitaryAircraft(center, radiusKm) {
     throw new Error(`API error ${res.status}: ${text}`)
   }
   const data = await res.json()
-  return data.aircraft || []
+  return {
+    aircraft: data.aircraft || [],
+    source: data._source || (data._demo ? 'demo' : 'unknown'),
+    isDemo: !!data._demo,
+  }
 }
 
 export async function subscribePush(subscription) {
