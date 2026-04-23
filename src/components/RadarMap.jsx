@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react'
-import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-leaflet'
+import { useEffect, useRef, useState } from 'react'
+import { MapContainer, TileLayer, Marker, Popup, Circle, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import './RadarMap.css'
@@ -12,6 +12,44 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 })
 
+const TILE_LAYERS = [
+  {
+    id: 'osm',
+    name: 'OpenStreetMap',
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom: 19,
+  },
+  {
+    id: 'carto-voyager',
+    name: 'Carto Voyager',
+    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    maxZoom: 19,
+  },
+  {
+    id: 'carto-positron',
+    name: 'Carto Positron',
+    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    maxZoom: 19,
+  },
+  {
+    id: 'carto-dark',
+    name: 'Carto Dark',
+    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    maxZoom: 19,
+  },
+  {
+    id: 'esri-satellite',
+    name: 'Esri Satellite',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP',
+    maxZoom: 18,
+  },
+]
+
 function buildIcon(ac, isSelected) {
   const heading = ac.track || 0
   const altM = ftToM(ac.alt_baro)
@@ -22,7 +60,6 @@ function buildIcon(ac, isSelected) {
   const { cx, cy, scale } = shape
   const paths = Array.isArray(shape.path) ? shape.path : [shape.path]
 
-  // normalize transform: centre the original-coordinate paths onto our -22..22 space
   const tx = `scale(${scale}) translate(${-cx} ${-cy})`
 
   const mainPaths = paths.map(d =>
@@ -69,7 +106,6 @@ function FlyToSelected({ selectedHex, markersRef }) {
   const prevHexRef = useRef(null)
 
   useEffect(() => {
-    // Close popup of the previously selected marker on any selection change
     if (prevHexRef.current) {
       const prev = markersRef.current[prevHexRef.current]
       if (prev) prev.closePopup()
@@ -85,9 +121,61 @@ function FlyToSelected({ selectedHex, markersRef }) {
   return null
 }
 
+function MapClickHandler({ onSelect }) {
+  useMapEvents({
+    click: () => onSelect(null),
+  })
+  return null
+}
+
+function LayerPicker({ activeId, onChange }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    function handleOutside(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleOutside)
+    return () => document.removeEventListener('mousedown', handleOutside)
+  }, [open])
+
+  const active = TILE_LAYERS.find(l => l.id === activeId)
+
+  return (
+    <div className="layer-picker" ref={ref}>
+      <button className="layer-picker-btn" onClick={() => setOpen(o => !o)}>
+        ⊞ {active?.name}
+      </button>
+      {open && (
+        <div className="layer-picker-panel">
+          <div className="layer-picker-title">MAPA</div>
+          {TILE_LAYERS.map(layer => (
+            <label
+              key={layer.id}
+              className={`layer-option ${activeId === layer.id ? 'active' : ''}`}
+            >
+              <input
+                type="radio"
+                name="tileLayer"
+                checked={activeId === layer.id}
+                onChange={() => { onChange(layer.id); setOpen(false) }}
+              />
+              {layer.name}
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function RadarMap({ aircraft, center, radius, mode, selectedHex, onSelect }) {
   const initialZoom = mode === 'poland' ? 6 : 8
   const markersRef = useRef({})
+  const [activeTileId, setActiveTileId] = useState('osm')
+  const tileLayer = TILE_LAYERS.find(l => l.id === activeTileId) || TILE_LAYERS[0]
 
   return (
     <div style={{ flex: 1, position: 'relative' }}>
@@ -98,13 +186,15 @@ export default function RadarMap({ aircraft, center, radius, mode, selectedHex, 
         zoomControl={true}
       >
         <TileLayer
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          maxZoom={19}
+          key={tileLayer.id}
+          url={tileLayer.url}
+          attribution={tileLayer.attribution}
+          maxZoom={tileLayer.maxZoom}
         />
 
         <RecenterOnChange center={center} />
         <FlyToSelected selectedHex={selectedHex} markersRef={markersRef} />
+        <MapClickHandler onSelect={onSelect} />
 
         {radius && (
           <Circle
@@ -138,6 +228,7 @@ export default function RadarMap({ aircraft, center, radius, mode, selectedHex, 
         ))}
       </MapContainer>
 
+      <LayerPicker activeId={activeTileId} onChange={setActiveTileId} />
       <AltitudeLegend />
 
       <div className="map-overlay-count">
