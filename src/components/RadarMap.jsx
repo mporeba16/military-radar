@@ -1,9 +1,10 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useRef } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import './RadarMap.css'
+import { SHAPES, getShapeKey, altToColor } from './aircraftShapes'
 
-// Naprawia brakujące ikony Leaflet przy bundlowaniu przez Vite
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -11,23 +12,40 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 })
 
-function aircraftIcon(ac) {
+function buildIcon(ac, isSelected) {
   const heading = ac.track || 0
-  const isAlert = ac._inRadius
-  const color = isAlert ? '#ff6b35' : '#00ff88'
+  const color = isSelected ? '#ffffff' : altToColor(ac.alt_baro)
+  const shapeKey = getShapeKey(ac.t)
+  const pathD = SHAPES[shapeKey] || SHAPES.jet
+
+  // Cień pod ikoną dla czytelności na mapie
+  const shadow = `<path d="${pathD}" fill="rgba(0,0,0,0.45)" transform="translate(1.5,1.5)"/>`
+
+  // Obramowanie zaznaczenia
+  const selectionRing = isSelected
+    ? `<circle r="16" fill="none" stroke="#ffffff" stroke-width="2" opacity="0.9"/>`
+    : ''
+
   const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28">
-      <g transform="rotate(${heading}, 14, 14)">
-        <polygon points="14,2 18,22 14,18 10,22" fill="${color}" opacity="0.9"/>
-        <polygon points="14,8 22,16 14,13 6,16" fill="${color}" opacity="0.6"/>
+    <svg xmlns="http://www.w3.org/2000/svg"
+         width="36" height="36"
+         viewBox="-18 -18 36 36">
+      <g transform="rotate(${heading})">
+        ${shadow}
+        <path d="${pathD}"
+              fill="${color}"
+              stroke="rgba(0,0,0,0.6)"
+              stroke-width="0.5"
+              stroke-linejoin="round"/>
       </g>
-      ${isAlert ? '<circle cx="14" cy="14" r="12" fill="none" stroke="#ff6b35" stroke-width="1.5" opacity="0.6"/>' : ''}
+      ${selectionRing}
     </svg>`
+
   return L.divIcon({
     html: svg,
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
-    className: ''
+    iconSize: [36, 36],
+    iconAnchor: [18, 18],
+    className: '',
   })
 }
 
@@ -39,8 +57,21 @@ function RecenterOnChange({ center }) {
   return null
 }
 
-export default function RadarMap({ aircraft, center, radius, mode }) {
+function FlyToSelected({ selectedHex, markersRef }) {
+  const map = useMap()
+  useEffect(() => {
+    if (!selectedHex) return
+    const marker = markersRef.current[selectedHex]
+    if (!marker) return
+    map.flyTo(marker.getLatLng(), Math.max(map.getZoom(), 8), { duration: 0.8 })
+    setTimeout(() => marker.openPopup(), 850)
+  }, [selectedHex, map, markersRef])
+  return null
+}
+
+export default function RadarMap({ aircraft, center, radius, mode, selectedHex, onSelect }) {
   const initialZoom = mode === 'poland' ? 6 : 8
+  const markersRef = useRef({})
 
   return (
     <div style={{ flex: 1, position: 'relative' }}>
@@ -57,6 +88,7 @@ export default function RadarMap({ aircraft, center, radius, mode }) {
         />
 
         <RecenterOnChange center={center} />
+        <FlyToSelected selectedHex={selectedHex} markersRef={markersRef} />
 
         {radius && (
           <Circle
@@ -67,7 +99,7 @@ export default function RadarMap({ aircraft, center, radius, mode }) {
               fillColor: '#00ff88',
               fillOpacity: 0.04,
               weight: 1,
-              dashArray: '6 4'
+              dashArray: '6 4',
             }}
           />
         )}
@@ -76,7 +108,12 @@ export default function RadarMap({ aircraft, center, radius, mode }) {
           <Marker
             key={ac.hex}
             position={[ac.lat, ac.lon]}
-            icon={aircraftIcon(ac)}
+            icon={buildIcon(ac, ac.hex === selectedHex)}
+            ref={el => {
+              if (el) markersRef.current[ac.hex] = el
+              else delete markersRef.current[ac.hex]
+            }}
+            eventHandlers={{ click: () => onSelect?.(ac.hex) }}
           >
             <Popup className="ac-popup">
               <AircraftPopup ac={ac} />
@@ -84,6 +121,8 @@ export default function RadarMap({ aircraft, center, radius, mode }) {
           </Marker>
         ))}
       </MapContainer>
+
+      <AltitudeLegend />
 
       <div className="map-overlay-count">
         {aircraft.length} obiektów
@@ -93,29 +132,57 @@ export default function RadarMap({ aircraft, center, radius, mode }) {
 }
 
 function AircraftPopup({ ac }) {
+  const color = altToColor(ac.alt_baro)
+  const rows = [
+    ['Typ',      ac.t || '—'],
+    ['Alt',      ac.alt_baro ? `${ac.alt_baro.toLocaleString()} ft` : '—'],
+    ['Prędkość', ac.gs ? `${Math.round(ac.gs)} kn` : '—'],
+    ['Kurs',     ac.track != null ? `${Math.round(ac.track)}°` : '—'],
+    ['Kraj',     ac.country || '—'],
+    ['Squawk',   ac.squawk || '—'],
+    ['ICAO',     ac.hex],
+  ]
+
   return (
-    <div style={{ fontFamily: 'Courier New, monospace', minWidth: 180 }}>
-      <div style={{ color: '#00ff88', fontWeight: 'bold', marginBottom: 6, fontSize: 14 }}>
+    <div className="popup-inner">
+      <div className="popup-callsign" style={{ color }}>
         {ac.flight?.trim() || ac.hex}
       </div>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+      <table className="popup-table">
         <tbody>
-          {[
-            ['Typ', ac.t || '—'],
-            ['Alt', ac.alt_baro ? `${ac.alt_baro} ft` : '—'],
-            ['Prędkość', ac.gs ? `${Math.round(ac.gs)} kn` : '—'],
-            ['Kurs', ac.track != null ? `${Math.round(ac.track)}°` : '—'],
-            ['Kraj', ac.ownOp || ac.country || '—'],
-            ['Squawk', ac.squawk || '—'],
-            ['ICAO', ac.hex],
-          ].map(([label, val]) => (
+          {rows.map(([label, val]) => (
             <tr key={label}>
-              <td style={{ color: '#7a9ab5', paddingRight: 8 }}>{label}</td>
-              <td style={{ color: '#e0e8f0' }}>{val}</td>
+              <td className="popup-label">{label}</td>
+              <td className="popup-val">{val}</td>
             </tr>
           ))}
         </tbody>
       </table>
+    </div>
+  )
+}
+
+function AltitudeLegend() {
+  const stops = [
+    [0,     'rgb(255,20,20)',   '0'],
+    [10000, 'rgb(255,215,0)',   '10k'],
+    [20000, 'rgb(0,200,20)',    '20k'],
+    [30000, 'rgb(0,200,255)',   '30k'],
+    [40000, 'rgb(80,60,255)',   '40k'],
+    [50000, 'rgb(180,0,255)',   '50k+'],
+  ]
+
+  const gradient = `linear-gradient(to right, ${stops.map(([, c]) => c).join(', ')})`
+
+  return (
+    <div className="alt-legend">
+      <div className="alt-legend-bar" style={{ background: gradient }} />
+      <div className="alt-legend-labels">
+        {stops.map(([, , label]) => (
+          <span key={label}>{label}</span>
+        ))}
+      </div>
+      <div className="alt-legend-title">ft</div>
     </div>
   )
 }

@@ -1,0 +1,111 @@
+/* Popup — ciemny motyw zamiast domyślnego białego Leaflet */
+.leaflet-popup-content-wrapper {
+  background: #0f1e35 !important;
+  border: 1px solid #1e3a5f !important;
+  border-radius: 4px !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6) !important;
+  padding: 0 !important;
+}
+
+.leaflet-popup-content {
+  margin: 0 !important;
+  min-width: 190px;
+}
+
+.leaflet-popup-tip {
+  background: #0f1e35 !important;
+}
+
+.leaflet-popup-close-button {
+  color: #7a9ab5 !important;
+  font-size: 18px !important;
+  top: 6px !important;
+  right: 8px !important;
+}
+
+.leaflet-popup-close-button:hover {
+  color: #00ff88 !important;
+}
+
+.popup-inner {
+  font-family: 'Courier New', Courier, monospace;
+  padding: 12px 14px 10px;
+}
+
+.popup-callsign {
+  color: #00ff88;
+  font-weight: bold;
+  font-size: 15px;
+  margin-bottom: 8px;
+  letter-spacing: 1px;
+}
+
+.popup-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.popup-table tr + tr td {
+  padding-top: 3px;
+}
+
+.popup-label {
+  color: #7a9ab5;
+  padding-right: 12px;
+  white-space: nowrap;
+}
+
+.popup-val {
+  color: #e0e8f0;
+}
+
+.map-overlay-count {
+  position: absolute;
+  bottom: 24px;
+  left: 10px;
+  background: rgba(10, 22, 40, 0.85);
+  color: #7a9ab5;
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  letter-spacing: 1px;
+  padding: 4px 8px;
+  border: 1px solid #1e3a5f;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+/* Legenda wysokości */
+.alt-legend {
+  position: absolute;
+  bottom: 52px;
+  left: 10px;
+  z-index: 1000;
+  pointer-events: none;
+  font-family: 'Courier New', monospace;
+}
+
+.alt-legend-bar {
+  width: 160px;
+  height: 6px;
+  border-radius: 3px;
+  border: 1px solid rgba(255,255,255,0.15);
+}
+
+.alt-legend-labels {
+  display: flex;
+  justify-content: space-between;
+  width: 160px;
+  margin-top: 2px;
+}
+
+.alt-legend-labels span {
+  font-size: 9px;
+  color: rgba(255,255,255,0.5);
+}
+
+.alt-legend-title {
+  font-size: 9px;
+  color: rgba(255,255,255,0.3);
+  margin-top: 1px;
+}

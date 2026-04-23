@@ -172,6 +172,16 @@ export const handler = async (event) => {
   const lomin = lonN - degLon
   const lomax = lonN + degLon
 
+  // Tryb demo — wymuszone przez env lub query param
+  const forceDemo = process.env.DEMO_MODE === 'true' || event.queryStringParameters?.demo === '1'
+  if (forceDemo) {
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({ aircraft: mockAircraft(latN, lonN), _demo: true })
+    }
+  }
+
   // Próbuj kolejne źródła danych
   const result = await tryOpenSky(lamin, lomin, lamax, lomax)
     || await tryADSBfi(lamin, lomin, lamax, lomax)
@@ -185,19 +195,42 @@ export const handler = async (event) => {
 }
 
 function mockAircraft(lat, lon) {
-  const types = ['F-16C', 'C-130H', 'UH-60M', 'P-8A', 'KC-135R', 'C-17A']
-  const calls = ['PLF4512', 'RCF001', 'DUKE71', 'JAKE01', 'PEARL22', 'RCH456']
-  return Array.from({ length: 6 }, (_, i) => ({
-    hex: `ae${(1000 + i).toString(16)}`,
-    flight: calls[i % calls.length],
-    t: types[i % types.length],
-    lat: lat + (Math.random() - 0.5) * 3,
-    lon: lon + (Math.random() - 0.5) * 4,
-    alt_baro: Math.round(5000 + Math.random() * 30000),
-    gs: Math.round(200 + Math.random() * 400),
-    track: Math.round(Math.random() * 360),
-    squawk: ['7777', '1234', '4512', '0100'][i % 4],
-    country: 'Poland',
+  // Realistyczne samoloty wojskowe nad Polską i okolicą
+  const scenarios = [
+    // Myśliwce (fighter) — żółty ~18-22k ft
+    { hex: 'ae1234', flight: 'DUKE71',  t: 'F-16C',   dlat: -0.8, dlon:  1.2, alt: 18000, gs: 480, track: 225, squawk: '4512', country: 'United States' },
+    { hex: '489201', flight: 'PLF4512', t: 'F-16C',   dlat:  0.5, dlon: -0.9, alt: 22000, gs: 510, track: 110, squawk: '1234', country: 'Poland' },
+    // Transport wojskowy (transport) — zielony ~8k i cyjan ~35k
+    { hex: '489302', flight: 'RCF001',  t: 'C-130H',  dlat:  1.2, dlon:  0.4, alt:  8000, gs: 290, track: 270, squawk: '4000', country: 'Poland' },
+    { hex: 'ae5678', flight: 'REACH99', t: 'C-17A',   dlat: -1.5, dlon: -1.8, alt: 35000, gs: 490, track:  85, squawk: '1001', country: 'United States' },
+    { hex: '43c100', flight: 'GAF680',  t: 'A400M',   dlat:  0.2, dlon:  2.1, alt: 28000, gs: 350, track: 310, squawk: '2301', country: 'Germany' },
+    // Tankowiec — niebieski ~31k ft
+    { hex: 'ae9abc', flight: 'POLO14',  t: 'KC-135R', dlat: -0.3, dlon: -2.5, alt: 31000, gs: 460, track: 190, squawk: '0100', country: 'United States' },
+    // Śmigłowiec (helicopter) — czerwony ~1.8k ft
+    { hex: '489403', flight: 'SPLFM',   t: 'W-3A',    dlat:  0.9, dlon:  0.1, alt:  1800, gs: 120, track:  45, squawk: null,   country: 'Poland' },
+    // Patrolowy (patrol) — zielono-cyjanowy ~25k ft
+    { hex: 'ae2468', flight: 'JAKE01',  t: 'P-8A',    dlat: -2.0, dlon:  0.7, alt: 25000, gs: 430, track: 350, squawk: '7777', country: 'United States' },
+    // RC-135 (patrol) — niebieski ~38k ft
+    { hex: 'ae1357', flight: 'GORDO5',  t: 'RC-135',  dlat: -0.6, dlon:  3.2, alt: 38000, gs: 440, track: 270, squawk: '0200', country: 'United States' },
+    // Dron (drone) — żółto-zielony ~15k ft
+    { hex: 'ae7531', flight: 'UAVX01',  t: 'MQ-9',    dlat:  1.5, dlon:  1.8, alt: 15000, gs: 200, track: 180, squawk: null,   country: 'United States' },
+    // Turbośmigłowy (turboprop) — pomarańczowy ~5k ft
+    { hex: '489550', flight: 'RCF042',  t: 'C-295M',  dlat: -1.1, dlon: -0.5, alt:  5000, gs: 260, track:  60, squawk: '3210', country: 'Poland' },
+    // Heavy — fioletowy ~43k ft
+    { hex: 'ae3698', flight: 'REACH12', t: 'C-5M',    dlat: -2.5, dlon:  2.0, alt: 43000, gs: 500, track: 100, squawk: '2000', country: 'United States' },
+  ]
+
+  return scenarios.map((s) => ({
+    hex: s.hex,
+    flight: s.flight,
+    t: s.t,
+    lat: lat + s.dlat,
+    lon: lon + s.dlon,
+    alt_baro: s.alt,
+    gs: s.gs,
+    track: s.track,
+    squawk: s.squawk,
+    country: s.country,
     on_ground: false,
   }))
 }

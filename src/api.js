@@ -1,6 +1,4 @@
-const API_BASE = import.meta.env.DEV
-  ? 'http://localhost:8888/.netlify/functions'
-  : '/.netlify/functions'
+const API_BASE = '/.netlify/functions'
 
 export async function fetchMilitaryAircraft(center, radiusKm) {
   const [lat, lon] = center

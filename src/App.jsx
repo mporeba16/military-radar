@@ -22,6 +22,7 @@ export default function App() {
   const [radius, setRadius] = useState(100)
   const [typeFilter, setTypeFilter] = useState('all')
   const [alertedHex, setAlertedHex] = useState(new Set())
+  const [selectedHex, setSelectedHex] = useState(null)
 
   const { location, locationError, requestLocation } = useGeolocation()
   const { isSubscribed, subscribe, permissionState } = usePushNotifications()
@@ -105,6 +106,8 @@ export default function App() {
           center={center}
           radius={mode === 'gps' ? radius : null}
           mode={mode}
+          selectedHex={selectedHex}
+          onSelect={setSelectedHex}
         />
 
         <aside className="sidebar">
@@ -123,7 +126,12 @@ export default function App() {
             permissionState={permissionState}
             onRefresh={fetchData}
           />
-          <AircraftList aircraft={filteredAircraft} userLocation={location} />
+          <AircraftList
+            aircraft={filteredAircraft}
+            userLocation={location}
+            selectedHex={selectedHex}
+            onSelect={setSelectedHex}
+          />
         </aside>
       </main>
     </div>
