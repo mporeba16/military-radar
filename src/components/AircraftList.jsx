@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { ftToM, knToKmh } from './aircraftShapes'
 import './AircraftList.css'
 
 function haversine(lat1, lon1, lat2, lon2) {
@@ -59,8 +60,8 @@ export default function AircraftList({ aircraft, userLocation, selectedHex, onSe
               </div>
               <div className="ac-item-bottom">
                 <span className="ac-type">{ac.t || '???'}</span>
-                {ac.alt_baro && <span className="ac-alt">{ac.alt_baro.toLocaleString()} ft</span>}
-                {ac.gs && <span className="ac-speed">{Math.round(ac.gs)} kn</span>}
+                {ac.alt_baro != null && <span className="ac-alt">{ftToM(ac.alt_baro).toLocaleString()} m</span>}
+                {ac.gs != null && <span className="ac-speed">{knToKmh(ac.gs)} km/h</span>}
                 {ac.squawk && <span className="ac-squawk">SQ:{ac.squawk}</span>}
               </div>
             </div>

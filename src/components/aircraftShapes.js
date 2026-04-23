@@ -1,89 +1,178 @@
-// Kształty ikon samolotów — centralnie w (0,0), nos skierowany w górę (track=0 = północ)
-// Każdy kształt to SVG path d=""
+// Kształty ikon — centrum (0,0), nos skierowany w górę (track=0 = północ)
+// viewBox: "-20 -20 40 40" → ikona 40x40px
+// Proporcje: skrzydła ~60% długości kadłuba dla czytelności
 
 export const SHAPES = {
-  // Odrzutowiec wąskokadłubowy (domyślny)
-  jet: 'M0,-14 L2,-5 L13,3 L13,5 L2,2 L2,9 L6,12 L6,13 L0,11 L-6,13 L-6,12 L-2,9 L-2,2 L-13,5 L-13,3 L-2,-5 Z',
+  // Odrzutowiec wąskokadłubowy — skrzydła skośne, smukły kadłub
+  jet: [
+    'M0,-15',          // nos
+    'L1.5,-7',         // kadłub do nasady skrzydła
+    'L10,1 L10,3',     // prawe skrzydło: krawędź natarcia, spływu
+    'L1.5,0',          // powrót do kadłuba za skrzydłem
+    'L2,9 L5,12 L5,13',// prawy usterzenie poziome
+    'L0,11',           // ogon
+    'L-5,13 L-5,12 L-2,9', // lewe usterzenie
+    'L-1.5,0',
+    'L-10,3 L-10,1 L-1.5,-7 Z', // lewe skrzydło
+  ].join(' '),
 
-  // Szerokokadłubowy (B747, B777, A380)
-  heavy: 'M0,-14 L3,-2 L17,5 L17,8 L3,4 L3,11 L7,13 L7,15 L0,13 L-7,15 L-7,13 L-3,11 L-3,4 L-17,8 L-17,5 L-3,-2 Z',
+  // Szerokokadłubowy (B747, A380, C-5)
+  heavy: [
+    'M0,-15',
+    'L2,-5',
+    'L13,4 L13,7',
+    'L2,3',
+    'L2,10 L6,13 L6,14',
+    'L0,13',
+    'L-6,14 L-6,13 L-2,10',
+    'L-2,3',
+    'L-13,7 L-13,4 L-2,-5 Z',
+  ].join(' '),
 
-  // Myśliwiec (delta/skrzydła do tyłu)
-  fighter: 'M0,-14 L3,3 L14,12 L12,14 L0,8 L-12,14 L-14,12 L-3,3 Z M-1.5,7 L1.5,7 L2.5,13 L0,12 L-2.5,13 Z',
+  // Myśliwiec — skrzydła delta, brak wyraźnego usterzenia poziomego
+  fighter: [
+    'M0,-16',          // ostry nos
+    'L2.5,0',          // prawa krawędź kadłuba
+    'L11,12',          // prawe skrzydło — krawędź spływu
+    'L9,14',           // prawy wierzchołek skrzydła
+    'L0,9',            // środek tyłu
+    'L-9,14',
+    'L-11,12',
+    'L-2.5,0 Z',       // lewe skrzydło
+    // Mały statecznik pionowy
+    'M0,9 L1.5,14 L0,13 L-1.5,14 Z',
+  ].join(' '),
 
-  // Wojskowy transport (C-130, C-17 — proste skrzydła, duży kadłub)
-  transport: 'M0,-13 L2,0 L16,4 L16,6 L2,5 L2,11 L5,13 L5,14 L0,13 L-5,14 L-5,13 L-2,11 L-2,5 L-16,6 L-16,4 L-2,0 Z',
+  // Wojskowy transport — proste, wysoko osadzone skrzydła (C-130, C-17)
+  transport: [
+    'M0,-14',
+    'L1.5,-2',         // kadłub — szerszy niż jet
+    'L13,2 L13,4',     // proste skrzydło (nie skośne)
+    'L1.5,3',
+    'L1.5,10 L4,12 L4,14',
+    'L0,13',
+    'L-4,14 L-4,12 L-1.5,10',
+    'L-1.5,3',
+    'L-13,4 L-13,2 L-1.5,-2 Z',
+  ].join(' '),
 
-  // Turbośmigłowy (krótsze, proste skrzydła + śmigło)
-  turboprop: 'M0,-11 L1.5,-3 L10,2 L10,4 L1.5,2 L1.5,9 L4,11 L4,12 L0,11 L-4,12 L-4,11 L-1.5,9 L-1.5,2 L-10,4 L-10,2 L-1.5,-3 Z M-5,-12 L5,-12 L5,-11 L-5,-11 Z',
+  // Tankowiec — jak heavy ale z małym wysięgnikiem z tyłu
+  tanker: [
+    'M0,-15',
+    'L2,-4',
+    'L14,5 L14,8',
+    'L2,4',
+    'L3,11 L6,13 L6,14',
+    'L0,12',
+    'L-6,14 L-6,13 L-3,11',
+    'L-2,4',
+    'L-14,8 L-14,5 L-2,-4 Z',
+    // Wysięgnik do tankowania
+    'M0,12 L1,18 L-1,18 Z',
+  ].join(' '),
 
-  // Śmigłowiec (kadłub + wirniki jako wypełnione prostokąty)
-  helicopter: 'M-3.5,-4 L3.5,-4 L4.5,5 L2,8 L0,9 L-2,8 L-4.5,5 Z M-15,-2 L15,-2 L15,-1 L-15,-1 Z M-10,-6 L10,-0 L10,1 L-10,-5 Z M2.5,6 L8,11 L7.5,12 L2,7 Z M7,10 L9,10 L9,11.5 L7,11.5 Z',
+  // Patrolowy morski — jak jet z gondolami silników pod skrzydłami
+  patrol: [
+    'M0,-15',
+    'L1.5,-7',
+    'L10,1 L10,3',
+    'L1.5,0',
+    'L2,9 L5,11 L5,13',
+    'L0,12',
+    'L-5,13 L-5,11 L-2,9',
+    'L-1.5,0',
+    'L-10,3 L-10,1 L-1.5,-7 Z',
+    // Gondole silników
+    'M7,0 L9,0 L9,3 L7,3 Z',
+    'M-9,0 L-7,0 L-7,3 L-9,3 Z',
+  ].join(' '),
 
-  // Dron / UAV (kształt X)
-  drone: 'M0,-12 L2.5,-1 L12,3 L2.5,1 L2.5,12 L0,8 L-2.5,12 L-2.5,1 L-12,3 L-2.5,-1 Z M-1,0 L1,0 L1,1 L-1,1 Z',
+  // Turbośmigłowy — proste skrzydła + śmigło na nosie
+  turboprop: [
+    'M0,-12',
+    'L1.5,-5',
+    'L9,1 L9,3',
+    'L1.5,1',
+    'L1.5,8 L3.5,10 L3.5,12',
+    'L0,11',
+    'L-3.5,12 L-3.5,10 L-1.5,8',
+    'L-1.5,1',
+    'L-9,3 L-9,1 L-1.5,-5 Z',
+    // Śmigło
+    'M-5,-13 L5,-13 L5,-12 L-5,-12 Z',
+  ].join(' '),
 
-  // Tankowiec (jak heavy ale z wysięgnikiem)
-  tanker: 'M0,-14 L3,-2 L17,5 L17,8 L3,4 L4,12 L7,13 L7,15 L0,13 L-7,15 L-7,13 L-4,12 L-3,4 L-17,8 L-17,5 L-3,-2 Z M0,12 L1,17 L-1,17 Z',
+  // Śmigłowiec — owalny kadłub + wirnik główny + belka ogonowa
+  helicopter: [
+    // Kadłub
+    'M-3.5,-6 L3.5,-6 L4.5,5 L2,9 L0,10 L-2,9 L-4.5,5 Z',
+    // Wirnik główny — dwa ramiona jako cienkie wypełnione prostokąty
+    'M-15,-3 L15,-3 L15,-1.5 L-15,-1.5 Z',
+    'M-11,-7 L11,-0.5 L11,0.5 L-11,-6 Z',
+    // Belka ogonowa i wirnik boczny
+    'M2,7 L3,13 L-0,12 Z',
+    'M2.5,12 L5,12 L5,14 L2.5,14 Z',
+  ].join(' '),
 
-  // Patrolowy morski (P-8 itp. — jak jet ale z gondolami pod skrzydłami)
-  patrol: 'M0,-14 L2,-5 L13,3 L13,5 L2,2 L2,9 L6,12 L6,13 L0,11 L-6,13 L-6,12 L-2,9 L-2,2 L-13,5 L-13,3 L-2,-5 Z M8,4 L10,4 L10,6 L8,6 Z M-10,4 L-8,4 L-8,6 L-10,6 Z',
+  // Dron / UAV — kształt X z centralnym punktem
+  drone: [
+    'M0,-14 L2,-3 L10,2 L3,2 L3,13 L0,10 L-3,13 L-3,2 L-10,2 L-2,-3 Z',
+  ].join(' '),
 }
 
-// Mapowanie typu ICAO/callsign → kształt
+// Mapowanie typu → kształt
 export function getShapeKey(t) {
   const type = (t || '').toUpperCase()
 
   if (/UH-|AH-|CH-|MH-|HH-|SH-|^EC\d|^AS\d|^W-3|^MI-|LYNX|PUMA|CHIN|TIGER|MERLIN|SEAHAWK|BLACKHAWK|WILDCAT|APACHE/.test(type))
     return 'helicopter'
 
-  if (/F-16|F-15|F-22|F-35|FA-18|F\/A-18|MIG|SU-[234679]|TYPHO|RAFALE|JAS\s?39|GRIPEN|EF-2|EF2000|HAWK T/.test(type))
+  if (/F-16|F-15|F-22|F-35|FA-18|F\/A-18|MIG|SU-[234679]|TYPHO|RAFALE|JAS\s?39|GRIPEN|EF-2|EF2000/.test(type))
     return 'fighter'
 
   if (/C-130|C-17|C-5|A400|AN-\d|IL-\d|CASA|C-160|KC-130/.test(type))
     return 'transport'
 
-  if (/KC-135|KC-10|A330MRT|MRTT|VCATA/.test(type))
+  if (/KC-135|KC-10|A330MRT|MRTT/.test(type))
     return 'tanker'
 
   if (/P-8|P-3|ORION|POSEIDON|E-3|AWACS|SENTINEL|RC-135|EP-3/.test(type))
     return 'patrol'
 
-  if (/MQ-|RQ-|REAPER|PREDATOR|GLOBAL HAWK|TRITON|HERON|HERMES/.test(type))
+  if (/MQ-|RQ-|REAPER|PREDATOR|GLOBAL\s?HAWK|TRITON|HERON/.test(type))
     return 'drone'
 
-  if (/ATR|DHC|^PC-|^C-26|^E-2C|KING AIR|CARAVAN|^BE-/.test(type))
+  if (/ATR|DHC|^PC-|KING\s?AIR|CARAVAN|^BE-|C-295|^C-2\b/.test(type))
     return 'turboprop'
 
-  if (/B74|B747|B77|B777|B78|B787|A38|A380|A34|A340|A33|A330/.test(type))
+  if (/B74[0-9]|B747|B77[0-9]|B777|B78[0-9]|B787|A38[0-9]|A380|A34[0-9]|A340|A33[0-9]|A330|C-5/.test(type))
     return 'heavy'
 
   return 'jet'
 }
 
-// Kolor na podstawie wysokości (gradient jak globe.adsbexchange.com)
-export function altToColor(altFt) {
-  if (altFt == null) return '#aaaaaa'
+// Gradient koloru wg wysokości — identyczny z globe.adsbexchange.com
+export function altToColor(altM) {
+  if (altM == null) return '#aaaaaa'
 
+  // Progi w metrach (konwertowane z ft: 0/2k/5k/10k/15k/20k/25k/30k/35k/40k/50k ft)
   const stops = [
-    [    0, [255,  20,  20]],  // czerwony
-    [ 2000, [255,  90,   0]],  // czerwono-pomarańczowy
-    [ 5000, [255, 140,   0]],  // pomarańczowy
-    [10000, [255, 215,   0]],  // żółty
-    [15000, [160, 230,   0]],  // żółto-zielony
-    [20000, [  0, 200,  20]],  // zielony
-    [25000, [  0, 215, 180]],  // zielono-cyjanowy
-    [30000, [  0, 200, 255]],  // cyjan
-    [35000, [ 40, 130, 255]],  // niebieski
-    [40000, [ 80,  60, 255]],  // niebiesko-fioletowy
-    [50000, [180,   0, 255]],  // fioletowy
+    [    0, [255,  20,  20]],
+    [  600, [255,  90,   0]],
+    [ 1500, [255, 140,   0]],
+    [ 3000, [255, 215,   0]],
+    [ 4600, [160, 230,   0]],
+    [ 6100, [  0, 200,  20]],
+    [ 7600, [  0, 215, 180]],
+    [ 9100, [  0, 200, 255]],
+    [10700, [ 40, 130, 255]],
+    [12200, [ 80,  60, 255]],
+    [15200, [180,   0, 255]],
   ]
 
-  const alt = Math.max(0, Math.min(altFt, 50000))
-
+  const alt = Math.max(0, Math.min(altM, 15200))
   for (let i = 0; i < stops.length - 1; i++) {
-    const [a0, c0] = stops[i]
-    const [a1, c1] = stops[i + 1]
+    const [a0, c0] = stops[i], [a1, c1] = stops[i + 1]
     if (alt >= a0 && alt <= a1) {
       const t = (alt - a0) / (a1 - a0)
       const r = Math.round(c0[0] + (c1[0] - c0[0]) * t)
@@ -94,3 +183,7 @@ export function altToColor(altFt) {
   }
   return 'rgb(180,0,255)'
 }
+
+// Konwersje jednostek
+export const ftToM = ft => ft != null ? Math.round(ft * 0.3048) : null
+export const knToKmh = kn => kn != null ? Math.round(kn * 1.852) : null

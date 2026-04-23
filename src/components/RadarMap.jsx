@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-le
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import './RadarMap.css'
-import { SHAPES, getShapeKey, altToColor } from './aircraftShapes'
+import { SHAPES, getShapeKey, altToColor, ftToM, knToKmh } from './aircraftShapes'
 
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({
@@ -14,7 +14,8 @@ L.Icon.Default.mergeOptions({
 
 function buildIcon(ac, isSelected) {
   const heading = ac.track || 0
-  const color = isSelected ? '#ffffff' : altToColor(ac.alt_baro)
+  const altM = ftToM(ac.alt_baro)
+  const color = isSelected ? '#ffffff' : altToColor(altM)
   const shapeKey = getShapeKey(ac.t)
   const pathD = SHAPES[shapeKey] || SHAPES.jet
 
@@ -28,8 +29,8 @@ function buildIcon(ac, isSelected) {
 
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg"
-         width="36" height="36"
-         viewBox="-18 -18 36 36">
+         width="40" height="40"
+         viewBox="-20 -20 40 40">
       <g transform="rotate(${heading})">
         ${shadow}
         <path d="${pathD}"
@@ -43,8 +44,8 @@ function buildIcon(ac, isSelected) {
 
   return L.divIcon({
     html: svg,
-    iconSize: [36, 36],
-    iconAnchor: [18, 18],
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
     className: '',
   })
 }
@@ -132,11 +133,13 @@ export default function RadarMap({ aircraft, center, radius, mode, selectedHex, 
 }
 
 function AircraftPopup({ ac }) {
-  const color = altToColor(ac.alt_baro)
+  const altM = ftToM(ac.alt_baro)
+  const kmh = knToKmh(ac.gs)
+  const color = altToColor(altM)
   const rows = [
     ['Typ',      ac.t || '—'],
-    ['Alt',      ac.alt_baro ? `${ac.alt_baro.toLocaleString()} ft` : '—'],
-    ['Prędkość', ac.gs ? `${Math.round(ac.gs)} kn` : '—'],
+    ['Wys.',     altM != null ? `${altM.toLocaleString()} m` : '—'],
+    ['Prędkość', kmh != null ? `${kmh} km/h` : '—'],
     ['Kurs',     ac.track != null ? `${Math.round(ac.track)}°` : '—'],
     ['Kraj',     ac.country || '—'],
     ['Squawk',   ac.squawk || '—'],
@@ -164,25 +167,22 @@ function AircraftPopup({ ac }) {
 
 function AltitudeLegend() {
   const stops = [
-    [0,     'rgb(255,20,20)',   '0'],
-    [10000, 'rgb(255,215,0)',   '10k'],
-    [20000, 'rgb(0,200,20)',    '20k'],
-    [30000, 'rgb(0,200,255)',   '30k'],
-    [40000, 'rgb(80,60,255)',   '40k'],
-    [50000, 'rgb(180,0,255)',   '50k+'],
+    ['rgb(255,20,20)',  '0'],
+    ['rgb(255,215,0)',  '3k'],
+    ['rgb(0,200,20)',   '6k'],
+    ['rgb(0,200,255)',  '9k'],
+    ['rgb(80,60,255)',  '12k'],
+    ['rgb(180,0,255)', '15k+'],
   ]
-
-  const gradient = `linear-gradient(to right, ${stops.map(([, c]) => c).join(', ')})`
+  const gradient = `linear-gradient(to right, ${stops.map(([c]) => c).join(', ')})`
 
   return (
     <div className="alt-legend">
       <div className="alt-legend-bar" style={{ background: gradient }} />
       <div className="alt-legend-labels">
-        {stops.map(([, , label]) => (
-          <span key={label}>{label}</span>
-        ))}
+        {stops.map(([, label]) => <span key={label}>{label}</span>)}
       </div>
-      <div className="alt-legend-title">ft</div>
+      <div className="alt-legend-title">m n.p.m.</div>
     </div>
   )
 }
