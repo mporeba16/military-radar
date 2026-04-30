@@ -9,6 +9,7 @@ import { fetchMilitaryAircraft } from './api'
 import './App.css'
 
 const POLAND_CENTER = [52.0, 19.5]
+const EUROPE_CENTER = [52.0, 15.0]
 const POLL_INTERVAL = 5_000
 const TRAIL_MIN_INTERVAL_MS = 20_000  // nowy punkt trasy co min. 20s
 const TRAIL_MAX_AGE_MS = 15 * 60 * 1000  // 15 minut historii
@@ -33,10 +34,11 @@ export default function App() {
   const pollRef = useRef(null)
 
   // Bug 1 fix: memoize center by value so array identity stays stable
-  const center = useMemo(
-    () => mode === 'poland' ? POLAND_CENTER : (location ? [location.lat, location.lon] : POLAND_CENTER),
-    [mode, location?.lat, location?.lon]
-  )
+  const center = useMemo(() => {
+    if (mode === 'poland') return POLAND_CENTER
+    if (mode === 'europe') return EUROPE_CENTER
+    return location ? [location.lat, location.lon] : POLAND_CENTER
+  }, [mode, location?.lat, location?.lon])
 
   const fetchData = useCallback(async () => {
     setIsLoading(true)
@@ -44,7 +46,7 @@ export default function App() {
     try {
       const { aircraft: data, source, isDemo } = await fetchMilitaryAircraft(
         center,
-        mode === 'poland' ? 800 : radius
+        mode === 'poland' ? 400 : mode === 'europe' ? 2800 : radius
       )
 
       // Bug 3 fix: mark aircraft within radius

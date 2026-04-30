@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, Circle, Polyline, ZoomControl, 
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import './RadarMap.css'
-import { SHAPES, getShapeKey, altToColor, ftToM, knToKmh } from './aircraftShapes'
+import { SHAPES, getShapeKey, getCommonName, altToColor, ftToM, knToKmh } from './aircraftShapes'
 
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({
@@ -295,8 +295,9 @@ function AircraftPopup({ ac }) {
   const color = altToColor(altM)
   const route = useFlightRoute(ac.flight)
 
+  const commonName = getCommonName(ac.t)
   const rows = [
-    ['Typ',      ac.t || '—'],
+    ['Typ',      ac.t ? (commonName ? `${ac.t} · ${commonName}` : ac.t) : '—'],
     ['Skąd',     formatAirport(route?.origin) || '—'],
     ['Wys.',     altM != null ? `${altM.toLocaleString()} m` : '—'],
     ['Prędkość', kmh != null ? `${kmh} km/h` : '—'],

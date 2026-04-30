@@ -331,6 +331,84 @@ export function getShapeKey(t) {
   return 'a320'
 }
 
+export function getCommonName(t) {
+  const type = (t || '').toUpperCase().replace(/[-\s]/g, '')
+  if (!type) return null
+  const map = [
+    [/F16|FIGHTINGFALCON/, 'Fighting Falcon'],
+    [/F15C?D?E?|STRIKEEAGLE/, 'Eagle'],
+    [/FA18|F18|SUPERHORNET/, 'Hornet'],
+    [/F35/, 'Lightning II'],
+    [/EF2000|TYPHOON/, 'Typhoon'],
+    [/RAFALE/, 'Rafale'],
+    [/MIRAGEF1/, 'Mirage F1'],
+    [/MIRAGE2000|MIRAGE/, 'Mirage 2000'],
+    [/JAS39|GRIPEN|SB39/, 'Gripen'],
+    [/ALPHAJET/, 'Alpha Jet'],
+    [/BAEHAWK|^HAWK\d/, 'Hawk'],
+    [/L159|ALCA/, 'ALCA'],
+    [/MB339|M339/, 'Aermacchi MB-339'],
+    [/MB326|M326|M346/, 'Aermacchi MB-326'],
+    [/^T38|TALON/, 'Talon'],
+    [/^F5|F5E/, 'Tiger II'],
+    [/^A4$|TA4|SKYHAWK/, 'Skyhawk'],
+    [/HUNTER/, 'Hunter'],
+    [/MIG29|FULCRUM/, 'Fulcrum'],
+    [/MIG31/, 'Foxhound'],
+    [/SU57/, 'Felon'],
+    [/SU27|SU30|SU35|FLANKER/, 'Flanker'],
+    [/B1B|LANCER/, 'Lancer'],
+    [/B52|STRATOFORTRESS/, 'Stratofortress'],
+    [/TORNADO/, 'Tornado'],
+    [/^A10|WARTHOG/, 'Warthog'],
+    [/^U2$|^TR1$/, 'Dragon Lady'],
+    [/C17|GLOBEMASTER/, 'Globemaster III'],
+    [/^C5$|C5M|GALAXY/, 'Galaxy'],
+    [/^E3[A-Z]?$|SENTRY/, 'Sentry (AWACS)'],
+    [/E737|WEDGETAIL/, 'Wedgetail'],
+    [/^P8|POSEIDON/, 'Poseidon'],
+    [/^P3|ORION/, 'Orion'],
+    [/^E2[A-Z]?$|HAWKEYE/, 'Hawkeye'],
+    [/^C2[A-Z]?$|GREYHOUND/, 'Greyhound'],
+    [/RC135/, 'Rivet Joint'],
+    [/JSTARS/, 'J-STARS'],
+    [/KC46/, 'Pegasus'],
+    [/KC135/, 'Stratotanker'],
+    [/KC10|EXTENDER/, 'Extender'],
+    [/MRTT|A330MRT/, 'MRTT'],
+    [/C130|HERCULES/, 'Hercules'],
+    [/C160/, 'Transall'],
+    [/AN12/, 'Cub'],
+    [/A400M?/, 'Atlas'],
+    [/AH64|APACHE/, 'Apache'],
+    [/CH47|CHINOOK/, 'Chinook'],
+    [/CH53E?|STALLION/, 'Super Stallion'],
+    [/UH60|HH60|BLACKHAWK/, 'Black Hawk'],
+    [/MI24|HIND/, 'Hind'],
+    [/EC725/, 'Caracal'],
+    [/AS332|AS532|SUPERPUMA/, 'Super Puma'],
+    [/PUMA/, 'Puma'],
+    [/AS365|DAUPHIN/, 'Dauphin'],
+    [/SA342|GAZELLE/, 'Gazelle'],
+    [/V22|OSPREY/, 'Osprey'],
+    [/MQ9|REAPER/, 'Reaper'],
+    [/MQ1|PREDATOR/, 'Predator'],
+    [/RQ4|GLOBALHAWK/, 'Global Hawk'],
+    [/W3A?$/, 'Sokół'],
+    [/MI8|MI17/, 'Hip'],
+    [/MI28/, 'Havoc'],
+    [/KA50|KA52/, 'Alligator'],
+    [/C295|CN295/, 'CN-295'],
+    [/C212/, 'Aviocar'],
+    [/C12$/, 'Huron'],
+    [/B744|B747|B748/, 'Jumbo Jet'],
+  ]
+  for (const [re, name] of map) {
+    if (re.test(type)) return name
+  }
+  return null
+}
+
 export function altToColor(altM) {
   if (altM == null) return '#aaaaaa'
   const stops = [

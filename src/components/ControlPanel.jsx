@@ -21,7 +21,13 @@ export default function ControlPanel({
             className={`btn-mode ${mode === 'poland' ? 'active' : ''}`}
             onClick={() => setMode('poland')}
           >
-            Cała Polska
+            Polska
+          </button>
+          <button
+            className={`btn-mode ${mode === 'europe' ? 'active' : ''}`}
+            onClick={() => setMode('europe')}
+          >
+            Europa
           </button>
         </div>
         {mode === 'gps' && (
