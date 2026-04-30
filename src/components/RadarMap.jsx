@@ -19,7 +19,7 @@ const TILE_LAYERS = [
     url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     maxZoom: 19,
-    filter: 'saturate(0.5) brightness(0.74) contrast(1.08)',
+    filter: 'saturate(0.65) brightness(0.60) contrast(1.1)',
   },
   {
     id: 'carto-voyager',
@@ -55,8 +55,8 @@ function buildIcon(ac, isSelected, iconScale = 1) {
   const shape = SHAPES[shapeKey] || SHAPES.jet
 
   const { cx, cy, scale, sz = 44 } = shape
-  const scaledSz = Math.round(sz * iconScale)
-  const half = scaledSz / 2
+  const displaySz = Math.round(sz * iconScale)
+  const half = sz / 2  // viewBox stays fixed at base sz
   const paths = Array.isArray(shape.path) ? shape.path : [shape.path]
 
   const tx = `scale(${scale}) translate(${-cx} ${-cy})`
@@ -76,8 +76,8 @@ function buildIcon(ac, isSelected, iconScale = 1) {
 
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg"
-         width="${scaledSz}" height="${scaledSz}"
-         viewBox="-${half} -${half} ${scaledSz} ${scaledSz}">
+         width="${displaySz}" height="${displaySz}"
+         viewBox="-${half} -${half} ${sz} ${sz}">
       <g transform="rotate(${heading})">
         <g transform="translate(1.2,1.2)"><g transform="${tx}">${shadowPaths}</g></g>
         <g transform="${tx}">${mainPaths}</g>
@@ -87,8 +87,8 @@ function buildIcon(ac, isSelected, iconScale = 1) {
 
   return L.divIcon({
     html: svg,
-    iconSize: [scaledSz, scaledSz],
-    iconAnchor: [half, half],
+    iconSize: [displaySz, displaySz],
+    iconAnchor: [displaySz / 2, displaySz / 2],
     className: '',
   })
 }
