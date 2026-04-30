@@ -14,11 +14,20 @@ L.Icon.Default.mergeOptions({
 
 const TILE_LAYERS = [
   {
+    id: 'osm-adsbx',
+    name: 'OSM ADSBx',
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom: 19,
+    filter: 'saturate(0.5) brightness(0.82) contrast(1.08)',
+  },
+  {
     id: 'carto-voyager',
     name: 'Carto Voyager',
     url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
     maxZoom: 19,
+    filter: '',
   },
   {
     id: 'osm',
@@ -26,6 +35,7 @@ const TILE_LAYERS = [
     url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     maxZoom: 19,
+    filter: '',
   },
   {
     id: 'esri-satellite',
@@ -33,6 +43,7 @@ const TILE_LAYERS = [
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
     attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP',
     maxZoom: 18,
+    filter: '',
   },
 ]
 
@@ -114,6 +125,14 @@ function MapClickHandler({ onSelect }) {
   return null
 }
 
+function TileFilter({ filter }) {
+  const map = useMap()
+  useEffect(() => {
+    map.getPanes().tilePane.style.filter = filter || ''
+  }, [filter, map])
+  return null
+}
+
 function LayerPicker({ activeId, onChange }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
@@ -160,7 +179,7 @@ function LayerPicker({ activeId, onChange }) {
 export default function RadarMap({ aircraft, center, radius, mode, selectedHex, onSelect }) {
   const initialZoom = mode === 'poland' ? 6 : 8
   const markersRef = useRef({})
-  const [activeTileId, setActiveTileId] = useState('carto-voyager')
+  const [activeTileId, setActiveTileId] = useState('osm-adsbx')
   const tileLayer = TILE_LAYERS.find(l => l.id === activeTileId) || TILE_LAYERS[0]
 
   return (
@@ -181,6 +200,7 @@ export default function RadarMap({ aircraft, center, radius, mode, selectedHex, 
         <RecenterOnChange center={center} />
         <FlyToSelected selectedHex={selectedHex} markersRef={markersRef} />
         <MapClickHandler onSelect={onSelect} />
+        <TileFilter filter={tileLayer.filter} />
 
         {radius && (
           <Circle
