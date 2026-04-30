@@ -79,7 +79,7 @@ export default function App() {
 
       setSelectedHex(prev => (prev && !currentHexes.has(prev) ? null : prev))
 
-      if (mode === 'gps' && location) {
+      if (mode === 'gps' && location && !isDemo) {
         enriched.forEach(ac => {
           if (!alertedHexRef.current.has(ac.hex) && ac._dist <= radius) {
             triggerNotification(ac, ac._dist)
