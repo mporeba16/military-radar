@@ -62,7 +62,7 @@
 
 /* Zoom control — bottom right */
 .leaflet-bottom.leaflet-right .leaflet-control-zoom {
-  margin-bottom: 24px;
+  margin-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
   margin-right: 10px;
 }
 
@@ -178,7 +178,7 @@
 
 .map-overlay-count {
   position: absolute;
-  bottom: 24px;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
   left: 10px;
   background: rgba(10, 22, 40, 0.85);
   color: #7a9ab5;
@@ -194,7 +194,7 @@
 /* Legenda wysokości */
 .alt-legend {
   position: absolute;
-  bottom: 52px;
+  bottom: calc(52px + env(safe-area-inset-bottom, 0px));
   left: 10px;
   z-index: 1000;
   pointer-events: none;

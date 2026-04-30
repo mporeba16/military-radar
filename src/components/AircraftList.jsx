@@ -11,7 +11,7 @@ function haversine(lat1, lon1, lat2, lon2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
 
-export default function AircraftList({ aircraft, userLocation, selectedHex, onSelect }) {
+export default function AircraftList({ aircraft, userLocation, selectedHex, onSelect, mode }) {
   const selectedRef = useRef(null)
 
   const sorted = userLocation
@@ -33,7 +33,9 @@ export default function AircraftList({ aircraft, userLocation, selectedHex, onSe
     return (
       <div className="ac-list empty">
         <div className="empty-icon">◎</div>
-        <div className="empty-text">Brak obiektów w zasięgu</div>
+        <div className="empty-text">
+          {mode === 'gps' ? 'Brak obiektów w zasięgu' : 'Brak obiektów'}
+        </div>
       </div>
     )
   }
@@ -47,6 +49,7 @@ export default function AircraftList({ aircraft, userLocation, selectedHex, onSe
             ? Math.round(haversine(userLocation.lat, userLocation.lon, ac.lat, ac.lon))
             : null
           const isSelected = ac.hex === selectedHex
+          const commonName = getCommonName(ac.t)
           return (
             <div
               key={ac.hex}
@@ -59,7 +62,7 @@ export default function AircraftList({ aircraft, userLocation, selectedHex, onSe
                 {dist !== null && <span className="ac-dist">{dist} km</span>}
               </div>
               <div className="ac-item-bottom">
-                <span className="ac-type">{ac.t ? `${ac.t}${getCommonName(ac.t) ? ` · ${getCommonName(ac.t)}` : ''}` : '???'}</span>
+                <span className="ac-type">{ac.t ? `${ac.t}${commonName ? ` · ${commonName}` : ''}` : '???'}</span>
                 {ac.alt_baro != null && <span className="ac-alt">{ftToM(ac.alt_baro).toLocaleString()} m</span>}
                 {ac.gs != null && <span className="ac-speed">{knToKmh(ac.gs)} km/h</span>}
                 {ac.squawk && <span className="ac-squawk">SQ:{ac.squawk}</span>}

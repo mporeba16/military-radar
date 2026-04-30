@@ -180,6 +180,12 @@ function LayerPicker({ activeId, onChange }) {
   )
 }
 
+function pluralPL(n, one, few, many) {
+  if (n === 1) return one
+  if (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) return few
+  return many
+}
+
 export default function RadarMap({ aircraft, trails, serverTrails, center, radius, mode, selectedHex, onSelect }) {
   const initialZoom = mode === 'poland' ? 6 : 8
   const markersRef = useRef({})
@@ -260,7 +266,7 @@ export default function RadarMap({ aircraft, trails, serverTrails, center, radiu
       <AltitudeLegend />
 
       <div className="map-overlay-count">
-        {aircraft.length} obiektów
+        {aircraft.length} {pluralPL(aircraft.length, 'obiekt', 'obiekty', 'obiektów')}
       </div>
     </div>
   )

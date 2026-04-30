@@ -3,7 +3,7 @@ import './ControlPanel.css'
 export default function ControlPanel({
   mode, setMode, radius, setRadius,
   location, locationError, requestLocation,
-  isSubscribed, subscribe, permissionState,
+  isSubscribed, isSubscribing, subscribe, permissionState,
   onRefresh
 }) {
   return (
@@ -64,24 +64,21 @@ export default function ControlPanel({
         <div className="cp-label">POWIADOMIENIA</div>
         {permissionState === 'unsupported'
           ? <p className="info-text">Przeglądarka nie obsługuje push</p>
-          : isSubscribed
-            ? <p className="ok">◉ Powiadomienia aktywne</p>
-            : <button className="btn-subscribe" onClick={subscribe}>
-                Włącz powiadomienia
-              </button>
+          : permissionState === 'denied'
+            ? <p className="err" style={{ fontSize: 11 }}>✗ Zablokowane — odblokuj w ustawieniach przeglądarki</p>
+            : isSubscribed
+              ? <p className="ok">◉ Powiadomienia aktywne</p>
+              : <button className="btn-subscribe" onClick={subscribe} disabled={isSubscribing}>
+                  {isSubscribing ? '◌ Łączenie…' : 'Włącz powiadomienia'}
+                </button>
         }
-        {permissionState === 'denied' && (
-          <p className="err" style={{ fontSize: 11, marginTop: 4 }}>
-            Zablokowane w ustawieniach przeglądarki
-          </p>
-        )}
       </section>
 
       <section className="cp-section cp-refresh">
         <button className="btn-refresh" onClick={onRefresh}>
           ↻ Odśwież teraz
         </button>
-        <span className="info-text">Auto co 60s</span>
+        <span className="info-text">Auto co 5s</span>
       </section>
     </div>
   )

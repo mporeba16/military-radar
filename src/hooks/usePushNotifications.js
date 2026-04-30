@@ -22,6 +22,7 @@ async function syncToServer(sub, lat, lon, radius) {
 
 export function usePushNotifications(location, radius) {
   const [isSubscribed, setIsSubscribed] = useState(false)
+  const [isSubscribing, setIsSubscribing] = useState(false)
   const [permissionState, setPermissionState] = useState(
     typeof Notification !== 'undefined' ? Notification.permission : 'unsupported'
   )
@@ -51,11 +52,12 @@ export function usePushNotifications(location, radius) {
       return
     }
 
-    const permission = await Notification.requestPermission()
-    setPermissionState(permission)
-    if (permission !== 'granted') return
-
+    setIsSubscribing(true)
     try {
+      const permission = await Notification.requestPermission()
+      setPermissionState(permission)
+      if (permission !== 'granted') return
+
       const reg = await navigator.serviceWorker.ready
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
@@ -63,14 +65,14 @@ export function usePushNotifications(location, radius) {
       })
       subRef.current = sub
       setIsSubscribed(true)
-      // Immediately sync subscription + current position to server
       await syncToServer(sub, location?.lat, location?.lon, radius)
     } catch (err) {
       console.error('Push subscribe failed:', err)
-      // Dev fallback — no VAPID key configured locally
       if (Notification.permission === 'granted') setIsSubscribed(true)
+    } finally {
+      setIsSubscribing(false)
     }
   }, [location, radius])
 
-  return { isSubscribed, subscribe, permissionState }
+  return { isSubscribed, isSubscribing, subscribe, permissionState }
 }
