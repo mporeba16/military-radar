@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { MapContainer, TileLayer, Marker, Popup, Circle, ZoomControl, useMap, useMapEvents } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, Circle, Polyline, ZoomControl, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import './RadarMap.css'
@@ -200,7 +200,7 @@ function LayerPicker({ activeId, onChange }) {
   )
 }
 
-export default function RadarMap({ aircraft, center, radius, mode, selectedHex, onSelect }) {
+export default function RadarMap({ aircraft, trails, center, radius, mode, selectedHex, onSelect }) {
   const initialZoom = mode === 'poland' ? 6 : 8
   const markersRef = useRef({})
   const [activeTileId, setActiveTileId] = useState('osm-adsbx')
@@ -242,6 +242,17 @@ export default function RadarMap({ aircraft, center, radius, mode, selectedHex, 
           />
         )}
 
+        {aircraft.map(ac => {
+          const pts = trails?.current?.get(ac.hex) || []
+          return pts.length < 2 ? null : pts.slice(1).map((pt, i) => (
+            <Polyline
+              key={`trail-${ac.hex}-${i}`}
+              positions={[[pts[i].lat, pts[i].lon], [pt.lat, pt.lon]]}
+              pathOptions={{ color: altToColor(ftToM(pt.alt)), weight: 2, opacity: 0.75 }}
+            />
+          ))
+        })}
+
         {aircraft.map(ac => (
           <Marker
             key={ac.hex}
@@ -271,12 +282,38 @@ export default function RadarMap({ aircraft, center, radius, mode, selectedHex, 
   )
 }
 
+function useFlightRoute(callsign) {
+  const [route, setRoute] = useState(null)
+  useEffect(() => {
+    if (!callsign || callsign.length < 3) return
+    setRoute(null)
+    let cancelled = false
+    fetch(`https://api.adsbdb.com/v0/callsign/${callsign.trim()}`)
+      .then(r => r.json())
+      .then(data => {
+        if (!cancelled && data?.response?.flightroute) setRoute(data.response.flightroute)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [callsign])
+  return route
+}
+
+function formatAirport(ap) {
+  if (!ap) return null
+  const iata = ap.iata_code && ap.iata_code !== 'N/A' ? ap.iata_code : ap.icao_code
+  return `${iata} · ${ap.municipality || ap.name}`
+}
+
 function AircraftPopup({ ac }) {
   const altM = ftToM(ac.alt_baro)
   const kmh = knToKmh(ac.gs)
   const color = altToColor(altM)
+  const route = useFlightRoute(ac.flight)
+
   const rows = [
     ['Typ',      ac.t || '—'],
+    ['Skąd',     formatAirport(route?.origin) || '—'],
     ['Wys.',     altM != null ? `${altM.toLocaleString()} m` : '—'],
     ['Prędkość', kmh != null ? `${kmh} km/h` : '—'],
     ['Kurs',     ac.track != null ? `${Math.round(ac.track)}°` : '—'],

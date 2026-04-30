@@ -9,7 +9,9 @@ import { fetchMilitaryAircraft } from './api'
 import './App.css'
 
 const POLAND_CENTER = [52.0, 19.5]
-const POLL_INTERVAL = 60_000
+const POLL_INTERVAL = 5_000
+const TRAIL_MIN_INTERVAL_MS = 20_000  // nowy punkt trasy co min. 20s
+const TRAIL_MAX_AGE_MS = 15 * 60 * 1000  // 15 minut historii
 
 export default function App() {
   const [aircraft, setAircraft] = useState([])
@@ -21,8 +23,8 @@ export default function App() {
   const [radius, setRadius] = useState(100)
   const [selectedHex, setSelectedHex] = useState(null)
 
-  // Bug 1 fix: use ref so alertedHex mutations don't recreate fetchData
   const alertedHexRef = useRef(new Set())
+  const trailsRef = useRef(new Map()) // hex → [{lat,lon,alt,ts}]
 
   const { location, locationError, requestLocation } = useGeolocation()
   const { isSubscribed, subscribe, permissionState } = usePushNotifications()
@@ -52,15 +54,29 @@ export default function App() {
         return ac
       })
 
+      // Update trails
+      const now = Date.now()
+      enriched.forEach(ac => {
+        if (ac.lat == null || ac.lon == null) return
+        const pts = trailsRef.current.get(ac.hex) || []
+        const fresh = pts.filter(p => now - p.ts < TRAIL_MAX_AGE_MS)
+        const last = fresh[fresh.length - 1]
+        if (!last || now - last.ts >= TRAIL_MIN_INTERVAL_MS) {
+          fresh.push({ lat: ac.lat, lon: ac.lon, alt: ac.alt_baro, ts: now })
+        }
+        trailsRef.current.set(ac.hex, fresh)
+      })
+      const currentHexes = new Set(enriched.map(a => a.hex))
+      for (const hex of trailsRef.current.keys()) {
+        if (!currentHexes.has(hex)) trailsRef.current.delete(hex)
+      }
+
       setAircraft(enriched)
       setDataSource(isDemo ? 'demo' : source)
       setLastUpdate(new Date())
 
-      // Bug 4 fix: clear selectedHex if that aircraft is no longer visible
-      const currentHexes = new Set(data.map(a => a.hex))
       setSelectedHex(prev => (prev && !currentHexes.has(prev) ? null : prev))
 
-      // Bug 1 fix: mutate ref instead of setState — no re-render, no loop
       if (mode === 'gps' && location) {
         enriched.forEach(ac => {
           if (!alertedHexRef.current.has(ac.hex) && ac._dist <= radius) {
@@ -105,6 +121,7 @@ export default function App() {
       <main className="app-body">
         <RadarMap
           aircraft={aircraft}
+          trails={trailsRef}
           center={center}
           radius={mode === 'gps' ? radius : null}
           mode={mode}
