@@ -47,7 +47,7 @@ const TILE_LAYERS = [
   },
 ]
 
-function buildIcon(ac, isSelected, iconScale = 1) {
+function buildIcon(ac, isSelected) {
   const heading = ac.track || 0
   const altM = ftToM(ac.alt_baro)
   const color = isSelected ? '#ffffff' : altToColor(altM)
@@ -55,8 +55,8 @@ function buildIcon(ac, isSelected, iconScale = 1) {
   const shape = SHAPES[shapeKey] || SHAPES.jet
 
   const { cx, cy, scale, sz = 44 } = shape
-  const displaySz = Math.round(sz * iconScale)
-  const half = sz / 2  // viewBox stays fixed at base sz
+  const displaySz = sz
+  const half = sz / 2
   const paths = Array.isArray(shape.path) ? shape.path : [shape.path]
 
   const tx = `scale(${scale}) translate(${-cx} ${-cy})`
@@ -136,26 +136,6 @@ function TileFilter({ filter }) {
   return null
 }
 
-function IconSizeControl({ value, onChange }) {
-  const pct = Math.round(value * 100)
-  return (
-    <div className="icon-size-control">
-      <div className="icon-size-label">
-        <span>IKONY</span>
-        <span>{pct}%</span>
-      </div>
-      <input
-        type="range"
-        min="0.5"
-        max="2"
-        step="0.05"
-        value={value}
-        onChange={e => onChange(parseFloat(e.target.value))}
-        className="icon-size-slider"
-      />
-    </div>
-  )
-}
 
 function LayerPicker({ activeId, onChange }) {
   const [open, setOpen] = useState(false)
@@ -204,7 +184,6 @@ export default function RadarMap({ aircraft, trails, serverTrails, center, radiu
   const initialZoom = mode === 'poland' ? 6 : 8
   const markersRef = useRef({})
   const [activeTileId, setActiveTileId] = useState('osm-adsbx')
-  const [iconScale, setIconScale] = useState(1)
   const tileLayer = TILE_LAYERS.find(l => l.id === activeTileId) || TILE_LAYERS[0]
 
   return (
@@ -263,7 +242,7 @@ export default function RadarMap({ aircraft, trails, serverTrails, center, radiu
           <Marker
             key={ac.hex}
             position={[ac.lat, ac.lon]}
-            icon={buildIcon(ac, ac.hex === selectedHex, iconScale)}
+            icon={buildIcon(ac, ac.hex === selectedHex)}
             ref={el => {
               if (el) markersRef.current[ac.hex] = el
               else delete markersRef.current[ac.hex]
@@ -278,7 +257,6 @@ export default function RadarMap({ aircraft, trails, serverTrails, center, radiu
       </MapContainer>
 
       <LayerPicker activeId={activeTileId} onChange={setActiveTileId} />
-      <IconSizeControl value={iconScale} onChange={setIconScale} />
       <AltitudeLegend />
 
       <div className="map-overlay-count">
@@ -356,23 +334,33 @@ function AircraftPopup({ ac }) {
 }
 
 function AltitudeLegend() {
-  const stops = [
-    ['rgb(255,20,20)',  '0'],
-    ['rgb(255,215,0)',  '3k'],
-    ['rgb(0,200,20)',   '6k'],
-    ['rgb(0,200,255)',  '9k'],
-    ['rgb(80,60,255)',  '12k'],
-    ['rgb(180,0,255)', '15k+'],
+  // Colors matching altToColor breakpoints (altM values)
+  const colorStops = [
+    { m: 0,     color: 'rgb(255,20,20)' },
+    { m: 600,   color: 'rgb(255,128,0)' },
+    { m: 1500,  color: 'rgb(255,215,0)' },
+    { m: 3000,  color: 'rgb(160,230,0)' },
+    { m: 6100,  color: 'rgb(0,200,20)' },
+    { m: 9100,  color: 'rgb(0,200,255)' },
+    { m: 12200, color: 'rgb(80,60,255)' },
+    { m: 15200, color: 'rgb(180,0,255)' },
   ]
-  const gradient = `linear-gradient(to right, ${stops.map(([c]) => c).join(', ')})`
+  const maxM = 15200
+  const gradient = `linear-gradient(to right, ${colorStops.map(s => `${s.color} ${(s.m / maxM * 100).toFixed(1)}%`).join(', ')})`
+
+  const ticks = [0, 1500, 3000, 6000, 9000, 12000, 15000]
 
   return (
     <div className="alt-legend">
+      <div className="alt-legend-title">ALTITUDE (m)</div>
       <div className="alt-legend-bar" style={{ background: gradient }} />
       <div className="alt-legend-labels">
-        {stops.map(([, label]) => <span key={label}>{label}</span>)}
+        {ticks.map(m => (
+          <span key={m} style={{ left: `${(m / maxM * 100).toFixed(1)}%` }}>
+            {m === 0 ? '0' : m >= 1000 ? `${m / 1000}k` : m}
+          </span>
+        ))}
       </div>
-      <div className="alt-legend-title">m n.p.m.</div>
     </div>
   )
 }
