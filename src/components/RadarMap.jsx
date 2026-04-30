@@ -54,7 +54,8 @@ function buildIcon(ac, isSelected) {
   const shapeKey = getShapeKey(ac.t)
   const shape = SHAPES[shapeKey] || SHAPES.jet
 
-  const { cx, cy, scale } = shape
+  const { cx, cy, scale, sz = 44 } = shape
+  const half = sz / 2
   const paths = Array.isArray(shape.path) ? shape.path : [shape.path]
 
   const tx = `scale(${scale}) translate(${-cx} ${-cy})`
@@ -67,14 +68,15 @@ function buildIcon(ac, isSelected) {
     `<path d="${d}" fill="rgba(0,0,0,0.4)"/>`
   ).join('')
 
+  const ringR = Math.min(16, half - 2)
   const selectionRing = isSelected
-    ? `<circle r="16" fill="none" stroke="#ffffff" stroke-width="2" opacity="0.9"/>`
+    ? `<circle r="${ringR}" fill="none" stroke="#ffffff" stroke-width="2" opacity="0.9"/>`
     : ''
 
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg"
-         width="44" height="44"
-         viewBox="-22 -22 44 44">
+         width="${sz}" height="${sz}"
+         viewBox="-${half} -${half} ${sz} ${sz}">
       <g transform="rotate(${heading})">
         <g transform="translate(1.2,1.2)"><g transform="${tx}">${shadowPaths}</g></g>
         <g transform="${tx}">${mainPaths}</g>
@@ -84,8 +86,8 @@ function buildIcon(ac, isSelected) {
 
   return L.divIcon({
     html: svg,
-    iconSize: [44, 44],
-    iconAnchor: [22, 22],
+    iconSize: [sz, sz],
+    iconAnchor: [half, half],
     className: '',
   })
 }
