@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react'
+import { ftToM, knToKmh } from './aircraftShapes'
 import './AircraftList.css'
 
 function haversine(lat1, lon1, lat2, lon2) {
@@ -9,7 +11,9 @@ function haversine(lat1, lon1, lat2, lon2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
 
-export default function AircraftList({ aircraft, userLocation }) {
+export default function AircraftList({ aircraft, userLocation, selectedHex, onSelect }) {
+  const selectedRef = useRef(null)
+
   const sorted = userLocation
     ? [...aircraft].sort((a, b) => {
         const da = haversine(userLocation.lat, userLocation.lon, a.lat, a.lon)
@@ -17,6 +21,13 @@ export default function AircraftList({ aircraft, userLocation }) {
         return da - db
       })
     : aircraft
+
+  // Scroll do zaznaczonego elementu gdy zmienia się z mapy
+  useEffect(() => {
+    if (selectedRef.current) {
+      selectedRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
+  }, [selectedHex])
 
   if (sorted.length === 0) {
     return (
@@ -35,16 +46,22 @@ export default function AircraftList({ aircraft, userLocation }) {
           const dist = userLocation
             ? Math.round(haversine(userLocation.lat, userLocation.lon, ac.lat, ac.lon))
             : null
+          const isSelected = ac.hex === selectedHex
           return (
-            <div key={ac.hex} className={`ac-item ${ac._inRadius ? 'in-radius' : ''}`}>
+            <div
+              key={ac.hex}
+              ref={isSelected ? selectedRef : null}
+              className={`ac-item ${ac._inRadius ? 'in-radius' : ''} ${isSelected ? 'selected' : ''}`}
+              onClick={() => onSelect?.(isSelected ? null : ac.hex)}
+            >
               <div className="ac-item-top">
                 <span className="ac-callsign">{ac.flight?.trim() || ac.hex}</span>
                 {dist !== null && <span className="ac-dist">{dist} km</span>}
               </div>
               <div className="ac-item-bottom">
                 <span className="ac-type">{ac.t || '???'}</span>
-                {ac.alt_baro && <span className="ac-alt">{ac.alt_baro} ft</span>}
-                {ac.gs && <span className="ac-speed">{Math.round(ac.gs)} kn</span>}
+                {ac.alt_baro != null && <span className="ac-alt">{ftToM(ac.alt_baro).toLocaleString()} m</span>}
+                {ac.gs != null && <span className="ac-speed">{knToKmh(ac.gs)} km/h</span>}
                 {ac.squawk && <span className="ac-squawk">SQ:{ac.squawk}</span>}
               </div>
             </div>

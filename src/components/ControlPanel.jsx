@@ -1,17 +1,7 @@
 import './ControlPanel.css'
 
-const TYPE_FILTERS = [
-  { value: 'all', label: 'Wszystkie' },
-  { value: 'fighter', label: 'Myśliwce' },
-  { value: 'transport', label: 'Transport' },
-  { value: 'helicopter', label: 'Śmigłowce' },
-  { value: 'tanker', label: 'Tankowce' },
-  { value: 'patrol', label: 'Patrolowe' },
-]
-
 export default function ControlPanel({
   mode, setMode, radius, setRadius,
-  typeFilter, setTypeFilter,
   location, locationError, requestLocation,
   isSubscribed, subscribe, permissionState,
   onRefresh
@@ -63,21 +53,6 @@ export default function ControlPanel({
           </div>
         </section>
       )}
-
-      <section className="cp-section">
-        <div className="cp-label">TYP OBIEKTU</div>
-        <div className="type-filters">
-          {TYPE_FILTERS.map(f => (
-            <button
-              key={f.value}
-              className={`btn-filter ${typeFilter === f.value ? 'active' : ''}`}
-              onClick={() => setTypeFilter(f.value)}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-      </section>
 
       <section className="cp-section">
         <div className="cp-label">POWIADOMIENIA</div>

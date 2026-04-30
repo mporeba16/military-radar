@@ -172,6 +172,16 @@ export const handler = async (event) => {
   const lomin = lonN - degLon
   const lomax = lonN + degLon
 
+  // Tryb demo — wymuszone przez env lub query param
+  const forceDemo = process.env.DEMO_MODE === 'true' || event.queryStringParameters?.demo === '1'
+  if (forceDemo) {
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({ aircraft: mockAircraft(latN, lonN), _demo: true })
+    }
+  }
+
   // Próbuj kolejne źródła danych
   const result = await tryOpenSky(lamin, lomin, lamax, lomax)
     || await tryADSBfi(lamin, lomin, lamax, lomax)
@@ -185,19 +195,48 @@ export const handler = async (event) => {
 }
 
 function mockAircraft(lat, lon) {
-  const types = ['F-16C', 'C-130H', 'UH-60M', 'P-8A', 'KC-135R', 'C-17A']
-  const calls = ['PLF4512', 'RCF001', 'DUKE71', 'JAKE01', 'PEARL22', 'RCH456']
-  return Array.from({ length: 6 }, (_, i) => ({
-    hex: `ae${(1000 + i).toString(16)}`,
-    flight: calls[i % calls.length],
-    t: types[i % types.length],
-    lat: lat + (Math.random() - 0.5) * 3,
-    lon: lon + (Math.random() - 0.5) * 4,
-    alt_baro: Math.round(5000 + Math.random() * 30000),
-    gs: Math.round(200 + Math.random() * 400),
-    track: Math.round(Math.random() * 360),
-    squawk: ['7777', '1234', '4512', '0100'][i % 4],
-    country: 'Poland',
+  // Realistyczne samoloty wojskowe nad Polską i okolicą
+  const scenarios = [
+    // fighter — skośne skrzydła
+    { hex: 'ae1234', flight: 'DUKE71',   t: 'F16C',   dlat: -0.8, dlon:  1.2, alt: 18000, gs: 480, track: 225, squawk: '4512', country: 'United States' },
+    { hex: '489201', flight: 'PLF4512',  t: 'F16C',   dlat:  0.5, dlon: -0.9, alt: 22000, gs: 510, track: 110, squawk: '1234', country: 'Poland' },
+    // delta — myśliwce delta
+    { hex: 'ae2001', flight: 'TYPHOON1', t: 'EF2000', dlat:  1.0, dlon: -1.5, alt: 25000, gs: 580, track:  60, squawk: '2001', country: 'Germany' },
+    { hex: 'ae2002', flight: 'RAFALE1',  t: 'RAFALE', dlat: -1.2, dlon:  0.5, alt: 20000, gs: 560, track: 140, squawk: '2002', country: 'France' },
+    // transport4 — C-130
+    { hex: '489302', flight: 'RCF001',   t: 'C130H',  dlat:  1.2, dlon:  0.4, alt:  8000, gs: 290, track: 270, squawk: '4000', country: 'Poland' },
+    // strategic — C-17
+    { hex: 'ae5678', flight: 'REACH99',  t: 'C17A',   dlat: -1.5, dlon: -1.8, alt: 35000, gs: 490, track:  85, squawk: '1001', country: 'United States' },
+    // transport — A400M (2-śmigłowy styl)
+    { hex: '43c100', flight: 'GAF680',   t: 'A400M',  dlat:  0.2, dlon:  2.1, alt: 28000, gs: 350, track: 310, squawk: '2301', country: 'Germany' },
+    // tanker
+    { hex: 'ae9abc', flight: 'POLO14',   t: 'KC135R', dlat: -0.3, dlon: -2.5, alt: 31000, gs: 460, track: 190, squawk: '0100', country: 'United States' },
+    // helicopter — jednowirnikowy
+    { hex: '489403', flight: 'SPLFM',    t: 'W3A',    dlat:  0.9, dlon:  0.1, alt:  1800, gs: 120, track:  45, squawk: null,   country: 'Poland' },
+    { hex: 'ae8888', flight: 'HAWK71',   t: 'AH64',   dlat: -0.4, dlon: -0.8, alt:  1200, gs:  90, track: 330, squawk: null,   country: 'United States' },
+    // tandem — CH-47
+    { hex: 'ae7777', flight: 'CHINOOK1', t: 'CH47',   dlat:  0.4, dlon:  1.5, alt:   900, gs:  80, track:  20, squawk: null,   country: 'United States' },
+    // patrol
+    { hex: 'ae2468', flight: 'JAKE01',   t: 'P8A',    dlat: -2.0, dlon:  0.7, alt: 25000, gs: 430, track: 350, squawk: '7777', country: 'United States' },
+    // uav
+    { hex: 'ae7531', flight: 'REAPR01',  t: 'MQ9',    dlat:  1.5, dlon:  1.8, alt: 15000, gs: 200, track: 180, squawk: null,   country: 'United States' },
+    // turboprop
+    { hex: '489550', flight: 'RCF042',   t: 'C295M',  dlat: -1.1, dlon: -0.5, alt:  5000, gs: 260, track:  60, squawk: '3210', country: 'Poland' },
+    // quad (B747-like)
+    { hex: 'ae3698', flight: 'REACH12',  t: 'B747',   dlat: -2.5, dlon:  2.0, alt: 43000, gs: 500, track: 100, squawk: '2000', country: 'United States' },
+  ]
+
+  return scenarios.map((s) => ({
+    hex: s.hex,
+    flight: s.flight,
+    t: s.t,
+    lat: lat + s.dlat,
+    lon: lon + s.dlon,
+    alt_baro: s.alt,
+    gs: s.gs,
+    track: s.track,
+    squawk: s.squawk,
+    country: s.country,
     on_ground: false,
   }))
 }

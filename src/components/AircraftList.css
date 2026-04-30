@@ -41,8 +41,9 @@
 .ac-item {
   padding: 8px 12px;
   border-bottom: 1px solid rgba(30, 58, 95, 0.5);
-  cursor: default;
+  cursor: pointer;
   transition: background 0.1s;
+  border-left: 2px solid transparent;
 }
 
 .ac-item:hover {
@@ -50,7 +51,12 @@
 }
 
 .ac-item.in-radius {
-  border-left: 2px solid var(--warning);
+  border-left-color: var(--warning);
+}
+
+.ac-item.selected {
+  background: rgba(0, 255, 136, 0.07);
+  border-left-color: var(--accent);
 }
 
 .ac-item-top {

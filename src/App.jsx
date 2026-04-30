@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import RadarMap from './components/RadarMap'
 import ControlPanel from './components/ControlPanel'
 import AircraftList from './components/AircraftList'
@@ -13,74 +13,77 @@ const POLL_INTERVAL = 60_000
 
 export default function App() {
   const [aircraft, setAircraft] = useState([])
-  const [filteredAircraft, setFilteredAircraft] = useState([])
   const [lastUpdate, setLastUpdate] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
   const [dataSource, setDataSource] = useState(null)
-  const [mode, setMode] = useState('gps') // 'gps' | 'poland'
+  const [mode, setMode] = useState('gps')
   const [radius, setRadius] = useState(100)
-  const [typeFilter, setTypeFilter] = useState('all')
-  const [alertedHex, setAlertedHex] = useState(new Set())
+  const [selectedHex, setSelectedHex] = useState(null)
+
+  // Bug 1 fix: use ref so alertedHex mutations don't recreate fetchData
+  const alertedHexRef = useRef(new Set())
 
   const { location, locationError, requestLocation } = useGeolocation()
   const { isSubscribed, subscribe, permissionState } = usePushNotifications()
   const pollRef = useRef(null)
 
-  const center = mode === 'poland' ? POLAND_CENTER : (location ? [location.lat, location.lon] : POLAND_CENTER)
+  // Bug 1 fix: memoize center by value so array identity stays stable
+  const center = useMemo(
+    () => mode === 'poland' ? POLAND_CENTER : (location ? [location.lat, location.lon] : POLAND_CENTER),
+    [mode, location?.lat, location?.lon]
+  )
 
   const fetchData = useCallback(async () => {
     setIsLoading(true)
     setError(null)
     try {
-      const { aircraft: data, source, isDemo } = await fetchMilitaryAircraft(center, mode === 'poland' ? 800 : radius)
-      setAircraft(data)
+      const { aircraft: data, source, isDemo } = await fetchMilitaryAircraft(
+        center,
+        mode === 'poland' ? 800 : radius
+      )
+
+      // Bug 3 fix: mark aircraft within radius
+      const enriched = data.map(ac => {
+        if (mode === 'gps' && location) {
+          const dist = haversine(location.lat, location.lon, ac.lat, ac.lon)
+          return { ...ac, _inRadius: dist <= radius, _dist: dist }
+        }
+        return ac
+      })
+
+      setAircraft(enriched)
       setDataSource(isDemo ? 'demo' : source)
       setLastUpdate(new Date())
 
-      // powiadomienia dla nowych samolotów w zasięgu
+      // Bug 4 fix: clear selectedHex if that aircraft is no longer visible
+      const currentHexes = new Set(data.map(a => a.hex))
+      setSelectedHex(prev => (prev && !currentHexes.has(prev) ? null : prev))
+
+      // Bug 1 fix: mutate ref instead of setState — no re-render, no loop
       if (mode === 'gps' && location) {
-        data.forEach(ac => {
-          if (!alertedHex.has(ac.hex)) {
-            const dist = haversine(location.lat, location.lon, ac.lat, ac.lon)
-            if (dist <= radius) {
-              triggerNotification(ac, dist)
-              setAlertedHex(prev => new Set(prev).add(ac.hex))
-            }
+        enriched.forEach(ac => {
+          if (!alertedHexRef.current.has(ac.hex) && ac._dist <= radius) {
+            triggerNotification(ac, ac._dist)
+            alertedHexRef.current.add(ac.hex)
           }
         })
-      }
-
-      // usuń samoloty które wyszły z zasięgu z listy alertowanych
-      const currentHexes = new Set(data.map(a => a.hex))
-      setAlertedHex(prev => {
-        const next = new Set(prev)
-        for (const h of prev) {
-          if (!currentHexes.has(h)) next.delete(h)
+        for (const h of alertedHexRef.current) {
+          if (!currentHexes.has(h)) alertedHexRef.current.delete(h)
         }
-        return next
-      })
+      }
     } catch (err) {
       setError(err.message)
     } finally {
       setIsLoading(false)
     }
-  }, [center, radius, mode, location, alertedHex])
+  }, [center, radius, mode, location]) // no alertedHex in deps — Bug 1 fix
 
   useEffect(() => {
     fetchData()
     pollRef.current = setInterval(fetchData, POLL_INTERVAL)
     return () => clearInterval(pollRef.current)
   }, [fetchData])
-
-  // filtrowanie po typie
-  useEffect(() => {
-    if (typeFilter === 'all') {
-      setFilteredAircraft(aircraft)
-    } else {
-      setFilteredAircraft(aircraft.filter(ac => matchesTypeFilter(ac, typeFilter)))
-    }
-  }, [aircraft, typeFilter])
 
   return (
     <div className="app">
@@ -94,17 +97,19 @@ export default function App() {
           lastUpdate={lastUpdate}
           isLoading={isLoading}
           error={error}
-          count={filteredAircraft.length}
+          count={aircraft.length}
           source={dataSource}
         />
       </header>
 
       <main className="app-body">
         <RadarMap
-          aircraft={filteredAircraft}
+          aircraft={aircraft}
           center={center}
           radius={mode === 'gps' ? radius : null}
           mode={mode}
+          selectedHex={selectedHex}
+          onSelect={setSelectedHex}
         />
 
         <aside className="sidebar">
@@ -113,8 +118,6 @@ export default function App() {
             setMode={setMode}
             radius={radius}
             setRadius={setRadius}
-            typeFilter={typeFilter}
-            setTypeFilter={setTypeFilter}
             location={location}
             locationError={locationError}
             requestLocation={requestLocation}
@@ -123,7 +126,12 @@ export default function App() {
             permissionState={permissionState}
             onRefresh={fetchData}
           />
-          <AircraftList aircraft={filteredAircraft} userLocation={location} />
+          <AircraftList
+            aircraft={aircraft}
+            userLocation={location}
+            selectedHex={selectedHex}
+            onSelect={setSelectedHex}
+          />
         </aside>
       </main>
     </div>
@@ -137,19 +145,6 @@ function haversine(lat1, lon1, lat2, lon2) {
   const a = Math.sin(dLat / 2) ** 2 +
     Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-}
-
-function matchesTypeFilter(ac, filter) {
-  const t = (ac.t || '').toUpperCase()
-  const desc = (ac.desc || '').toUpperCase()
-  switch (filter) {
-    case 'fighter': return /F-?16|F-?35|MIG|SU-|TYPHOON|RAFALE|JAS/.test(t + desc)
-    case 'transport': return /C-?130|C-?17|C-?5|AN-?|IL-?|CASA/.test(t + desc)
-    case 'helicopter': return /H-?60|UH-|AH-|CH-|MI-|W-?3|HELO|ROTOR/.test(t + desc)
-    case 'tanker': return /KC-|A330|MRTT|TANKER/.test(t + desc)
-    case 'patrol': return /P-?8|P-?3|ORION|POSEIDON|AWACS|E-?3|SENTINEL/.test(t + desc)
-    default: return true
-  }
 }
 
 function triggerNotification(ac, dist) {
