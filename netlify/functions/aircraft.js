@@ -142,26 +142,26 @@ async function tryOpenSky(lamin, lomin, lamax, lomax) {
 // adsb.fi — publiczne API, działa z serverless, pokrywa Europę
 async function tryADSBfi(lamin, lomin, lamax, lomax) {
   try {
-    const url = `https://api.adsb.fi/v1/mil`
+    const url = `https://opendata.adsb.fi/api/v2/mil`
     const res = await fetch(url, {
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(10000),
       headers: { 'User-Agent': 'MilitaryRadarPL/1.0', 'Accept': 'application/json' }
     })
     if (!res.ok) return null
     const data = await res.json()
-    const ac = (data.aircraft || data.ac || []).filter(a =>
+    const ac = (data.ac || data.aircraft || []).filter(a =>
       a.lat != null && a.lon != null &&
       a.lat >= lamin && a.lat <= lamax &&
       a.lon >= lomin && a.lon <= lomax
     ).map(a => ({
-      hex: a.hex || a.icao,
-      flight: (a.flight || a.callsign || a.hex || '').trim(),
-      t: a.t || a.type || '',
+      hex: a.hex,
+      flight: (a.flight || a.hex || '').trim(),
+      t: a.t || '',
       lat: a.lat,
       lon: a.lon,
-      alt_baro: a.alt_baro || a.altitude || null,
-      gs: a.gs || a.speed || null,
-      track: a.track || a.heading || null,
+      alt_baro: a.alt_baro != null ? a.alt_baro : null,
+      gs: a.gs != null ? Math.round(a.gs) : null,
+      track: a.track != null ? Math.round(a.track) : null,
       squawk: a.squawk || null,
       country: a.r || '',
     }))
