@@ -200,7 +200,7 @@ function LayerPicker({ activeId, onChange }) {
   )
 }
 
-export default function RadarMap({ aircraft, trails, center, radius, mode, selectedHex, onSelect }) {
+export default function RadarMap({ aircraft, trails, serverTrails, center, radius, mode, selectedHex, onSelect }) {
   const initialZoom = mode === 'poland' ? 6 : 8
   const markersRef = useRef({})
   const [activeTileId, setActiveTileId] = useState('osm-adsbx')
@@ -242,16 +242,22 @@ export default function RadarMap({ aircraft, trails, center, radius, mode, selec
           />
         )}
 
-        {aircraft.map(ac => {
-          const pts = trails?.current?.get(ac.hex) || []
-          return pts.length < 2 ? null : pts.slice(1).map((pt, i) => (
+        {(() => {
+          if (!selectedHex) return null
+          const clientPts = trails?.current?.get(selectedHex) || []
+          const serverPts = serverTrails?.get(selectedHex) || []
+          const clientTs = new Set(clientPts.map(p => p.ts))
+          const merged = [...serverPts.filter(p => !clientTs.has(p.ts)), ...clientPts]
+          merged.sort((a, b) => a.ts - b.ts)
+          if (merged.length < 2) return null
+          return merged.slice(1).map((pt, i) => (
             <Polyline
-              key={`trail-${ac.hex}-${i}`}
-              positions={[[pts[i].lat, pts[i].lon], [pt.lat, pt.lon]]}
-              pathOptions={{ color: altToColor(ftToM(pt.alt)), weight: 2, opacity: 0.75 }}
+              key={`trail-${selectedHex}-${i}`}
+              positions={[[merged[i].lat, merged[i].lon], [pt.lat, pt.lon]]}
+              pathOptions={{ color: altToColor(ftToM(pt.alt)), weight: 2.5, opacity: 0.85 }}
             />
           ))
-        })}
+        })()}
 
         {aircraft.map(ac => (
           <Marker

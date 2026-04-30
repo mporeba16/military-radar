@@ -6,8 +6,13 @@
 // 2. Callsignach wojskowych (RCF, PLF, DUKE, JAKE, itp.)
 // 3. Squawk kodach wojskowych (7777, 7400 itp.)
 
+import { getStore } from '@netlify/blobs'
+
 const OPENSKY_USER = process.env.OPENSKY_USER || ''
 const OPENSKY_PASS = process.env.OPENSKY_PASS || ''
+
+const TRAIL_MAX_AGE_MS = 4 * 60 * 60 * 1000  // 4 godziny historii
+const TRAIL_MIN_INTERVAL_MS = 15_000           // min. 15s między punktami
 
 // Bloki ICAO hex przydzielone WYŁĄCZNIE wojsku (nie cywilnemu)
 // Polska 489xxx obejmuje też cywilne SP- rejestracje — nie używamy go jako hex filtra
@@ -181,7 +186,20 @@ export const handler = async (event) => {
     return { statusCode: 204, headers }
   }
 
-  const { lat, lon, radius } = event.queryStringParameters || {}
+  const params = event.queryStringParameters || {}
+  const { lat, lon, radius, hex } = params
+
+  // Tryb pobierania trasy konkretnego samolotu
+  if (hex) {
+    try {
+      const store = getStore('aircraft-trails')
+      const data = await store.get(hex, { type: 'json' })
+      return { statusCode: 200, headers, body: JSON.stringify({ trail: data?.points || [] }) }
+    } catch {
+      return { statusCode: 200, headers, body: JSON.stringify({ trail: [] }) }
+    }
+  }
+
   const latN = Number(lat)
   const lonN = Number(lon)
   const radiusKm = Number(radius) || 100
@@ -190,7 +208,6 @@ export const handler = async (event) => {
     return { statusCode: 400, headers, body: JSON.stringify({ error: 'Brak parametrów lat/lon' }) }
   }
 
-  // bbox dla OpenSky
   const degLat = radiusKm / 111
   const degLon = radiusKm / (111 * Math.cos(latN * Math.PI / 180))
   const lamin = latN - degLat
@@ -198,8 +215,7 @@ export const handler = async (event) => {
   const lomin = lonN - degLon
   const lomax = lonN + degLon
 
-  // Tryb demo — wymuszone przez env lub query param
-  const forceDemo = process.env.DEMO_MODE === 'true' || event.queryStringParameters?.demo === '1'
+  const forceDemo = process.env.DEMO_MODE === 'true' || params.demo === '1'
   if (forceDemo) {
     return {
       statusCode: 200,
@@ -208,17 +224,38 @@ export const handler = async (event) => {
     }
   }
 
-  // adsb.fi /mil jako pierwsze — ma bazę wojskowych + typ samolotu (t)
-  // OpenSky jako fallback — brak typów, szerszy filtr callsign/hex
   const result = await tryADSBfi(lamin, lomin, lamax, lomax)
     || await tryOpenSky(lamin, lomin, lamax, lomax)
     || { aircraft: mockAircraft(latN, lonN), _demo: true }
+
+  // Zapisz pozycje do Netlify Blobs asynchronicznie (nie blokuj odpowiedzi)
+  if (!result._demo) {
+    saveTrails(result.aircraft).catch(() => {})
+  }
 
   return {
     statusCode: 200,
     headers,
     body: JSON.stringify(result)
   }
+}
+
+async function saveTrails(aircraft) {
+  if (!aircraft?.length) return
+  const store = getStore('aircraft-trails')
+  const now = Date.now()
+
+  await Promise.allSettled(aircraft.map(async ac => {
+    if (ac.lat == null || ac.lon == null) return
+    let existing = null
+    try { existing = await store.get(ac.hex, { type: 'json' }) } catch {}
+    const pts = (existing?.points || []).filter(p => now - p.ts < TRAIL_MAX_AGE_MS)
+    const last = pts[pts.length - 1]
+    if (!last || now - last.ts >= TRAIL_MIN_INTERVAL_MS) {
+      pts.push({ lat: ac.lat, lon: ac.lon, alt: ac.alt_baro, ts: now })
+      await store.set(ac.hex, JSON.stringify({ points: pts, flight: ac.flight, t: ac.t }))
+    }
+  }))
 }
 
 function mockAircraft(lat, lon) {

@@ -22,9 +22,11 @@ export default function App() {
   const [mode, setMode] = useState('gps')
   const [radius, setRadius] = useState(100)
   const [selectedHex, setSelectedHex] = useState(null)
+  const [serverTrails, setServerTrails] = useState(new Map()) // hex → [{lat,lon,alt,ts}] from Netlify Blobs
 
   const alertedHexRef = useRef(new Set())
   const trailsRef = useRef(new Map()) // hex → [{lat,lon,alt,ts}]
+  const serverTrailFetchedRef = useRef(new Set()) // hexes we've already fetched server trail for
 
   const { location, locationError, requestLocation } = useGeolocation()
   const { isSubscribed, subscribe, permissionState } = usePushNotifications()
@@ -101,6 +103,22 @@ export default function App() {
     return () => clearInterval(pollRef.current)
   }, [fetchData])
 
+  useEffect(() => {
+    if (!selectedHex || serverTrailFetchedRef.current.has(selectedHex)) return
+    serverTrailFetchedRef.current.add(selectedHex)
+    fetch(`/.netlify/functions/aircraft?hex=${selectedHex}`)
+      .then(r => r.json())
+      .then(({ trail }) => {
+        if (!trail?.length) return
+        setServerTrails(prev => {
+          const next = new Map(prev)
+          next.set(selectedHex, trail)
+          return next
+        })
+      })
+      .catch(() => {})
+  }, [selectedHex])
+
   return (
     <div className="app">
       <header className="app-header">
@@ -122,6 +140,7 @@ export default function App() {
         <RadarMap
           aircraft={aircraft}
           trails={trailsRef}
+          serverTrails={serverTrails}
           center={center}
           radius={mode === 'gps' ? radius : null}
           mode={mode}
