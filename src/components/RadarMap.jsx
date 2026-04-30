@@ -271,12 +271,39 @@ export default function RadarMap({ aircraft, center, radius, mode, selectedHex, 
   )
 }
 
+function useFlightRoute(callsign) {
+  const [route, setRoute] = useState(null)
+  useEffect(() => {
+    if (!callsign || callsign.length < 3) return
+    setRoute(null)
+    let cancelled = false
+    fetch(`https://api.adsbdb.com/v0/callsign/${callsign.trim()}`)
+      .then(r => r.json())
+      .then(data => {
+        if (!cancelled && data?.response?.flightroute) setRoute(data.response.flightroute)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [callsign])
+  return route
+}
+
+function formatAirport(ap) {
+  if (!ap) return null
+  const iata = ap.iata_code && ap.iata_code !== 'N/A' ? ap.iata_code : ap.icao_code
+  return `${iata} · ${ap.municipality || ap.name}`
+}
+
 function AircraftPopup({ ac }) {
   const altM = ftToM(ac.alt_baro)
   const kmh = knToKmh(ac.gs)
   const color = altToColor(altM)
+  const route = useFlightRoute(ac.flight)
+
   const rows = [
     ['Typ',      ac.t || '—'],
+    ['Skąd',     formatAirport(route?.origin) || '—'],
+    ['Dokąd',    formatAirport(route?.destination) || '—'],
     ['Wys.',     altM != null ? `${altM.toLocaleString()} m` : '—'],
     ['Prędkość', kmh != null ? `${kmh} km/h` : '—'],
     ['Kurs',     ac.track != null ? `${Math.round(ac.track)}°` : '—'],
