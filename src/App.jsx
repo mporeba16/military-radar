@@ -9,7 +9,9 @@ import { fetchMilitaryAircraft } from './api'
 import './App.css'
 
 const POLAND_CENTER = [52.0, 19.5]
-const POLL_INTERVAL = 60_000
+const POLL_INTERVAL = 5_000
+const TRAIL_MIN_INTERVAL_MS = 20_000  // nowy punkt trasy co min. 20s
+const TRAIL_MAX_AGE_MS = 15 * 60 * 1000  // 15 minut historii
 
 export default function App() {
   const [aircraft, setAircraft] = useState([])
@@ -54,13 +56,12 @@ export default function App() {
 
       // Update trails
       const now = Date.now()
-      const MAX_AGE_MS = 30 * 60 * 1000
       enriched.forEach(ac => {
         if (ac.lat == null || ac.lon == null) return
         const pts = trailsRef.current.get(ac.hex) || []
-        const fresh = pts.filter(p => now - p.ts < MAX_AGE_MS)
+        const fresh = pts.filter(p => now - p.ts < TRAIL_MAX_AGE_MS)
         const last = fresh[fresh.length - 1]
-        if (!last || Math.abs(last.lat - ac.lat) > 0.0005 || Math.abs(last.lon - ac.lon) > 0.0005) {
+        if (!last || now - last.ts >= TRAIL_MIN_INTERVAL_MS) {
           fresh.push({ lat: ac.lat, lon: ac.lon, alt: ac.alt_baro, ts: now })
         }
         trailsRef.current.set(ac.hex, fresh)
