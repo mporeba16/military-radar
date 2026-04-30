@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { MapContainer, TileLayer, Marker, Popup, Circle, ZoomControl, useMap, useMapEvents } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, Circle, Polyline, ZoomControl, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import './RadarMap.css'
@@ -200,7 +200,7 @@ function LayerPicker({ activeId, onChange }) {
   )
 }
 
-export default function RadarMap({ aircraft, center, radius, mode, selectedHex, onSelect }) {
+export default function RadarMap({ aircraft, trails, center, radius, mode, selectedHex, onSelect }) {
   const initialZoom = mode === 'poland' ? 6 : 8
   const markersRef = useRef({})
   const [activeTileId, setActiveTileId] = useState('osm-adsbx')
@@ -241,6 +241,17 @@ export default function RadarMap({ aircraft, center, radius, mode, selectedHex, 
             }}
           />
         )}
+
+        {aircraft.map(ac => {
+          const pts = trails?.current?.get(ac.hex) || []
+          return pts.length < 2 ? null : pts.slice(1).map((pt, i) => (
+            <Polyline
+              key={`trail-${ac.hex}-${i}`}
+              positions={[[pts[i].lat, pts[i].lon], [pt.lat, pt.lon]]}
+              pathOptions={{ color: altToColor(ftToM(pt.alt)), weight: 2, opacity: 0.75 }}
+            />
+          ))
+        })}
 
         {aircraft.map(ac => (
           <Marker
@@ -303,7 +314,6 @@ function AircraftPopup({ ac }) {
   const rows = [
     ['Typ',      ac.t || '—'],
     ['Skąd',     formatAirport(route?.origin) || '—'],
-    ['Dokąd',    formatAirport(route?.destination) || '—'],
     ['Wys.',     altM != null ? `${altM.toLocaleString()} m` : '—'],
     ['Prędkość', kmh != null ? `${kmh} km/h` : '—'],
     ['Kurs',     ac.track != null ? `${Math.round(ac.track)}°` : '—'],
