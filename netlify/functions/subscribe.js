@@ -1,7 +1,5 @@
-// Endpoint do zapisywania subskrypcji Web Push.
-// W wersji produkcyjnej zapisywałby do bazy (FaunaDB, Supabase, itp.)
-// i scheduler wysyłałby notyfikacje przez web-push.
-// Tu zwracamy 200 OK żeby frontend działał poprawnie.
+import { getStore } from '@netlify/blobs'
+import crypto from 'crypto'
 
 export const handler = async (event) => {
   const headers = {
@@ -9,20 +7,36 @@ export const handler = async (event) => {
     'Content-Type': 'application/json',
   }
 
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 204, headers }
-  }
-
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers }
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) }
   }
 
   try {
-    const sub = JSON.parse(event.body)
-    console.log('Push subscription received:', sub.endpoint?.slice(0, 60))
-    // TODO: zapisz sub do bazy danych
+    const { subscription, lat, lon, radius } = JSON.parse(event.body || '{}')
+
+    if (!subscription?.endpoint) {
+      return { statusCode: 400, headers, body: JSON.stringify({ error: 'Missing subscription' }) }
+    }
+
+    const key = crypto.createHash('sha256')
+      .update(subscription.endpoint)
+      .digest('hex')
+      .slice(0, 32)
+
+    const store = getStore('push-subscriptions')
+
+    await store.set(key, JSON.stringify({
+      subscription,
+      lat: lat ?? null,
+      lon: lon ?? null,
+      radius: radius ?? 100,
+      updatedAt: Date.now(),
+    }))
+
     return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) }
   } catch (err) {
-    return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid body' }) }
+    console.error('Subscribe error:', err)
+    return { statusCode: 500, headers, body: JSON.stringify({ error: 'Internal error' }) }
   }
 }

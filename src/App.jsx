@@ -30,7 +30,7 @@ export default function App() {
   const serverTrailFetchedRef = useRef(new Set()) // hexes we've already fetched server trail for
 
   const { location, locationError, requestLocation } = useGeolocation()
-  const { isSubscribed, subscribe, permissionState } = usePushNotifications()
+  const { isSubscribed, subscribe, permissionState } = usePushNotifications(location, radius)
   const pollRef = useRef(null)
 
   // Bug 1 fix: memoize center by value so array identity stays stable

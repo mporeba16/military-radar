@@ -19,6 +19,9 @@
     Cache-Control = "no-cache"
     Service-Worker-Allowed = "/"
 
+[functions."notify"]
+  schedule = "*/5 * * * *"
+
 [dev]
   command = "npm run dev"
   port = 8080

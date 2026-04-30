@@ -1,5 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
-import { subscribePush } from '../api'
+import { useState, useEffect, useCallback, useRef } from 'react'
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || ''
 
@@ -10,20 +9,41 @@ function urlBase64ToUint8Array(base64String) {
   return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)))
 }
 
-export function usePushNotifications() {
+async function syncToServer(sub, lat, lon, radius) {
+  if (!sub || lat == null || lon == null) return
+  try {
+    await fetch('/.netlify/functions/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subscription: sub.toJSON(), lat, lon, radius }),
+    })
+  } catch {}
+}
+
+export function usePushNotifications(location, radius) {
   const [isSubscribed, setIsSubscribed] = useState(false)
   const [permissionState, setPermissionState] = useState(
     typeof Notification !== 'undefined' ? Notification.permission : 'unsupported'
   )
+  const subRef = useRef(null)
 
+  // On mount: restore existing subscription and re-sync position to server
   useEffect(() => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
-    navigator.serviceWorker.ready.then(reg =>
-      reg.pushManager.getSubscription()
-    ).then(sub => {
-      setIsSubscribed(!!sub)
-    })
+    navigator.serviceWorker.ready
+      .then(reg => reg.pushManager.getSubscription())
+      .then(sub => {
+        if (!sub) return
+        subRef.current = sub
+        setIsSubscribed(true)
+      })
   }, [])
+
+  // Whenever GPS position or radius changes, push updated position to server
+  useEffect(() => {
+    if (!isSubscribed || !subRef.current || !location) return
+    syncToServer(subRef.current, location.lat, location.lon, radius)
+  }, [isSubscribed, location?.lat, location?.lon, radius])
 
   const subscribe = useCallback(async () => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
@@ -39,18 +59,18 @@ export function usePushNotifications() {
       const reg = await navigator.serviceWorker.ready
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
       })
-      await subscribePush(sub)
+      subRef.current = sub
       setIsSubscribed(true)
+      // Immediately sync subscription + current position to server
+      await syncToServer(sub, location?.lat, location?.lon, radius)
     } catch (err) {
       console.error('Push subscribe failed:', err)
-      // Jeśli brak VAPID key (dev mode), tylko prosimy o uprawnienia
-      if (Notification.permission === 'granted') {
-        setIsSubscribed(true)
-      }
+      // Dev fallback — no VAPID key configured locally
+      if (Notification.permission === 'granted') setIsSubscribed(true)
     }
-  }, [])
+  }, [location, radius])
 
   return { isSubscribed, subscribe, permissionState }
 }
