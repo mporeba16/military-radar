@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { MapContainer, TileLayer, Marker, Popup, Circle, useMap, useMapEvents } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, Circle, ZoomControl, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import './RadarMap.css'
@@ -19,7 +19,7 @@ const TILE_LAYERS = [
     url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     maxZoom: 19,
-    filter: 'saturate(0.5) brightness(0.82) contrast(1.08)',
+    filter: 'saturate(0.5) brightness(0.74) contrast(1.08)',
   },
   {
     id: 'carto-voyager',
@@ -47,7 +47,7 @@ const TILE_LAYERS = [
   },
 ]
 
-function buildIcon(ac, isSelected) {
+function buildIcon(ac, isSelected, iconScale = 1) {
   const heading = ac.track || 0
   const altM = ftToM(ac.alt_baro)
   const color = isSelected ? '#ffffff' : altToColor(altM)
@@ -55,7 +55,8 @@ function buildIcon(ac, isSelected) {
   const shape = SHAPES[shapeKey] || SHAPES.jet
 
   const { cx, cy, scale, sz = 44 } = shape
-  const half = sz / 2
+  const scaledSz = Math.round(sz * iconScale)
+  const half = scaledSz / 2
   const paths = Array.isArray(shape.path) ? shape.path : [shape.path]
 
   const tx = `scale(${scale}) translate(${-cx} ${-cy})`
@@ -75,8 +76,8 @@ function buildIcon(ac, isSelected) {
 
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg"
-         width="${sz}" height="${sz}"
-         viewBox="-${half} -${half} ${sz} ${sz}">
+         width="${scaledSz}" height="${scaledSz}"
+         viewBox="-${half} -${half} ${scaledSz} ${scaledSz}">
       <g transform="rotate(${heading})">
         <g transform="translate(1.2,1.2)"><g transform="${tx}">${shadowPaths}</g></g>
         <g transform="${tx}">${mainPaths}</g>
@@ -86,7 +87,7 @@ function buildIcon(ac, isSelected) {
 
   return L.divIcon({
     html: svg,
-    iconSize: [sz, sz],
+    iconSize: [scaledSz, scaledSz],
     iconAnchor: [half, half],
     className: '',
   })
@@ -133,6 +134,27 @@ function TileFilter({ filter }) {
     map.getPanes().tilePane.style.filter = filter || ''
   }, [filter, map])
   return null
+}
+
+function IconSizeControl({ value, onChange }) {
+  const pct = Math.round(value * 100)
+  return (
+    <div className="icon-size-control">
+      <div className="icon-size-label">
+        <span>IKONY</span>
+        <span>{pct}%</span>
+      </div>
+      <input
+        type="range"
+        min="0.5"
+        max="2"
+        step="0.05"
+        value={value}
+        onChange={e => onChange(parseFloat(e.target.value))}
+        className="icon-size-slider"
+      />
+    </div>
+  )
 }
 
 function LayerPicker({ activeId, onChange }) {
@@ -182,6 +204,7 @@ export default function RadarMap({ aircraft, center, radius, mode, selectedHex, 
   const initialZoom = mode === 'poland' ? 6 : 8
   const markersRef = useRef({})
   const [activeTileId, setActiveTileId] = useState('osm-adsbx')
+  const [iconScale, setIconScale] = useState(1)
   const tileLayer = TILE_LAYERS.find(l => l.id === activeTileId) || TILE_LAYERS[0]
 
   return (
@@ -190,7 +213,7 @@ export default function RadarMap({ aircraft, center, radius, mode, selectedHex, 
         center={center}
         zoom={initialZoom}
         style={{ width: '100%', height: '100%' }}
-        zoomControl={true}
+        zoomControl={false}
       >
         <TileLayer
           key={tileLayer.id}
@@ -199,6 +222,7 @@ export default function RadarMap({ aircraft, center, radius, mode, selectedHex, 
           maxZoom={tileLayer.maxZoom}
         />
 
+        <ZoomControl position="bottomright" />
         <RecenterOnChange center={center} />
         <FlyToSelected selectedHex={selectedHex} markersRef={markersRef} />
         <MapClickHandler onSelect={onSelect} />
@@ -222,7 +246,7 @@ export default function RadarMap({ aircraft, center, radius, mode, selectedHex, 
           <Marker
             key={ac.hex}
             position={[ac.lat, ac.lon]}
-            icon={buildIcon(ac, ac.hex === selectedHex)}
+            icon={buildIcon(ac, ac.hex === selectedHex, iconScale)}
             ref={el => {
               if (el) markersRef.current[ac.hex] = el
               else delete markersRef.current[ac.hex]
@@ -237,6 +261,7 @@ export default function RadarMap({ aircraft, center, radius, mode, selectedHex, 
       </MapContainer>
 
       <LayerPicker activeId={activeTileId} onChange={setActiveTileId} />
+      <IconSizeControl value={iconScale} onChange={setIconScale} />
       <AltitudeLegend />
 
       <div className="map-overlay-count">
