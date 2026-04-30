@@ -9,47 +9,72 @@
 const OPENSKY_USER = process.env.OPENSKY_USER || ''
 const OPENSKY_PASS = process.env.OPENSKY_PASS || ''
 
-// Bloki ICAO hex przydzielone wojsku lub mieszane wojskowo-cywilne
-// Źródło: https://www.icao.int/secretariat/APAC/Documents/Block_Assignment_Table.pdf
+// Bloki ICAO hex przydzielone WYŁĄCZNIE wojsku (nie cywilnemu)
+// Polska 489xxx obejmuje też cywilne SP- rejestracje — nie używamy go jako hex filtra
 const MILITARY_HEX_PREFIXES = [
-  // Polska wojskowe (zakres 489000–48BFFF)
-  '4890', '4891', '4892', '4893', '4894', '4895', '4896', '4897',
-  '4898', '4899', '489a', '489b', '489c', '489d', '489e', '489f',
-  '48a', '48b',
-  // USA wojskowe (AE prefix — typowe dla USAF/USN)
+  // USA wojskowe (AE prefix — wyłącznie USAF/USN/USMC)
   'ae',
-  // NATO/inne wojskowe bloki
-  '43c', '43d', '43e', '43f',  // Niemcy Bundeswehr
-  '3b0', '3b1', '3b2', '3b3',  // Francja wojsko
-  '43a',                         // Dania wojsko
-  '47a', '47b',                  // Węgry
+  // Niemcy Bundeswehr
+  '43c', '43d', '43e', '43f',
+  // Francja wojsko
+  '3b0', '3b1', '3b2', '3b3',
+  // Dania wojsko
+  '43a',
+  // Wielka Brytania RAF/RN
+  '43b',
+  // Belgia wojsko
+  '44e',
+  // Holandia wojsko
+  '48f',
+  // Czechy wojsko
+  '49d',
+  // Słowacja wojsko
+  '51d',
+  // Rumunia wojsko
+  '4a0',
+  // Węgry wojsko
+  '47a', '47b',
 ]
 
 // Callsigny wojskowe — prefiksy używane przez polskie i NATO lotnictwo
 const MILITARY_CALLSIGN_PATTERNS = [
-  /^RCF/i,   // Polska wojsko (Siły Powietrzne)
-  /^PLF/i,   // Polska wojsko
-  /^DUKE/i,  // USAF Europe
-  /^JAKE/i,  // USAF
-  /^PEARL/i, // US Navy
-  /^POLO/i,  // USAF
-  /^GORDO/i, // USAF
-  /^REACH/i, // USAF Air Mobility Command
-  /^RCH/i,   // USAF Air Mobility Command
-  /^MAGMA/i, // UK RAF
-  /^ASCOT/i, // UK RAF
-  /^COMET/i, // UK RAF
-  /^NATO/i,  // NATO AWACS
-  /^NAOC/i,  // NATO
-  /^GAF/i,   // German Air Force
-  /^GER/i,   // German military
-  /^FRAF/i,  // French Air Force
-  /^BAF/i,   // Belgian Air Force
-  /^DAMP/i,  // Danish Air Force
-  /^LNAV/i,  // various
-  /^CZAF/i,  // Czech Air Force
-  /^SLAF/i,  // Slovak Air Force
-  /^HUNAF/i, // Hungarian Air Force
+  /^RCF/i,    // Polska Siły Powietrzne
+  /^PLF/i,    // Polska wojsko
+  /^DUKE/i,   // USAF Europe
+  /^JAKE/i,   // USAF
+  /^PEARL/i,  // US Navy
+  /^POLO/i,   // USAF
+  /^GORDO/i,  // USAF
+  /^REACH/i,  // USAF Air Mobility Command
+  /^RCH/i,    // USAF Air Mobility Command
+  /^MAGMA/i,  // UK RAF
+  /^ASCOT/i,  // UK RAF
+  /^COMET/i,  // UK RAF
+  /^NATO/i,   // NATO AWACS
+  /^NAOC/i,   // NATO
+  /^GAF\d/i,  // German Air Force (GAF + cyfra, nie GAFER itp.)
+  /^FRAF/i,   // French Air Force
+  /^BAF\d/i,  // Belgian Air Force
+  /^DAMP/i,   // Danish Air Force
+  /^CZAF/i,   // Czech Air Force
+  /^SLAF/i,   // Slovak Air Force
+  /^HUNAF/i,  // Hungarian Air Force
+  /^BUAF/i,   // Bulgarian Air Force
+  /^ROTAF/i,  // Romanian Air Force
+]
+
+// Callsigny cywilnych linii — wyklucz nawet jeśli hex pasuje
+const CIVILIAN_CALLSIGN_PATTERNS = [
+  /^LOT/i,   // LOT Polish Airlines
+  /^RYR/i,   // Ryanair
+  /^WZZ/i,   // Wizz Air
+  /^DLH/i,   // Lufthansa
+  /^BAW/i,   // British Airways
+  /^AFR/i,   // Air France
+  /^IBE/i,   // Iberia
+  /^EZY/i,   // easyJet
+  /^TRA/i,   // Transavia
+  /^KLM/i,   // KLM
 ]
 
 const MILITARY_SQUAWKS = new Set(['7777', '7400'])
@@ -57,8 +82,9 @@ const MILITARY_SQUAWKS = new Set(['7777', '7400'])
 function isMilitary(ac) {
   const hex = (ac[0] || '').toLowerCase()
   const callsign = (ac[1] || '').trim()
-  const squawk = ac[6] != null ? String(ac[6]).padStart(4, '0') : ''
+  const squawk = ac[14] != null ? String(ac[14]).padStart(4, '0') : ''
 
+  if (CIVILIAN_CALLSIGN_PATTERNS.some(re => re.test(callsign))) return false
   if (MILITARY_HEX_PREFIXES.some(p => hex.startsWith(p))) return true
   if (MILITARY_CALLSIGN_PATTERNS.some(re => re.test(callsign))) return true
   if (MILITARY_SQUAWKS.has(squawk)) return true
@@ -116,26 +142,26 @@ async function tryOpenSky(lamin, lomin, lamax, lomax) {
 // adsb.fi — publiczne API, działa z serverless, pokrywa Europę
 async function tryADSBfi(lamin, lomin, lamax, lomax) {
   try {
-    const url = `https://api.adsb.fi/v1/mil`
+    const url = `https://opendata.adsb.fi/api/v2/mil`
     const res = await fetch(url, {
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(10000),
       headers: { 'User-Agent': 'MilitaryRadarPL/1.0', 'Accept': 'application/json' }
     })
     if (!res.ok) return null
     const data = await res.json()
-    const ac = (data.aircraft || data.ac || []).filter(a =>
+    const ac = (data.ac || data.aircraft || []).filter(a =>
       a.lat != null && a.lon != null &&
       a.lat >= lamin && a.lat <= lamax &&
       a.lon >= lomin && a.lon <= lomax
     ).map(a => ({
-      hex: a.hex || a.icao,
-      flight: (a.flight || a.callsign || a.hex || '').trim(),
-      t: a.t || a.type || '',
+      hex: a.hex,
+      flight: (a.flight || a.hex || '').trim(),
+      t: a.t || '',
       lat: a.lat,
       lon: a.lon,
-      alt_baro: a.alt_baro || a.altitude || null,
-      gs: a.gs || a.speed || null,
-      track: a.track || a.heading || null,
+      alt_baro: a.alt_baro != null ? a.alt_baro : null,
+      gs: a.gs != null ? Math.round(a.gs) : null,
+      track: a.track != null ? Math.round(a.track) : null,
       squawk: a.squawk || null,
       country: a.r || '',
     }))
@@ -182,9 +208,10 @@ export const handler = async (event) => {
     }
   }
 
-  // Próbuj kolejne źródła danych
-  const result = await tryOpenSky(lamin, lomin, lamax, lomax)
-    || await tryADSBfi(lamin, lomin, lamax, lomax)
+  // adsb.fi /mil jako pierwsze — ma bazę wojskowych + typ samolotu (t)
+  // OpenSky jako fallback — brak typów, szerszy filtr callsign/hex
+  const result = await tryADSBfi(lamin, lomin, lamax, lomax)
+    || await tryOpenSky(lamin, lomin, lamax, lomax)
     || { aircraft: mockAircraft(latN, lonN), _demo: true }
 
   return {
