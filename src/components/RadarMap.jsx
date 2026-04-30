@@ -14,13 +14,6 @@ L.Icon.Default.mergeOptions({
 
 const TILE_LAYERS = [
   {
-    id: 'osm',
-    name: 'OpenStreetMap',
-    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    maxZoom: 19,
-  },
-  {
     id: 'carto-voyager',
     name: 'Carto Voyager',
     url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
@@ -28,17 +21,10 @@ const TILE_LAYERS = [
     maxZoom: 19,
   },
   {
-    id: 'carto-positron',
-    name: 'Carto Positron',
-    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-    maxZoom: 19,
-  },
-  {
-    id: 'carto-dark',
-    name: 'Carto Dark',
-    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    id: 'osm',
+    name: 'OpenStreetMap',
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     maxZoom: 19,
   },
   {
@@ -174,7 +160,7 @@ function LayerPicker({ activeId, onChange }) {
 export default function RadarMap({ aircraft, center, radius, mode, selectedHex, onSelect }) {
   const initialZoom = mode === 'poland' ? 6 : 8
   const markersRef = useRef({})
-  const [activeTileId, setActiveTileId] = useState('osm')
+  const [activeTileId, setActiveTileId] = useState('carto-voyager')
   const tileLayer = TILE_LAYERS.find(l => l.id === activeTileId) || TILE_LAYERS[0]
 
   return (
