@@ -211,13 +211,14 @@ async function tryADSBfi(lamin, lomin, lamax, lomax, radiusKm) {
     const milAircraft = (milData.ac || []).filter(a => isADSBfiRecordInBox(a, lamin, lomin, lamax, lomax))
     const milHexes = new Set(milAircraft.map(a => a.hex))
 
-    // Zapytanie 2: supplement geograficzny — tylko dla małych obszarów (≤900km)
-    // Łapie samoloty znane nam jako wojskowe (hex/callsign), ale nieoznaczone w bazie adsb.fi
+    // Zapytanie 2: supplement geograficzny — łapie samoloty znane nam jako wojskowe
+    // (hex/callsign), ale nieoznaczone w bazie adsb.fi /mil
+    // adsb.fi obsługuje max 250nm (~463km); zawsze robimy supplement niezależnie od trybu
     let supplementAircraft = []
-    if (radiusKm <= 900) {
+    {
       const centerLat = ((lamin + lamax) / 2).toFixed(4)
       const centerLon = ((lomin + lomax) / 2).toFixed(4)
-      const radiusNm = Math.round(radiusKm * 0.54)
+      const radiusNm = Math.min(250, Math.round(radiusKm * 0.54))
       try {
         const geoRes = await fetch(
           `https://opendata.adsb.fi/api/v2/lat/${centerLat}/lon/${centerLon}/dist/${radiusNm}`,
@@ -225,7 +226,7 @@ async function tryADSBfi(lamin, lomin, lamax, lomax, radiusKm) {
         )
         if (geoRes.ok) {
           const geoData = await geoRes.json()
-          supplementAircraft = (geoData.ac || []).filter(a =>
+          supplementAircraft = (geoData.aircraft || geoData.ac || []).filter(a =>
             isADSBfiRecordInBox(a, lamin, lomin, lamax, lomax) &&
             !milHexes.has(a.hex) &&
             isMilitaryADSBfi(a)
