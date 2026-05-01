@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import RadarMap, { TILE_LAYERS } from './components/RadarMap'
-import AircraftList from './components/AircraftList'
+import AircraftInfoPanel from './components/AircraftInfoPanel'
 import AuthScreen from './components/AuthScreen'
 import { useGeolocation } from './hooks/useGeolocation'
 import { usePushNotifications } from './hooks/usePushNotifications'
@@ -33,7 +33,6 @@ export default function App() {
 
   const { location, locationError, requestLocation } = useGeolocation()
   const { isSubscribed, isSubscribing, subscribe, permissionState } = usePushNotifications(location, radius)
-  const pollRef = useRef(null)
 
   const center = useMemo(() => {
     if (mode === 'poland') return POLAND_CENTER
@@ -49,7 +48,6 @@ export default function App() {
         center,
         mode === 'poland' ? 400 : mode === 'europe' ? 2800 : radius
       )
-
       const enriched = data.map(ac => {
         if (mode === 'gps' && location) {
           const dist = haversine(location.lat, location.lon, ac.lat, ac.lon)
@@ -57,27 +55,22 @@ export default function App() {
         }
         return ac
       })
-
       const now = Date.now()
       enriched.forEach(ac => {
         if (ac.lat == null || ac.lon == null) return
         const pts = trailsRef.current.get(ac.hex) || []
         const fresh = pts.filter(p => now - p.ts < TRAIL_MAX_AGE_MS)
         const last = fresh[fresh.length - 1]
-        if (!last || now - last.ts >= TRAIL_MIN_INTERVAL_MS) {
+        if (!last || now - last.ts >= TRAIL_MIN_INTERVAL_MS)
           fresh.push({ lat: ac.lat, lon: ac.lon, alt: ac.alt_baro, ts: now })
-        }
         trailsRef.current.set(ac.hex, fresh)
       })
       const currentHexes = new Set(enriched.map(a => a.hex))
-      for (const hex of trailsRef.current.keys()) {
+      for (const hex of trailsRef.current.keys())
         if (!currentHexes.has(hex)) trailsRef.current.delete(hex)
-      }
-
       setAircraft(enriched)
       setDataSource(isDemo ? 'demo' : source)
       setSelectedHex(prev => (prev && !currentHexes.has(prev) ? null : prev))
-
       if (mode === 'gps' && location && !isDemo) {
         enriched.forEach(ac => {
           if (!alertedHexRef.current.has(ac.hex) && ac._dist <= radius) {
@@ -85,9 +78,8 @@ export default function App() {
             alertedHexRef.current.add(ac.hex)
           }
         })
-        for (const h of alertedHexRef.current) {
+        for (const h of alertedHexRef.current)
           if (!currentHexes.has(h)) alertedHexRef.current.delete(h)
-        }
       }
     } catch (err) {
       setError(err.message)
@@ -98,8 +90,8 @@ export default function App() {
 
   useEffect(() => {
     fetchData()
-    pollRef.current = setInterval(fetchData, POLL_INTERVAL)
-    return () => clearInterval(pollRef.current)
+    const id = setInterval(fetchData, POLL_INTERVAL)
+    return () => clearInterval(id)
   }, [fetchData])
 
   useEffect(() => {
@@ -109,11 +101,7 @@ export default function App() {
       .then(r => r.json())
       .then(({ trail }) => {
         if (!trail?.length) return
-        setServerTrails(prev => {
-          const next = new Map(prev)
-          next.set(selectedHex, trail)
-          return next
-        })
+        setServerTrails(prev => { const next = new Map(prev); next.set(selectedHex, trail); return next })
       })
       .catch(() => {})
   }, [selectedHex])
@@ -121,6 +109,8 @@ export default function App() {
   function togglePanel(name) {
     setActivePanel(p => p === name ? null : name)
   }
+
+  const selectedAc = aircraft.find(ac => ac.hex === selectedHex) || null
 
   if (authLoading) return null
   if (!user) return <AuthScreen onLogin={login} />
@@ -139,7 +129,7 @@ export default function App() {
         activeTileId={activeTileId}
       />
 
-      {/* Logo overlay */}
+      {/* Logo — top left */}
       <div className="map-logo">
         <span className="map-logo-icon">◎</span>
         <span className="map-logo-name">RADAR WOJSKOWY</span>
@@ -148,35 +138,29 @@ export default function App() {
         <button className="map-logo-logout" onClick={logout} title="Wyloguj">⏻</button>
       </div>
 
-      {/* Control buttons */}
+      {/* Aircraft info panel — left, below logo */}
+      {selectedAc && (
+        <AircraftInfoPanel ac={selectedAc} onClose={() => setSelectedHex(null)} />
+      )}
+
+      {/* Control buttons — top right */}
       <div className="map-ctrl-btns">
-        <button
-          className={`map-ctrl-btn ${activePanel === 'tryby' ? 'active' : ''}`}
-          onClick={() => togglePanel('tryby')}
-        >Tryb</button>
-        <button
-          className={`map-ctrl-btn ${activePanel === 'powiadomienia' ? 'active' : ''} ${isSubscribed ? 'subscribed' : ''}`}
-          onClick={() => togglePanel('powiadomienia')}
-        >Powiadomienia</button>
-        <button
-          className={`map-ctrl-btn ${activePanel === 'obiekty' ? 'active' : ''}`}
-          onClick={() => togglePanel('obiekty')}
-        >Obiekty<span className="btn-count">{aircraft.length}</span></button>
-        <button
-          className={`map-ctrl-btn ${activePanel === 'mapy' ? 'active' : ''}`}
-          onClick={() => togglePanel('mapy')}
-        >Mapy</button>
+        <button className={`map-ctrl-btn ${activePanel === 'tryby' ? 'active' : ''}`}
+          onClick={() => togglePanel('tryby')}>Tryb</button>
+        <button className={`map-ctrl-btn ${activePanel === 'mapy' ? 'active' : ''}`}
+          onClick={() => togglePanel('mapy')}>Mapy</button>
+        <button className={`map-ctrl-btn ${activePanel === 'profil' ? 'active' : ''}`}
+          onClick={() => togglePanel('profil')}>Profil</button>
       </div>
 
-      {/* Side panel */}
+      {/* Side panels — slide from right */}
       {activePanel && (
         <div className="side-panel">
           <div className="side-panel-header">
             <span className="side-panel-title">
               {activePanel === 'tryby' && 'TRYB'}
-              {activePanel === 'powiadomienia' && 'POWIADOMIENIA'}
-              {activePanel === 'obiekty' && `OBIEKTY (${aircraft.length})`}
               {activePanel === 'mapy' && 'MAPY'}
+              {activePanel === 'profil' && 'PROFIL'}
             </span>
             <button className="side-panel-close" onClick={() => setActivePanel(null)}>✕</button>
           </div>
@@ -199,61 +183,24 @@ export default function App() {
                       ? <span className="ok">◉ {location.lat.toFixed(3)}°N {location.lon.toFixed(3)}°E</span>
                       : locationError
                         ? <span className="err">✗ {locationError}</span>
-                        : <button className="link-btn" onClick={requestLocation}>Pobierz lokalizację</button>
-                    }
+                        : <button className="link-btn" onClick={requestLocation}>Pobierz lokalizację</button>}
                   </div>
                 )}
               </section>
-
               {mode === 'gps' && (
                 <section className="cp-section">
                   <div className="cp-label">ZASIĘG: {radius} km</div>
                   <input type="range" min="25" max="500" step="25" value={radius}
                     onChange={e => setRadius(Number(e.target.value))} className="range-slider" />
-                  <div className="range-marks">
-                    <span>25</span><span>100</span><span>250</span><span>500</span>
-                  </div>
+                  <div className="range-marks"><span>25</span><span>100</span><span>250</span><span>500</span></div>
                 </section>
               )}
-
               <section className="cp-section cp-refresh">
-                <button className="btn-refresh" onClick={fetchData}>↻ Odśwież teraz</button>
+                <button className="btn-refresh" onClick={fetchData}>↻ Odśwież</button>
                 <span className="info-text">Auto co 5s</span>
               </section>
-
               {error && <p className="err" style={{ fontSize: 11, marginTop: 8 }}>✗ {error}</p>}
             </div>
-          )}
-
-          {activePanel === 'powiadomienia' && (
-            <div className="panel-body">
-              <section className="cp-section">
-                <div className="cp-label">PUSH NOTIFICATIONS</div>
-                {permissionState === 'unsupported'
-                  ? <p className="info-text">Przeglądarka nie obsługuje push notifications.</p>
-                  : permissionState === 'denied'
-                    ? <p className="err" style={{ fontSize: 11 }}>✗ Zablokowane — odblokuj w ustawieniach przeglądarki</p>
-                    : isSubscribed
-                      ? <p className="ok">◉ Powiadomienia aktywne</p>
-                      : <button className="btn-subscribe" onClick={subscribe} disabled={isSubscribing}>
-                          {isSubscribing ? '◌ Łączenie…' : 'Włącz powiadomienia'}
-                        </button>
-                }
-              </section>
-              <p className="info-text" style={{ marginTop: 4 }}>
-                Otrzymasz alert gdy wojskowy samolot znajdzie się w wybranym zasięgu GPS, nawet gdy aplikacja jest zamknięta.
-              </p>
-            </div>
-          )}
-
-          {activePanel === 'obiekty' && (
-            <AircraftList
-              aircraft={aircraft}
-              userLocation={location}
-              selectedHex={selectedHex}
-              onSelect={(hex) => { setSelectedHex(hex); setActivePanel(null) }}
-              mode={mode}
-            />
           )}
 
           {activePanel === 'mapy' && (
@@ -261,11 +208,9 @@ export default function App() {
               <div className="cp-label">WYBIERZ MAPĘ</div>
               <div className="map-layer-list">
                 {TILE_LAYERS.map(layer => (
-                  <button
-                    key={layer.id}
+                  <button key={layer.id}
                     className={`map-layer-item ${activeTileId === layer.id ? 'active' : ''}`}
-                    onClick={() => setActiveTileId(layer.id)}
-                  >
+                    onClick={() => setActiveTileId(layer.id)}>
                     <span className="map-layer-name">{layer.name}</span>
                     {activeTileId === layer.id && <span className="map-layer-check">◉</span>}
                   </button>
@@ -273,7 +218,106 @@ export default function App() {
               </div>
             </div>
           )}
+
+          {activePanel === 'profil' && (
+            <ProfilPanel
+              user={user}
+              isSubscribed={isSubscribed}
+              isSubscribing={isSubscribing}
+              subscribe={subscribe}
+              permissionState={permissionState}
+            />
+          )}
         </div>
+      )}
+    </div>
+  )
+}
+
+function ProfilPanel({ user, isSubscribed, isSubscribing, subscribe, permissionState }) {
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [pwStatus, setPwStatus] = useState(null) // null | 'ok' | 'err'
+  const [pwMsg, setPwMsg] = useState('')
+  const [pwLoading, setPwLoading] = useState(false)
+
+  async function handleChangePassword(e) {
+    e.preventDefault()
+    setPwStatus(null)
+    setPwLoading(true)
+    try {
+      const res = await fetch('/.netlify/functions/auth-change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user.email, currentPassword, newPassword }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setPwStatus('err'); setPwMsg(data.error); return }
+      setPwStatus('ok')
+      setPwMsg('Hasło zmienione pomyślnie')
+      setCurrentPassword('')
+      setNewPassword('')
+    } catch {
+      setPwStatus('err')
+      setPwMsg('Błąd połączenia z serwerem')
+    } finally {
+      setPwLoading(false)
+    }
+  }
+
+  return (
+    <div className="panel-body">
+      <section className="cp-section">
+        <div className="cp-label">KONTO</div>
+        <p style={{ fontSize: 12, color: '#fff', marginBottom: 4 }}>{user.email}</p>
+        {user.test && <p className="info-text">Konto testowe</p>}
+      </section>
+
+      <section className="cp-section">
+        <div className="cp-label">POWIADOMIENIA PUSH</div>
+        {permissionState === 'unsupported'
+          ? <p className="info-text">Przeglądarka nie obsługuje push notifications.</p>
+          : permissionState === 'denied'
+            ? <p className="err" style={{ fontSize: 11 }}>✗ Zablokowane — odblokuj w ustawieniach przeglądarki</p>
+            : isSubscribed
+              ? <p className="ok">◉ Powiadomienia aktywne</p>
+              : <button className="btn-subscribe" onClick={subscribe} disabled={isSubscribing}>
+                  {isSubscribing ? '◌ Łączenie…' : 'Włącz powiadomienia'}
+                </button>
+        }
+        <p className="info-text" style={{ marginTop: 6 }}>
+          Alert gdy wojskowy samolot pojawi się w zasięgu GPS — nawet gdy aplikacja jest zamknięta.
+        </p>
+      </section>
+
+      {!user.test && (
+        <section className="cp-section">
+          <div className="cp-label">ZMIEŃ HASŁO</div>
+          <form onSubmit={handleChangePassword} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <input
+              type="password"
+              placeholder="Obecne hasło"
+              value={currentPassword}
+              onChange={e => setCurrentPassword(e.target.value)}
+              required
+              className="panel-input"
+            />
+            <input
+              type="password"
+              placeholder="Nowe hasło (min. 8 znaków)"
+              value={newPassword}
+              onChange={e => setNewPassword(e.target.value)}
+              required
+              minLength={8}
+              className="panel-input"
+            />
+            {pwStatus === 'ok' && <p className="ok" style={{ fontSize: 11 }}>◉ {pwMsg}</p>}
+            {pwStatus === 'err' && <p className="err" style={{ fontSize: 11 }}>✗ {pwMsg}</p>}
+            <button type="submit" className="btn-refresh" disabled={pwLoading}>
+              {pwLoading ? '◌ Zapisywanie…' : 'Zmień hasło'}
+            </button>
+          </form>
+        </section>
       )}
     </div>
   )
@@ -297,7 +341,7 @@ function triggerNotification(ac, dist) {
         badge: '/pwa-192x192.png',
         tag: ac.hex,
         renotify: false,
-        data: { hex: ac.hex }
+        data: { hex: ac.hex },
       })
     })
   }

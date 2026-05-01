@@ -85,11 +85,11 @@
   to { transform: rotate(360deg); }
 }
 
-/* Control buttons — top left, below logo */
+/* Control buttons — top right */
 .map-ctrl-btns {
   position: absolute;
-  top: 58px;
-  left: 12px;
+  top: 12px;
+  right: 12px;
   z-index: 1001;
   display: flex;
   flex-direction: column;
@@ -396,6 +396,27 @@
 .map-layer-check {
   font-size: 11px;
   color: var(--accent);
+}
+
+.panel-input {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 3px;
+  padding: 9px 10px;
+  color: #ffffff;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.15s;
+  width: 100%;
+}
+
+.panel-input:focus {
+  border-color: rgba(0, 255, 136, 0.5);
+}
+
+.panel-input::placeholder {
+  color: rgba(255, 255, 255, 0.25);
 }
 
 @media (max-width: 480px) {
