@@ -338,7 +338,7 @@ export function getShapeKey(t) {
   if (/^PA[23]/.test(type)) return 'pa24'
   if (/GLIDER|SAILPLANE|^ASK|^ASW/.test(type)) return 'glider'
 
-  return 'a320'
+  return 'jet_swept'
 }
 
 export function getCommonName(t) {

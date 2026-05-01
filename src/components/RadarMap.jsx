@@ -80,11 +80,12 @@ function buildIcon(ac, isSelected) {
   return L.divIcon({ html: svg, iconSize: [sz, sz], iconAnchor: [half, half], className: '' })
 }
 
-function RecenterOnChange({ center }) {
+function RecenterOnChange({ center, centerKey }) {
   const map = useMap()
   useEffect(() => {
     map.setView(center, map.getZoom(), { animate: true })
-  }, [center, map])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [centerKey])
   return null
 }
 
@@ -101,7 +102,7 @@ function TileFilter({ filter }) {
   return null
 }
 
-export default function RadarMap({ aircraft, trails, serverTrails, center, radius, mode, selectedHex, onSelect, activeTileId }) {
+export default function RadarMap({ aircraft, trails, serverTrails, center, centerKey, radius, mode, selectedHex, onSelect, activeTileId }) {
   const initialZoom = mode === 'poland' ? 6 : 8
   const markersRef = useRef({})
   const tileLayer = TILE_LAYERS.find(l => l.id === activeTileId) || TILE_LAYERS[0]
@@ -116,7 +117,7 @@ export default function RadarMap({ aircraft, trails, serverTrails, center, radiu
       >
         <TileLayer key={tileLayer.id} url={tileLayer.url} attribution={tileLayer.attribution} maxZoom={tileLayer.maxZoom} />
         <ZoomControl position="bottomright" />
-        <RecenterOnChange center={center} />
+        <RecenterOnChange center={center} centerKey={centerKey} />
         <MapClickHandler onSelect={onSelect} />
         <TileFilter filter={tileLayer.filter} />
 

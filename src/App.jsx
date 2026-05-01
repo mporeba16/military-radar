@@ -26,6 +26,9 @@ export default function App() {
   const alertedHexRef = useRef(new Set())
   const trailsRef = useRef(new Map())
   const serverTrailFetchedRef = useRef(new Set())
+  const [mapCenterKey, setMapCenterKey] = useState(0)
+  const prevModeRef = useRef(mode)
+  const hasGPSCentered = useRef(false)
 
   const { location, locationError, requestLocation } = useGeolocation()
   const { isSubscribed, isSubscribing, subscribe, permissionState } = usePushNotifications(location, radius)
@@ -64,6 +67,8 @@ export default function App() {
       const currentHexes = new Set(enriched.map(a => a.hex))
       for (const hex of trailsRef.current.keys())
         if (!currentHexes.has(hex)) trailsRef.current.delete(hex)
+      for (const hex of serverTrailFetchedRef.current)
+        if (!currentHexes.has(hex)) serverTrailFetchedRef.current.delete(hex)
       setAircraft(enriched)
       setSelectedHex(prev => (prev && !currentHexes.has(prev) ? null : prev))
       if (mode === 'gps' && location && !isDemo) {
@@ -88,6 +93,23 @@ export default function App() {
     const id = setInterval(fetchData, POLL_INTERVAL)
     return () => clearInterval(id)
   }, [fetchData])
+
+  // Recenter map only on mode switch, not on every GPS update
+  useEffect(() => {
+    if (prevModeRef.current !== mode) {
+      prevModeRef.current = mode
+      hasGPSCentered.current = false
+      setMapCenterKey(k => k + 1)
+    }
+  }, [mode])
+
+  // Recenter once on first GPS fix
+  useEffect(() => {
+    if (mode === 'gps' && location && !hasGPSCentered.current) {
+      hasGPSCentered.current = true
+      setMapCenterKey(k => k + 1)
+    }
+  }, [mode, location])
 
   useEffect(() => {
     if (!selectedHex || serverTrailFetchedRef.current.has(selectedHex)) return
@@ -114,6 +136,7 @@ export default function App() {
         trails={trailsRef}
         serverTrails={serverTrails}
         center={center}
+        centerKey={mapCenterKey}
         radius={mode === 'gps' ? radius : null}
         mode={mode}
         selectedHex={selectedHex}
