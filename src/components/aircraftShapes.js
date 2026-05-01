@@ -259,7 +259,7 @@ export function getShapeKey(t) {
   if (/CH47|CH146|MH47|H47|CHINOOK/.test(type)) return 'chinook'
   if (/AH64|H64|APACHE/.test(type)) return 'apache'
   if (/MI24|MI25|MI35|HIND/.test(type)) return 'mil24'
-  if (/CH53|S61|S64|S65|S92|MH53|HH53|EC225/.test(type)) return 's61'
+  if (/CH53|S61|S64|S65|S92|MH53|HH53|EH10|EH101|MERLIN/.test(type)) return 's61'
   if (/UH60|HH60|SH60|MH60|H60|BLACKHAWK/.test(type)) return 'blackhawk'
   if (/AS365|AS65|EC155|EC55|DAUPHIN/.test(type)) return 'dauphin'
   if (/SA342|GAZELLE/.test(type)) return 'gazelle'
@@ -449,3 +449,108 @@ export function altToColor(altM) {
 
 export const ftToM   = ft => (ft != null && !isNaN(ft)) ? Math.round(ft * 0.3048) : null
 export const knToKmh = kn => kn != null ? Math.round(kn  * 1.852)  : null
+
+// ICAO 24-bit hex → country name, based on ICAO Doc 9303 allocations
+export function countryFromHex(hex) {
+  if (!hex) return null
+  const n = parseInt(hex, 16)
+  if (isNaN(n)) return null
+
+  // Each range: [from, to, name]
+  const ranges = [
+    [0x004000, 0x0043FF, 'Mozambique'],
+    [0x006000, 0x006FFF, 'South Africa'],
+    [0x008000, 0x00FFFF, 'Egypt'],
+    [0x010000, 0x017FFF, 'Liberia'],
+    [0x018000, 0x01FFFF, 'South Sudan'],
+    [0x020000, 0x027FFF, 'Morocco'],
+    [0x028000, 0x02FFFF, 'Tunisia'],
+    [0x030000, 0x033FFF, 'Ethiopia'],
+    [0x035000, 0x0353FF, 'Somalia'],
+    [0x038000, 0x03FFFF, 'Gabon'],
+    [0x040000, 0x047FFF, 'Kenya'],
+    [0x048000, 0x04FFFF, 'Uganda'],
+    [0x050000, 0x057FFF, 'Zambia'],
+    [0x060000, 0x067FFF, 'South Africa'],
+    [0x068000, 0x06FFFF, 'Namibia'],
+    [0x070000, 0x077FFF, 'Nigeria'],
+    [0x080000, 0x087FFF, 'Sudan'],
+    [0x090000, 0x097FFF, 'Tanzania'],
+    [0x098000, 0x09FFFF, 'Ghana'],
+    [0x0A0000, 0x0A7FFF, 'Cameroon'],
+    [0x0A8000, 0x0AFFFF, 'DR Congo'],
+    [0x100000, 0x1FFFFF, 'Russia'],
+    [0x200000, 0x27FFFF, 'India'],
+    [0x280000, 0x28FFFF, 'Singapore'],
+    [0x300000, 0x33FFFF, 'Italy'],
+    [0x340000, 0x37FFFF, 'Spain'],
+    [0x380000, 0x3BFFFF, 'France'],
+    [0x3C0000, 0x3FFFFF, 'Germany'],
+    [0x400000, 0x43FFFF, 'United Kingdom'],
+    [0x440000, 0x447FFF, 'Austria'],
+    [0x448000, 0x44FFFF, 'Belgium'],
+    [0x450000, 0x457FFF, 'Bulgaria'],
+    [0x458000, 0x45FFFF, 'Denmark'],
+    [0x460000, 0x467FFF, 'Finland'],
+    [0x468000, 0x46FFFF, 'Greece'],
+    [0x470000, 0x477FFF, 'Hungary'],
+    [0x478000, 0x47FFFF, 'Norway'],
+    [0x480000, 0x487FFF, 'Netherlands'],
+    [0x488000, 0x48FFFF, 'Poland'],
+    [0x490000, 0x497FFF, 'Portugal'],
+    [0x498000, 0x49FFFF, 'Czech Republic'],
+    [0x4A0000, 0x4AFFFF, 'Romania'],
+    [0x4B0000, 0x4BFFFF, 'Sweden'],
+    [0x4C0000, 0x4C7FFF, 'Switzerland'],
+    [0x4C8000, 0x4C83FF, 'Cyprus'],
+    [0x4CA000, 0x4CAFFF, 'Ireland'],
+    [0x4CC000, 0x4CCFFF, 'Iceland'],
+    [0x4D0000, 0x4DFFFF, 'Turkey'],
+    [0x4E0000, 0x4E7FFF, 'Ukraine'],
+    [0x4E8000, 0x4EFFFF, 'Belarus'],
+    [0x4F0000, 0x4F7FFF, 'Moldova'],
+    [0x500000, 0x5003FF, 'Croatia'],
+    [0x501000, 0x5013FF, 'Croatia'],
+    [0x508000, 0x50FFFF, 'Serbia'],
+    [0x510000, 0x5173FF, 'Slovakia'],
+    [0x518000, 0x51BFFF, 'Slovenia'],
+    [0x600000, 0x6003FF, 'Bahrain'],
+    [0x601000, 0x6013FF, 'Djibouti'],
+    [0x606000, 0x6063FF, 'Iran'],
+    [0x608000, 0x60FFFF, 'Iraq'],
+    [0x610000, 0x617FFF, 'Jordan'],
+    [0x618000, 0x61FFFF, 'Kuwait'],
+    [0x620000, 0x627FFF, 'Lebanon'],
+    [0x628000, 0x62FFFF, 'Libya'],
+    [0x630000, 0x633FFF, 'Saudi Arabia'],
+    [0x634000, 0x637FFF, 'Syria'],
+    [0x638000, 0x63FFFF, 'UAE'],
+    [0x640000, 0x647FFF, 'Qatar'],
+    [0x648000, 0x64FFFF, 'Oman'],
+    [0x650000, 0x657FFF, 'Yemen'],
+    [0x700000, 0x700FFF, 'New Zealand'],
+    [0x710000, 0x71FFFF, 'South Korea'],
+    [0x720000, 0x72FFFF, 'Japan'],
+    [0x730000, 0x737FFF, 'Thailand'],
+    [0x738000, 0x73FFFF, 'Vietnam'],
+    [0x740000, 0x747FFF, 'Pakistan'],
+    [0x760000, 0x7BFFFF, 'China'],
+    [0x7C0000, 0x7FFFFF, 'Australia'],
+    [0x800000, 0x83FFFF, 'India'],
+    [0x840000, 0x87FFFF, 'Japan'],
+    [0x880000, 0x887FFF, 'Bangladesh'],
+    [0x900000, 0x9FFFFF, 'Brazil'],
+    [0xA00000, 0xAFFFFF, 'United States'],
+    [0xC00000, 0xC3FFFF, 'Canada'],
+    [0xC80000, 0xC8FFFF, 'Chile'],
+    [0xC90000, 0xC9FFFF, 'Colombia'],
+    [0xD40000, 0xD7FFFF, 'Mexico'],
+    [0xE40000, 0xE7FFFF, 'Argentina'],
+    [0xE80000, 0xE80FFF, 'NATO/STANAG'],
+  ]
+
+  for (const [lo, hi, name] of ranges) {
+    if (n >= lo && n <= hi) return name
+  }
+  return null
+}

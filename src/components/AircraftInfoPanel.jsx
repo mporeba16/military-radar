@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { altToColor, ftToM, knToKmh, getCommonName } from './aircraftShapes'
+import { altToColor, ftToM, knToKmh, getCommonName, countryFromHex } from './aircraftShapes'
 import './AircraftInfoPanel.css'
 
 function useAircraftPhoto(hex) {
@@ -24,13 +24,15 @@ export default function AircraftInfoPanel({ ac, onClose }) {
   const color = altToColor(altM)
   const commonName = getCommonName(ac.t)
 
+  const country = ac.country || countryFromHex(ac.hex)
+
   const rows = [
     ['Typ',      ac.t ? (commonName ? `${ac.t} · ${commonName}` : ac.t) : '—'],
     ['Wysokość', altM != null ? `${altM.toLocaleString()} m` : '—'],
     ['Prędkość', kmh != null ? `${kmh} km/h` : '—'],
     ['Kurs',     ac.track != null ? `${Math.round(ac.track)}°` : '—'],
-    ac.reg  ? ['Rej.',   ac.reg]          : null,
-    ac.country ? ['Kraj', ac.country]     : null,
+    ac.reg  ? ['Rej.',   ac.reg]      : null,
+    country ? ['Kraj',   country]     : null,
     ['Squawk',   ac.squawk || '—'],
     ['ICAO',     ac.hex],
   ].filter(Boolean)
