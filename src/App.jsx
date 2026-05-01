@@ -107,8 +107,10 @@ export default function App() {
   // Immediate refetch on mode/radius change (not on GPS location change)
   useEffect(() => {
     if (!isMountedRef.current) { isMountedRef.current = true; return }
-    setAircraft([])
-    trailsRef.current.clear()
+    if (prevModeRef.current !== mode) {
+      setAircraft([])
+      trailsRef.current.clear()
+    }
     fetchDataRef.current()
   }, [mode, radius]) // eslint-disable-line react-hooks/exhaustive-deps
 
