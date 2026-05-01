@@ -162,12 +162,15 @@ async function tryOpenSky(lamin, lomin, lamax, lomax) {
 }
 
 function mapADSBfiRecord(a) {
+  // rr_lat/rr_lon = rough receiver position (Mode-S only, less accurate)
+  const lat = a.lat ?? a.rr_lat
+  const lon = a.lon ?? a.rr_lon
   return {
     hex: a.hex,
     flight: (a.flight || a.hex || '').trim(),
     t: a.t || '',
-    lat: a.lat,
-    lon: a.lon,
+    lat,
+    lon,
     alt_baro: (a.alt_baro != null && a.alt_baro !== 'ground') ? a.alt_baro : null,
     gs: a.gs != null ? Math.round(a.gs) : null,
     track: a.track != null ? Math.round(a.track) : null,
@@ -178,9 +181,11 @@ function mapADSBfiRecord(a) {
 }
 
 function isADSBfiRecordInBox(a, lamin, lomin, lamax, lomax) {
-  return a.lat != null && a.lon != null &&
-    a.lat >= lamin && a.lat <= lamax &&
-    a.lon >= lomin && a.lon <= lomax &&
+  const lat = a.lat ?? a.rr_lat
+  const lon = a.lon ?? a.rr_lon
+  return lat != null && lon != null &&
+    lat >= lamin && lat <= lamax &&
+    lon >= lomin && lon <= lomax &&
     a.alt_baro !== 'ground' && !a.on_ground
 }
 
