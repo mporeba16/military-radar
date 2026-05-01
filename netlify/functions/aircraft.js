@@ -226,12 +226,9 @@ export const handler = async (event) => {
 
   const result = await tryADSBfi(lamin, lomin, lamax, lomax)
     || await tryOpenSky(lamin, lomin, lamax, lomax)
-    || { aircraft: mockAircraft(latN, lonN), _demo: true }
+    || { aircraft: [], _source: 'unavailable' }
 
-  // Zapisz pozycje do Netlify Blobs asynchronicznie (nie blokuj odpowiedzi)
-  if (!result._demo) {
-    saveTrails(result.aircraft).catch(() => {})
-  }
+  saveTrails(result.aircraft).catch(() => {})
 
   return {
     statusCode: 200,

@@ -30,7 +30,6 @@ export default function App() {
   const alertedHexRef = useRef(new Set())
   const trailsRef = useRef(new Map())
   const serverTrailFetchedRef = useRef(new Set())
-  const hasRealDataRef = useRef(false)
 
   const { location, locationError, requestLocation } = useGeolocation()
   const { isSubscribed, isSubscribing, subscribe, permissionState } = usePushNotifications(location, radius)
@@ -49,8 +48,6 @@ export default function App() {
         center,
         mode === 'poland' ? 400 : mode === 'europe' ? 2800 : radius
       )
-      if (isDemo && hasRealDataRef.current) return
-      if (!isDemo) hasRealDataRef.current = true
       const enriched = data.map(ac => {
         if (mode === 'gps' && location) {
           const dist = haversine(location.lat, location.lon, ac.lat, ac.lon)
