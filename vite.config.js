@@ -9,11 +9,11 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
       manifest: {
-        name: 'Military Radar',
-        short_name: 'MilRadar',
+        name: 'Radar Wojskowy',
+        short_name: 'Radar PL',
         description: 'Śledzenie wojskowych samolotów w Polsce',
-        theme_color: '#0a1628',
-        background_color: '#0a1628',
+        theme_color: '#080f1c',
+        background_color: '#080f1c',
         display: 'standalone',
         orientation: 'portrait',
         icons: [

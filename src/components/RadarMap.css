@@ -1,26 +1,26 @@
 /* Popup — ciemny motyw zamiast domyślnego białego Leaflet */
 .leaflet-popup-content-wrapper {
-  background: #0f1e35 !important;
-  border: 1px solid #1e3a5f !important;
-  border-radius: 4px !important;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6) !important;
+  background: #0b1828 !important;
+  border: 1px solid #1a3350 !important;
+  border-radius: 5px !important;
+  box-shadow: 0 6px 28px rgba(0, 0, 0, 0.7) !important;
   padding: 0 !important;
 }
 
 .leaflet-popup-content {
   margin: 0 !important;
-  min-width: 190px;
+  min-width: 200px;
 }
 
 .leaflet-popup-tip {
-  background: #0f1e35 !important;
+  background: #0b1828 !important;
 }
 
 .leaflet-popup-close-button {
-  color: #7a9ab5 !important;
+  color: #6a90b0 !important;
   font-size: 18px !important;
-  top: 6px !important;
-  right: 8px !important;
+  top: 7px !important;
+  right: 9px !important;
 }
 
 .leaflet-popup-close-button:hover {
@@ -29,15 +29,15 @@
 
 .popup-inner {
   font-family: 'Courier New', Courier, monospace;
-  padding: 12px 14px 10px;
+  padding: 13px 14px 11px;
 }
 
 .popup-callsign {
   color: #00ff88;
   font-weight: bold;
-  font-size: 15px;
-  margin-bottom: 8px;
-  letter-spacing: 1px;
+  font-size: 16px;
+  margin-bottom: 10px;
+  letter-spacing: 1.5px;
 }
 
 .popup-table {
@@ -47,17 +47,18 @@
 }
 
 .popup-table tr + tr td {
-  padding-top: 3px;
+  padding-top: 4px;
 }
 
 .popup-label {
-  color: #7a9ab5;
-  padding-right: 12px;
+  color: #6a90b0;
+  padding-right: 14px;
   white-space: nowrap;
 }
 
 .popup-val {
-  color: #e0e8f0;
+  color: #dce8f5;
+  font-weight: 500;
 }
 
 /* Zoom control — bottom right */
@@ -67,16 +68,17 @@
 }
 
 .leaflet-control-zoom a {
-  background: rgba(10, 22, 40, 0.92) !important;
-  color: #00ff88 !important;
-  border: 1px solid #1e3a5f !important;
+  background: rgba(4, 10, 20, 0.92) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255,255,255,0.18) !important;
   font-size: 16px !important;
   line-height: 26px !important;
 }
 
 .leaflet-control-zoom a:hover {
-  background: rgba(20, 40, 70, 0.95) !important;
+  background: rgba(10, 25, 45, 0.98) !important;
   border-color: #00ff88 !important;
+  color: #00ff88 !important;
 }
 
 .leaflet-control-zoom-in {
@@ -159,6 +161,32 @@
   cursor: pointer;
 }
 
+.popup-photo-wrap {
+  display: block;
+  margin: 8px -14px;
+  position: relative;
+  overflow: hidden;
+  text-decoration: none;
+}
+
+.popup-photo {
+  width: 100%;
+  display: block;
+  max-height: 140px;
+  object-fit: cover;
+}
+
+.popup-photo-credit {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.55);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 9px;
+  padding: 2px 5px;
+  letter-spacing: 0.3px;
+}
+
 .popup-adsbx-link {
   display: block;
   margin-top: 10px;
@@ -199,15 +227,16 @@
   z-index: 1000;
   pointer-events: none;
   font-family: 'Courier New', monospace;
-  background: rgba(10, 22, 40, 0.85);
-  border: 1px solid #1e3a5f;
+  background: rgba(4, 10, 20, 0.88);
+  border: 1px solid rgba(255,255,255,0.12);
   padding: 6px 8px 5px;
   border-radius: 3px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.5);
 }
 
 .alt-legend-title {
   font-size: 9px;
-  color: rgba(255,255,255,0.45);
+  color: rgba(255,255,255,0.9);
   letter-spacing: 1px;
   margin-bottom: 4px;
 }
@@ -229,7 +258,7 @@
 .alt-legend-labels span {
   position: absolute;
   font-size: 9px;
-  color: rgba(255,255,255,0.5);
+  color: rgba(255,255,255,0.9);
   transform: translateX(-50%);
 }
 

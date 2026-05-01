@@ -1,39 +1,40 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import RadarMap from './components/RadarMap'
-import ControlPanel from './components/ControlPanel'
+import RadarMap, { TILE_LAYERS } from './components/RadarMap'
 import AircraftList from './components/AircraftList'
-import StatusBar from './components/StatusBar'
+import AuthScreen from './components/AuthScreen'
 import { useGeolocation } from './hooks/useGeolocation'
 import { usePushNotifications } from './hooks/usePushNotifications'
+import { useAuth } from './hooks/useAuth'
 import { fetchMilitaryAircraft } from './api'
 import './App.css'
 
 const POLAND_CENTER = [52.0, 19.5]
 const EUROPE_CENTER = [52.0, 15.0]
 const POLL_INTERVAL = 5_000
-const TRAIL_MIN_INTERVAL_MS = 20_000  // nowy punkt trasy co min. 20s
-const TRAIL_MAX_AGE_MS = 15 * 60 * 1000  // 15 minut historii
+const TRAIL_MIN_INTERVAL_MS = 20_000
+const TRAIL_MAX_AGE_MS = 15 * 60 * 1000
 
 export default function App() {
+  const { user, loading: authLoading, login, logout } = useAuth()
   const [aircraft, setAircraft] = useState([])
-  const [lastUpdate, setLastUpdate] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
   const [dataSource, setDataSource] = useState(null)
   const [mode, setMode] = useState('gps')
   const [radius, setRadius] = useState(100)
   const [selectedHex, setSelectedHex] = useState(null)
-  const [serverTrails, setServerTrails] = useState(new Map()) // hex → [{lat,lon,alt,ts}] from Netlify Blobs
+  const [serverTrails, setServerTrails] = useState(new Map())
+  const [activePanel, setActivePanel] = useState(null)
+  const [activeTileId, setActiveTileId] = useState('osm-adsbx')
 
   const alertedHexRef = useRef(new Set())
-  const trailsRef = useRef(new Map()) // hex → [{lat,lon,alt,ts}]
-  const serverTrailFetchedRef = useRef(new Set()) // hexes we've already fetched server trail for
+  const trailsRef = useRef(new Map())
+  const serverTrailFetchedRef = useRef(new Set())
 
   const { location, locationError, requestLocation } = useGeolocation()
   const { isSubscribed, isSubscribing, subscribe, permissionState } = usePushNotifications(location, radius)
   const pollRef = useRef(null)
 
-  // Bug 1 fix: memoize center by value so array identity stays stable
   const center = useMemo(() => {
     if (mode === 'poland') return POLAND_CENTER
     if (mode === 'europe') return EUROPE_CENTER
@@ -49,7 +50,6 @@ export default function App() {
         mode === 'poland' ? 400 : mode === 'europe' ? 2800 : radius
       )
 
-      // Bug 3 fix: mark aircraft within radius
       const enriched = data.map(ac => {
         if (mode === 'gps' && location) {
           const dist = haversine(location.lat, location.lon, ac.lat, ac.lon)
@@ -58,7 +58,6 @@ export default function App() {
         return ac
       })
 
-      // Update trails
       const now = Date.now()
       enriched.forEach(ac => {
         if (ac.lat == null || ac.lon == null) return
@@ -77,8 +76,6 @@ export default function App() {
 
       setAircraft(enriched)
       setDataSource(isDemo ? 'demo' : source)
-      setLastUpdate(new Date())
-
       setSelectedHex(prev => (prev && !currentHexes.has(prev) ? null : prev))
 
       if (mode === 'gps' && location && !isDemo) {
@@ -97,7 +94,7 @@ export default function App() {
     } finally {
       setIsLoading(false)
     }
-  }, [center, radius, mode, location]) // no alertedHex in deps — Bug 1 fix
+  }, [center, radius, mode, location])
 
   useEffect(() => {
     fetchData()
@@ -121,59 +118,163 @@ export default function App() {
       .catch(() => {})
   }, [selectedHex])
 
+  function togglePanel(name) {
+    setActivePanel(p => p === name ? null : name)
+  }
+
+  if (authLoading) return null
+  if (!user) return <AuthScreen onLogin={login} />
+
   return (
     <div className="app">
-      <header className="app-header">
-        <div className="header-brand">
-          <span className="radar-icon">◎</span>
-          <span className="brand-name">MILITARY RADAR</span>
-          <span className="brand-sub">PL</span>
+      <RadarMap
+        aircraft={aircraft}
+        trails={trailsRef}
+        serverTrails={serverTrails}
+        center={center}
+        radius={mode === 'gps' ? radius : null}
+        mode={mode}
+        selectedHex={selectedHex}
+        onSelect={setSelectedHex}
+        activeTileId={activeTileId}
+      />
+
+      {/* Logo overlay */}
+      <div className="map-logo">
+        <span className="map-logo-icon">◎</span>
+        <span className="map-logo-name">RADAR WOJSKOWY</span>
+        {dataSource === 'demo' && <span className="map-logo-demo">DEMO</span>}
+        {isLoading && <span className="map-logo-spinner">◌</span>}
+        <button className="map-logo-logout" onClick={logout} title="Wyloguj">⏻</button>
+      </div>
+
+      {/* Control buttons */}
+      <div className="map-ctrl-btns">
+        <button
+          className={`map-ctrl-btn ${activePanel === 'tryby' ? 'active' : ''}`}
+          onClick={() => togglePanel('tryby')}
+        >Tryb</button>
+        <button
+          className={`map-ctrl-btn ${activePanel === 'powiadomienia' ? 'active' : ''} ${isSubscribed ? 'subscribed' : ''}`}
+          onClick={() => togglePanel('powiadomienia')}
+        >Powiadomienia</button>
+        <button
+          className={`map-ctrl-btn ${activePanel === 'obiekty' ? 'active' : ''}`}
+          onClick={() => togglePanel('obiekty')}
+        >Obiekty<span className="btn-count">{aircraft.length}</span></button>
+        <button
+          className={`map-ctrl-btn ${activePanel === 'mapy' ? 'active' : ''}`}
+          onClick={() => togglePanel('mapy')}
+        >Mapy</button>
+      </div>
+
+      {/* Side panel */}
+      {activePanel && (
+        <div className="side-panel">
+          <div className="side-panel-header">
+            <span className="side-panel-title">
+              {activePanel === 'tryby' && 'TRYB'}
+              {activePanel === 'powiadomienia' && 'POWIADOMIENIA'}
+              {activePanel === 'obiekty' && `OBIEKTY (${aircraft.length})`}
+              {activePanel === 'mapy' && 'MAPY'}
+            </span>
+            <button className="side-panel-close" onClick={() => setActivePanel(null)}>✕</button>
+          </div>
+
+          {activePanel === 'tryby' && (
+            <div className="panel-body">
+              <section className="cp-section">
+                <div className="cp-label">TRYB</div>
+                <div className="btn-group">
+                  <button className={`btn-mode ${mode === 'gps' ? 'active' : ''}`}
+                    onClick={() => { setMode('gps'); if (!location) requestLocation() }}>GPS</button>
+                  <button className={`btn-mode ${mode === 'poland' ? 'active' : ''}`}
+                    onClick={() => setMode('poland')}>Polska</button>
+                  <button className={`btn-mode ${mode === 'europe' ? 'active' : ''}`}
+                    onClick={() => setMode('europe')}>Europa</button>
+                </div>
+                {mode === 'gps' && (
+                  <div className="gps-status">
+                    {location
+                      ? <span className="ok">◉ {location.lat.toFixed(3)}°N {location.lon.toFixed(3)}°E</span>
+                      : locationError
+                        ? <span className="err">✗ {locationError}</span>
+                        : <button className="link-btn" onClick={requestLocation}>Pobierz lokalizację</button>
+                    }
+                  </div>
+                )}
+              </section>
+
+              {mode === 'gps' && (
+                <section className="cp-section">
+                  <div className="cp-label">ZASIĘG: {radius} km</div>
+                  <input type="range" min="25" max="500" step="25" value={radius}
+                    onChange={e => setRadius(Number(e.target.value))} className="range-slider" />
+                  <div className="range-marks">
+                    <span>25</span><span>100</span><span>250</span><span>500</span>
+                  </div>
+                </section>
+              )}
+
+              <section className="cp-section cp-refresh">
+                <button className="btn-refresh" onClick={fetchData}>↻ Odśwież teraz</button>
+                <span className="info-text">Auto co 5s</span>
+              </section>
+
+              {error && <p className="err" style={{ fontSize: 11, marginTop: 8 }}>✗ {error}</p>}
+            </div>
+          )}
+
+          {activePanel === 'powiadomienia' && (
+            <div className="panel-body">
+              <section className="cp-section">
+                <div className="cp-label">PUSH NOTIFICATIONS</div>
+                {permissionState === 'unsupported'
+                  ? <p className="info-text">Przeglądarka nie obsługuje push notifications.</p>
+                  : permissionState === 'denied'
+                    ? <p className="err" style={{ fontSize: 11 }}>✗ Zablokowane — odblokuj w ustawieniach przeglądarki</p>
+                    : isSubscribed
+                      ? <p className="ok">◉ Powiadomienia aktywne</p>
+                      : <button className="btn-subscribe" onClick={subscribe} disabled={isSubscribing}>
+                          {isSubscribing ? '◌ Łączenie…' : 'Włącz powiadomienia'}
+                        </button>
+                }
+              </section>
+              <p className="info-text" style={{ marginTop: 4 }}>
+                Otrzymasz alert gdy wojskowy samolot znajdzie się w wybranym zasięgu GPS, nawet gdy aplikacja jest zamknięta.
+              </p>
+            </div>
+          )}
+
+          {activePanel === 'obiekty' && (
+            <AircraftList
+              aircraft={aircraft}
+              userLocation={location}
+              selectedHex={selectedHex}
+              onSelect={(hex) => { setSelectedHex(hex); setActivePanel(null) }}
+              mode={mode}
+            />
+          )}
+
+          {activePanel === 'mapy' && (
+            <div className="panel-body">
+              <div className="cp-label">WYBIERZ MAPĘ</div>
+              <div className="map-layer-list">
+                {TILE_LAYERS.map(layer => (
+                  <button
+                    key={layer.id}
+                    className={`map-layer-item ${activeTileId === layer.id ? 'active' : ''}`}
+                    onClick={() => setActiveTileId(layer.id)}
+                  >
+                    <span className="map-layer-name">{layer.name}</span>
+                    {activeTileId === layer.id && <span className="map-layer-check">◉</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
-        <StatusBar
-          lastUpdate={lastUpdate}
-          isLoading={isLoading}
-          error={error}
-          count={aircraft.length}
-          source={dataSource}
-        />
-      </header>
-
-      <main className="app-body">
-        <RadarMap
-          aircraft={aircraft}
-          trails={trailsRef}
-          serverTrails={serverTrails}
-          center={center}
-          radius={mode === 'gps' ? radius : null}
-          mode={mode}
-          selectedHex={selectedHex}
-          onSelect={setSelectedHex}
-        />
-
-        <aside className="sidebar">
-          <ControlPanel
-            mode={mode}
-            setMode={setMode}
-            radius={radius}
-            setRadius={setRadius}
-            location={location}
-            locationError={locationError}
-            requestLocation={requestLocation}
-            isSubscribed={isSubscribed}
-            isSubscribing={isSubscribing}
-            subscribe={subscribe}
-            permissionState={permissionState}
-            onRefresh={fetchData}
-          />
-          <AircraftList
-            aircraft={aircraft}
-            userLocation={location}
-            selectedHex={selectedHex}
-            onSelect={setSelectedHex}
-            mode={mode}
-          />
-        </aside>
-      </main>
+      )}
     </div>
   )
 }

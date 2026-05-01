@@ -5,15 +5,15 @@
 }
 
 :root {
-  --bg-deep: #0a1628;
-  --bg-panel: #0f1e35;
-  --bg-card: #142240;
+  --bg-deep: #080f1c;
+  --bg-panel: #0d1a2e;
+  --bg-card: #112035;
   --accent: #00ff88;
   --accent-dim: #00cc6a;
-  --warning: #ff6b35;
-  --text: #e0e8f0;
-  --text-dim: #7a9ab5;
-  --border: #1e3a5f;
+  --warning: #ff7043;
+  --text: #dce8f5;
+  --text-dim: #6a90b0;
+  --border: #1a3350;
   --radar-green: #00ff88;
 }
 

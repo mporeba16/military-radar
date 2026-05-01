@@ -12,14 +12,14 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 })
 
-const TILE_LAYERS = [
+export const TILE_LAYERS = [
   {
     id: 'osm-adsbx',
     name: 'OSM ADSBx',
     url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     maxZoom: 19,
-    filter: 'saturate(0.65) brightness(0.60) contrast(1.1)',
+    filter: 'saturate(0.55) brightness(0.54) contrast(1.1)',
   },
   {
     id: 'carto-voyager',
@@ -137,63 +137,15 @@ function TileFilter({ filter }) {
 }
 
 
-function LayerPicker({ activeId, onChange }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef(null)
 
-  useEffect(() => {
-    if (!open) return
-    function handleOutside(e) {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
-    }
-    document.addEventListener('mousedown', handleOutside)
-    return () => document.removeEventListener('mousedown', handleOutside)
-  }, [open])
 
-  const active = TILE_LAYERS.find(l => l.id === activeId)
-
-  return (
-    <div className="layer-picker" ref={ref}>
-      <button className="layer-picker-btn" onClick={() => setOpen(o => !o)}>
-        ⊞ {active?.name}
-      </button>
-      {open && (
-        <div className="layer-picker-panel">
-          <div className="layer-picker-title">MAPA</div>
-          {TILE_LAYERS.map(layer => (
-            <label
-              key={layer.id}
-              className={`layer-option ${activeId === layer.id ? 'active' : ''}`}
-            >
-              <input
-                type="radio"
-                name="tileLayer"
-                checked={activeId === layer.id}
-                onChange={() => { onChange(layer.id); setOpen(false) }}
-              />
-              {layer.name}
-            </label>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function pluralPL(n, one, few, many) {
-  if (n === 1) return one
-  if (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) return few
-  return many
-}
-
-export default function RadarMap({ aircraft, trails, serverTrails, center, radius, mode, selectedHex, onSelect }) {
+export default function RadarMap({ aircraft, trails, serverTrails, center, radius, mode, selectedHex, onSelect, activeTileId }) {
   const initialZoom = mode === 'poland' ? 6 : 8
   const markersRef = useRef({})
-  const [activeTileId, setActiveTileId] = useState('osm-adsbx')
   const tileLayer = TILE_LAYERS.find(l => l.id === activeTileId) || TILE_LAYERS[0]
 
   return (
-    <div style={{ flex: 1, position: 'relative' }}>
+    <div style={{ position: 'absolute', inset: 0 }}>
       <MapContainer
         center={center}
         zoom={initialZoom}
@@ -262,49 +214,38 @@ export default function RadarMap({ aircraft, trails, serverTrails, center, radiu
         ))}
       </MapContainer>
 
-      <LayerPicker activeId={activeTileId} onChange={setActiveTileId} />
       <AltitudeLegend />
-
-      <div className="map-overlay-count">
-        {aircraft.length} {pluralPL(aircraft.length, 'obiekt', 'obiekty', 'obiektów')}
-      </div>
     </div>
   )
 }
 
-function useFlightRoute(callsign) {
-  const [route, setRoute] = useState(null)
+function useAircraftPhoto(hex) {
+  const [photo, setPhoto] = useState(null)
   useEffect(() => {
-    if (!callsign || callsign.length < 3) return
-    setRoute(null)
+    if (!hex) return
+    setPhoto(null)
     let cancelled = false
-    fetch(`https://api.adsbdb.com/v0/callsign/${callsign.trim()}`)
+    fetch(`https://api.planespotters.net/pub/photos/hex/${hex}`)
       .then(r => r.json())
       .then(data => {
-        if (!cancelled && data?.response?.flightroute) setRoute(data.response.flightroute)
+        if (!cancelled && data?.photos?.length) setPhoto(data.photos[0])
       })
       .catch(() => {})
     return () => { cancelled = true }
-  }, [callsign])
-  return route
+  }, [hex])
+  return photo
 }
 
-function formatAirport(ap) {
-  if (!ap) return null
-  const iata = ap.iata_code && ap.iata_code !== 'N/A' ? ap.iata_code : ap.icao_code
-  return `${iata} · ${ap.municipality || ap.name}`
-}
 
 function AircraftPopup({ ac }) {
   const altM = ftToM(ac.alt_baro)
   const kmh = knToKmh(ac.gs)
   const color = altToColor(altM)
-  const route = useFlightRoute(ac.flight)
+  const photo = useAircraftPhoto(ac.hex)
 
   const commonName = getCommonName(ac.t)
   const rows = [
     ['Typ',      ac.t ? (commonName ? `${ac.t} · ${commonName}` : ac.t) : '—'],
-    ['Skąd',     formatAirport(route?.origin) || '—'],
     ['Wys.',     altM != null ? `${altM.toLocaleString()} m` : '—'],
     ['Prędkość', kmh != null ? `${kmh} km/h` : '—'],
     ['Kurs',     ac.track != null ? `${Math.round(ac.track)}°` : '—'],
@@ -318,6 +259,23 @@ function AircraftPopup({ ac }) {
       <div className="popup-callsign" style={{ color }}>
         {ac.flight?.trim() || ac.hex}
       </div>
+
+      {photo && (
+        <a
+          className="popup-photo-wrap"
+          href={photo.link}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <img
+            src={photo.thumbnail_large?.src || photo.thumbnail?.src}
+            alt={ac.flight || ac.hex}
+            className="popup-photo"
+          />
+          <span className="popup-photo-credit">© {photo.photographer}</span>
+        </a>
+      )}
+
       <table className="popup-table">
         <tbody>
           {rows.map(([label, val]) => (
@@ -359,7 +317,7 @@ function AltitudeLegend() {
 
   return (
     <div className="alt-legend">
-      <div className="alt-legend-title">ALTITUDE (m)</div>
+      <div className="alt-legend-title">WYSOKOŚĆ (m)</div>
       <div className="alt-legend-bar" style={{ background: gradient }} />
       <div className="alt-legend-labels">
         {ticks.map(m => (
