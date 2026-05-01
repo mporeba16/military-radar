@@ -41,8 +41,6 @@ const MILITARY_HEX_PREFIXES = [
   '47a', '47b',
   // Norwegia wojsko (478xxx)
   '478',
-  // Włochy wojsko (górny zakres 33x)
-  '33f',
   // Jordania wojsko (74x)
   '743', '744',
 ]
@@ -88,37 +86,36 @@ const MILITARY_CALLSIGN_PATTERNS = [
   /^SWORD/i,  // USAF
   /^VALOR/i,  // USAF
   /^HEAVY/i,  // USAF tankers
-  /^SAVER/i,  // Norwegian Air Force (Luftforsvaret)
-  /^RIMC/i,   // Italian military (Aeronautica Militare / Marina Militare)
-  /^SRA/i,    // Saudi Royal Air Force
-  /^SHAHD/i,  // Jordan Royal Air Force
-  /^JAKE/i,   // USAF
-  /^ZEUS/i,   // USAF
-  /^BISON/i,  // USAF
-  /^COLT/i,   // USAF
-  /^ANVIL/i,  // USAF
-  /^EAGLE/i,  // USAF
-  /^VIPER/i,  // USAF
-  /^DEMON/i,  // USAF
-  /^DRAGON/i, // various NATO
-  /^KNIGHT/i, // USAF
-  /^SHADOW/i, // USAF ISR
-  /^GHOST/i,  // USAF
-  /^RAVEN/i,  // USAF
+  /^SAVER/i,    // Norwegian Air Force (Luftforsvaret)
+  /^RIMC/i,     // Italian military (Aeronautica Militare / Marina Militare)
+  /^SRA/i,      // Saudi Royal Air Force
+  /^SHAHD/i,    // Jordan Royal Air Force
+  /^ZEUS/i,     // USAF
+  /^BISON/i,    // USAF
+  /^COLT/i,     // USAF
+  /^ANVIL/i,    // USAF
+  /^EAGLE\d/i,  // USAF (z cyfra — odróżnienie od Eagle Air)
+  /^VIPER/i,    // USAF
+  /^DEMON/i,    // USAF
+  /^DRAGON\d/i, // NATO (z cyfra — odróżnienie od Dragonair)
+  /^KNIGHT/i,   // USAF
+  /^SHADOW/i,   // USAF ISR
+  /^GHOST/i,    // USAF
+  /^RAVEN/i,    // USAF
   /^STALLION/i, // USAF/USMC
-  /^RANGER/i, // USAF
-  /^LANCE/i,  // NATO
-  /^SHIELD/i, // NATO
-  /^TIGER/i,  // NATO exercise callsign
-  /^VENOM/i,  // USAF
-  /^SPECTRE/i, // USAF AC-130
-  /^SPOOKY/i, // USAF AC-130
-  /^PSYCHO/i, // USAF
-  /^JOLLY/i,  // USAF CSAR
-  /^PEDRO/i,  // USAF CSAR
-  /^KING/i,   // USAF tanker/CSAR
-  /^PAVE/i,   // USAF special ops
-  /^COMBAT/i, // USAF
+  /^RANGER\d/i, // USAF (z cyfra — odróżnienie od Ranger Air)
+  /^LANCE/i,    // NATO
+  /^SHIELD/i,   // NATO
+  /^TIGER\d/i,  // NATO (z cyfra — odróżnienie od Tiger Airways)
+  /^VENOM/i,    // USAF
+  /^SPECTRE/i,  // USAF AC-130
+  /^SPOOKY/i,   // USAF AC-130
+  /^PSYCHO/i,   // USAF
+  /^JOLLY/i,    // USAF CSAR
+  /^PEDRO/i,    // USAF CSAR
+  /^KING\d/i,   // USAF tanker/CSAR (z cyfra — odróżnienie od King Airlines)
+  /^PAVE/i,     // USAF special ops
+  /^COMBAT/i,   // USAF
 ]
 
 // Callsigny cywilnych linii — wyklucz nawet jeśli hex pasuje
