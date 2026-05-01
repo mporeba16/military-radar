@@ -47,15 +47,12 @@
   color: #ffffff;
 }
 
-.map-logo-demo {
+.map-logo-error {
   font-family: 'Courier New', monospace;
-  font-size: 9px;
-  letter-spacing: 1.5px;
-  color: #ff7043;
-  border: 1px solid rgba(255, 112, 67, 0.6);
-  background: rgba(255, 112, 67, 0.15);
-  padding: 2px 6px;
-  border-radius: 2px;
+  font-size: 12px;
+  font-weight: bold;
+  color: #ff6b6b;
+  animation: pulse 1s ease-in-out infinite;
 }
 
 .map-logo-spinner {
@@ -64,21 +61,6 @@
   animation: spin 1s linear infinite;
 }
 
-.map-logo-logout {
-  background: none;
-  border: none;
-  color: rgba(255, 255, 255, 0.35);
-  font-size: 14px;
-  cursor: pointer;
-  padding: 0 0 0 4px;
-  line-height: 1;
-  transition: color 0.15s;
-  pointer-events: all;
-}
-
-.map-logo-logout:hover {
-  color: #ff6b6b;
-}
 
 @keyframes spin {
   from { transform: rotate(0deg); }
@@ -144,20 +126,6 @@
   color: #00ff88;
 }
 
-.btn-count {
-  background: #00ff88;
-  color: #040a14;
-  font-size: 10px;
-  font-weight: bold;
-  min-width: 18px;
-  height: 18px;
-  border-radius: 9px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 4px;
-  line-height: 1;
-}
 
 /* Side panel */
 .side-panel {
@@ -408,26 +376,6 @@
   color: var(--accent);
 }
 
-.panel-input {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 3px;
-  padding: 9px 10px;
-  color: #ffffff;
-  font-family: 'Courier New', monospace;
-  font-size: 12px;
-  outline: none;
-  transition: border-color 0.15s;
-  width: 100%;
-}
-
-.panel-input:focus {
-  border-color: rgba(0, 255, 136, 0.5);
-}
-
-.panel-input::placeholder {
-  color: rgba(255, 255, 255, 0.25);
-}
 
 @media (max-width: 480px) {
   .side-panel {

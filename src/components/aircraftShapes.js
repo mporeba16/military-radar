@@ -554,3 +554,32 @@ export function countryFromHex(hex) {
   }
   return null
 }
+
+const FLAG_MAP = {
+  'Afghanistan': '🇦🇫', 'Albania': '🇦🇱', 'Algeria': '🇩🇿', 'Argentina': '🇦🇷',
+  'Australia': '🇦🇺', 'Austria': '🇦🇹', 'Bahrain': '🇧🇭', 'Bangladesh': '🇧🇩',
+  'Belarus': '🇧🇾', 'Belgium': '🇧🇪', 'Brazil': '🇧🇷', 'Bulgaria': '🇧🇬',
+  'Cameroon': '🇨🇲', 'Canada': '🇨🇦', 'Chile': '🇨🇱', 'China': '🇨🇳',
+  'Colombia': '🇨🇴', 'Croatia': '🇭🇷', 'Cyprus': '🇨🇾', 'Czech Republic': '🇨🇿',
+  'Denmark': '🇩🇰', 'Djibouti': '🇩🇯', 'DR Congo': '🇨🇩', 'Egypt': '🇪🇬',
+  'Estonia': '🇪🇪', 'Ethiopia': '🇪🇹', 'Finland': '🇫🇮', 'France': '🇫🇷',
+  'Gabon': '🇬🇦', 'Germany': '🇩🇪', 'Ghana': '🇬🇭', 'Greece': '🇬🇷',
+  'Hungary': '🇭🇺', 'Iceland': '🇮🇸', 'India': '🇮🇳', 'Indonesia': '🇮🇩',
+  'Iran': '🇮🇷', 'Iraq': '🇮🇶', 'Ireland': '🇮🇪', 'Israel': '🇮🇱',
+  'Italy': '🇮🇹', 'Japan': '🇯🇵', 'Jordan': '🇯🇴', 'Kenya': '🇰🇪',
+  'Kuwait': '🇰🇼', 'Latvia': '🇱🇻', 'Lebanon': '🇱🇧', 'Liberia': '🇱🇷',
+  'Libya': '🇱🇾', 'Lithuania': '🇱🇹', 'Luxembourg': '🇱🇺', 'Malta': '🇲🇹',
+  'Mexico': '🇲🇽', 'Moldova': '🇲🇩', 'Morocco': '🇲🇦', 'Mozambique': '🇲🇿',
+  'Namibia': '🇳🇦', 'NATO/STANAG': '🔵', 'Netherlands': '🇳🇱', 'New Zealand': '🇳🇿',
+  'Nigeria': '🇳🇬', 'Norway': '🇳🇴', 'Oman': '🇴🇲', 'Pakistan': '🇵🇰',
+  'Poland': '🇵🇱', 'Portugal': '🇵🇹', 'Qatar': '🇶🇦', 'Romania': '🇷🇴',
+  'Russia': '🇷🇺', 'Saudi Arabia': '🇸🇦', 'Serbia': '🇷🇸', 'Singapore': '🇸🇬',
+  'Slovakia': '🇸🇰', 'Slovenia': '🇸🇮', 'Somalia': '🇸🇴', 'South Africa': '🇿🇦',
+  'South Korea': '🇰🇷', 'South Sudan': '🇸🇸', 'Spain': '🇪🇸', 'Sudan': '🇸🇩',
+  'Sweden': '🇸🇪', 'Switzerland': '🇨🇭', 'Syria': '🇸🇾', 'Tanzania': '🇹🇿',
+  'Thailand': '🇹🇭', 'Tunisia': '🇹🇳', 'Turkey': '🇹🇷', 'UAE': '🇦🇪',
+  'Uganda': '🇺🇬', 'Ukraine': '🇺🇦', 'United Kingdom': '🇬🇧', 'United States': '🇺🇸',
+  'Vietnam': '🇻🇳', 'Yemen': '🇾🇪', 'Zambia': '🇿🇲', 'Zimbabwe': '🇿🇼',
+}
+
+export const countryFlag = (country) => FLAG_MAP[country] || ''

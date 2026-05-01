@@ -29,6 +29,8 @@ export default function App() {
   const [mapCenterKey, setMapCenterKey] = useState(0)
   const prevModeRef = useRef(mode)
   const hasGPSCentered = useRef(false)
+  const isMountedRef = useRef(false)
+  const fetchDataRef = useRef(null)
 
   const { location, locationError, requestLocation } = useGeolocation()
   const { isSubscribed, isSubscribing, subscribe, permissionState } = usePushNotifications(location, radius)
@@ -88,11 +90,21 @@ export default function App() {
     }
   }, [center, radius, mode, location])
 
+  // Keep ref fresh so stable interval always calls latest closure
+  fetchDataRef.current = fetchData
+
+  // Stable interval — never restarts on GPS location updates
   useEffect(() => {
-    fetchData()
-    const id = setInterval(fetchData, POLL_INTERVAL)
+    fetchDataRef.current()
+    const id = setInterval(() => fetchDataRef.current(), POLL_INTERVAL)
     return () => clearInterval(id)
-  }, [fetchData])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Immediate refetch on mode/radius change (not on GPS location change)
+  useEffect(() => {
+    if (!isMountedRef.current) { isMountedRef.current = true; return }
+    fetchDataRef.current()
+  }, [mode, radius]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Recenter map only on mode switch, not on every GPS update
   useEffect(() => {
@@ -140,15 +152,19 @@ export default function App() {
         radius={mode === 'gps' ? radius : null}
         mode={mode}
         selectedHex={selectedHex}
-        onSelect={setSelectedHex}
+        onSelect={hex => { setSelectedHex(hex); if (hex) setActivePanel(null) }}
         activeTileId={activeTileId}
       />
+
+      {/* Aircraft count — bottom left */}
+      <div className="map-overlay-count">{aircraft.length} OBJ</div>
 
       {/* Logo — top left */}
       <div className="map-logo">
         <span className="map-logo-icon">◎</span>
         <span className="map-logo-name">RADAR WOJSKOWY</span>
         {isLoading && <span className="map-logo-spinner">◌</span>}
+        {error && !isLoading && <span className="map-logo-error" title={error}>!</span>}
       </div>
 
       {/* Aircraft info panel — left, below logo */}
