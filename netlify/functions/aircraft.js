@@ -82,6 +82,36 @@ const MILITARY_CALLSIGN_PATTERNS = [
   /^SWORD/i,  // USAF
   /^VALOR/i,  // USAF
   /^HEAVY/i,  // USAF tankers
+  /^SAVER/i,  // USAF Combat Search and Rescue
+  /^RIMC/i,   // Royal Irish Military Corps
+  /^SHAHD/i,  // Arab/Middle East military (partner nations)
+  /^JAKE/i,   // USAF
+  /^ZEUS/i,   // USAF
+  /^BISON/i,  // USAF
+  /^COLT/i,   // USAF
+  /^ANVIL/i,  // USAF
+  /^EAGLE/i,  // USAF
+  /^VIPER/i,  // USAF
+  /^DEMON/i,  // USAF
+  /^DRAGON/i, // various NATO
+  /^KNIGHT/i, // USAF
+  /^SHADOW/i, // USAF ISR
+  /^GHOST/i,  // USAF
+  /^RAVEN/i,  // USAF
+  /^STALLION/i, // USAF/USMC
+  /^RANGER/i, // USAF
+  /^LANCE/i,  // NATO
+  /^SHIELD/i, // NATO
+  /^TIGER/i,  // NATO exercise callsign
+  /^VENOM/i,  // USAF
+  /^SPECTRE/i, // USAF AC-130
+  /^SPOOKY/i, // USAF AC-130
+  /^PSYCHO/i, // USAF
+  /^JOLLY/i,  // USAF CSAR
+  /^PEDRO/i,  // USAF CSAR
+  /^KING/i,   // USAF tanker/CSAR
+  /^PAVE/i,   // USAF special ops
+  /^COMBAT/i, // USAF
 ]
 
 // Callsigny cywilnych linii — wyklucz nawet jeśli hex pasuje
