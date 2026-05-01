@@ -302,7 +302,7 @@ export function getShapeKey(t) {
   if (/^C2$|^E2$|HAWKEYE|GREYHOUND/.test(type)) return 'c2'
   if (/RC135|EP3|JSTARS|SENTINEL/.test(type)) return 'b707'
   if (/KC135|KC46|KC10|MRTT|A330MRT/.test(type)) return 'heavy_2e'
-  if (/C130|C13J|C160|AN12|HERCULES/.test(type)) return 'c130'
+  if (/C130|C13J|C30J|C160|AN12|HERCULES/.test(type)) return 'c130'
   if (/A400|A400M/.test(type)) return 'a400'
 
   // Business jets (swept-wing twin-engine)
@@ -333,7 +333,7 @@ export function getShapeKey(t) {
   if (/M28|SKYTRUCK|BRYZA/.test(type)) return 'single_turbo'
   if (/ATR|PC6|CARAVAN|C208/.test(type)) return 'single_turbo'
   if (/KINGAIR|PC12|DHC8|DASH8|BE20|BE9|C12/.test(type)) return 'twin_small'
-  if (/CESSNA|C172|C182|C152/.test(type)) return 'cessna'
+  if (/CESSNA|C172|C182|C152|G115|G120|G140|SF260|SF50|PZL130|TB[0-9]|TB20|TB21/.test(type)) return 'cessna'
   if (/CIRRUS|SR22|SR20/.test(type)) return 'cirrus_sr22'
   if (/^PA[23]/.test(type)) return 'pa24'
   if (/GLIDER|SAILPLANE|^ASK|^ASW/.test(type)) return 'glider'
