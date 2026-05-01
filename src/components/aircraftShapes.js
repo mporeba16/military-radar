@@ -302,8 +302,18 @@ export function getShapeKey(t) {
   if (/^C2$|^E2$|HAWKEYE|GREYHOUND/.test(type)) return 'c2'
   if (/RC135|EP3|JSTARS|SENTINEL/.test(type)) return 'b707'
   if (/KC135|KC46|KC10|MRTT|A330MRT/.test(type)) return 'heavy_2e'
-  if (/C130|C160|AN12|HERCULES/.test(type)) return 'c130'
+  if (/C130|C13J|C160|AN12|HERCULES/.test(type)) return 'c130'
   if (/A400|A400M/.test(type)) return 'a400'
+
+  // Business jets (swept-wing twin-engine)
+  if (/^GL[5-9]T|^GLEX|^GLXS/.test(type)) return 'jet_swept'     // Bombardier Global 5000-7500
+  if (/^CL[36][05]|^CL30/.test(type)) return 'jet_swept'          // Bombardier Challenger 300/600
+  if (/GLF[3-9]/.test(type)) return 'jet_swept'                   // Gulfstream III-VI (old codes)
+  if (/^G[2-9][05]0$|^G[2-9][0-9][0-9]$/.test(type)) return 'jet_swept'  // Gulfstream G280-G800
+  if (/^F900|^FA7X|^FA50|^F2TH/.test(type)) return 'jet_swept'   // Dassault Falcon
+  if (/^LJ[2-9][0-9]/.test(type)) return 'jet_swept'              // Learjet
+  if (/^H25[A-Z]|^HAWKER/.test(type)) return 'jet_swept'          // Hawker/BAe 125
+  if (/^E55P|^E50P|^GALX|^PC24/.test(type)) return 'jet_swept'   // Other biz jets
 
   if (/B747|B748|B744/.test(type)) return 'heavy_4e'
   if (/A380/.test(type)) return 'a380'
