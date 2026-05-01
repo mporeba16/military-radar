@@ -112,6 +112,7 @@ function stateToAircraft(s) {
     gs: s[9] != null ? Math.round(s[9] * 1.94384) : null,       // m/s → kn
     track: s[10] != null ? Math.round(s[10]) : null,
     squawk: s[14] || null,
+    reg: null,
     country: s[2],
     on_ground: s[8],
   }
@@ -168,7 +169,8 @@ async function tryADSBfi(lamin, lomin, lamax, lomax) {
       gs: a.gs != null ? Math.round(a.gs) : null,
       track: a.track != null ? Math.round(a.track) : null,
       squawk: a.squawk || null,
-      country: a.r || '',
+      reg: a.r || null,
+      country: '',
     }))
     return { aircraft: ac, _source: 'adsbfi' }
   } catch {

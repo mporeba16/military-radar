@@ -29,10 +29,11 @@ export default function AircraftInfoPanel({ ac, onClose }) {
     ['Wysokość', altM != null ? `${altM.toLocaleString()} m` : '—'],
     ['Prędkość', kmh != null ? `${kmh} km/h` : '—'],
     ['Kurs',     ac.track != null ? `${Math.round(ac.track)}°` : '—'],
-    ['Kraj',     ac.country || '—'],
+    ac.reg  ? ['Rej.',   ac.reg]          : null,
+    ac.country ? ['Kraj', ac.country]     : null,
     ['Squawk',   ac.squawk || '—'],
     ['ICAO',     ac.hex],
-  ]
+  ].filter(Boolean)
 
   return (
     <div className="ac-info-panel">
