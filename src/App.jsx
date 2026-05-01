@@ -1,10 +1,8 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import RadarMap, { TILE_LAYERS } from './components/RadarMap'
 import AircraftInfoPanel from './components/AircraftInfoPanel'
-import AuthScreen from './components/AuthScreen'
 import { useGeolocation } from './hooks/useGeolocation'
 import { usePushNotifications } from './hooks/usePushNotifications'
-import { useAuth } from './hooks/useAuth'
 import { fetchMilitaryAircraft } from './api'
 import './App.css'
 
@@ -15,11 +13,9 @@ const TRAIL_MIN_INTERVAL_MS = 20_000
 const TRAIL_MAX_AGE_MS = 15 * 60 * 1000
 
 export default function App() {
-  const { user, loading: authLoading, login, logout } = useAuth()
   const [aircraft, setAircraft] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [dataSource, setDataSource] = useState(null)
   const [mode, setMode] = useState('gps')
   const [radius, setRadius] = useState(100)
   const [selectedHex, setSelectedHex] = useState(null)
@@ -44,7 +40,7 @@ export default function App() {
     setIsLoading(true)
     setError(null)
     try {
-      const { aircraft: data, source, isDemo } = await fetchMilitaryAircraft(
+      const { aircraft: data, isDemo } = await fetchMilitaryAircraft(
         center,
         mode === 'poland' ? 400 : mode === 'europe' ? 2800 : radius
       )
@@ -69,7 +65,6 @@ export default function App() {
       for (const hex of trailsRef.current.keys())
         if (!currentHexes.has(hex)) trailsRef.current.delete(hex)
       setAircraft(enriched)
-      setDataSource(isDemo ? 'demo' : source)
       setSelectedHex(prev => (prev && !currentHexes.has(prev) ? null : prev))
       if (mode === 'gps' && location && !isDemo) {
         enriched.forEach(ac => {
@@ -112,9 +107,6 @@ export default function App() {
 
   const selectedAc = aircraft.find(ac => ac.hex === selectedHex) || null
 
-  if (authLoading) return null
-  if (!user) return <AuthScreen onLogin={login} />
-
   return (
     <div className="app">
       <RadarMap
@@ -133,9 +125,7 @@ export default function App() {
       <div className="map-logo">
         <span className="map-logo-icon">◎</span>
         <span className="map-logo-name">RADAR WOJSKOWY</span>
-        {dataSource === 'demo' && <span className="map-logo-demo">DEMO</span>}
         {isLoading && <span className="map-logo-spinner">◌</span>}
-        <button className="map-logo-logout" onClick={logout} title="Wyloguj">⏻</button>
       </div>
 
       {/* Aircraft info panel — left, below logo */}
@@ -220,13 +210,24 @@ export default function App() {
           )}
 
           {activePanel === 'profil' && (
-            <ProfilPanel
-              user={user}
-              isSubscribed={isSubscribed}
-              isSubscribing={isSubscribing}
-              subscribe={subscribe}
-              permissionState={permissionState}
-            />
+            <div className="panel-body">
+              <section className="cp-section">
+                <div className="cp-label">POWIADOMIENIA PUSH</div>
+                {permissionState === 'unsupported'
+                  ? <p className="info-text">Przeglądarka nie obsługuje push notifications.</p>
+                  : permissionState === 'denied'
+                    ? <p className="err" style={{ fontSize: 11 }}>✗ Zablokowane — odblokuj w ustawieniach przeglądarki</p>
+                    : isSubscribed
+                      ? <p className="ok">◉ Powiadomienia aktywne</p>
+                      : <button className="btn-subscribe" onClick={subscribe} disabled={isSubscribing}>
+                          {isSubscribing ? '◌ Łączenie…' : 'Włącz powiadomienia'}
+                        </button>
+                }
+                <p className="info-text" style={{ marginTop: 6 }}>
+                  Alert gdy wojskowy samolot pojawi się w zasięgu GPS — nawet gdy aplikacja jest zamknięta.
+                </p>
+              </section>
+            </div>
           )}
         </div>
       )}
@@ -234,94 +235,6 @@ export default function App() {
   )
 }
 
-function ProfilPanel({ user, isSubscribed, isSubscribing, subscribe, permissionState }) {
-  const [currentPassword, setCurrentPassword] = useState('')
-  const [newPassword, setNewPassword] = useState('')
-  const [pwStatus, setPwStatus] = useState(null) // null | 'ok' | 'err'
-  const [pwMsg, setPwMsg] = useState('')
-  const [pwLoading, setPwLoading] = useState(false)
-
-  async function handleChangePassword(e) {
-    e.preventDefault()
-    setPwStatus(null)
-    setPwLoading(true)
-    try {
-      const res = await fetch('/.netlify/functions/auth-change-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: user.email, currentPassword, newPassword }),
-      })
-      const data = await res.json()
-      if (!res.ok) { setPwStatus('err'); setPwMsg(data.error); return }
-      setPwStatus('ok')
-      setPwMsg('Hasło zmienione pomyślnie')
-      setCurrentPassword('')
-      setNewPassword('')
-    } catch {
-      setPwStatus('err')
-      setPwMsg('Błąd połączenia z serwerem')
-    } finally {
-      setPwLoading(false)
-    }
-  }
-
-  return (
-    <div className="panel-body">
-      <section className="cp-section">
-        <div className="cp-label">KONTO</div>
-        <p style={{ fontSize: 12, color: '#fff', marginBottom: 4 }}>{user.email}</p>
-        {user.test && <p className="info-text">Konto testowe</p>}
-      </section>
-
-      <section className="cp-section">
-        <div className="cp-label">POWIADOMIENIA PUSH</div>
-        {permissionState === 'unsupported'
-          ? <p className="info-text">Przeglądarka nie obsługuje push notifications.</p>
-          : permissionState === 'denied'
-            ? <p className="err" style={{ fontSize: 11 }}>✗ Zablokowane — odblokuj w ustawieniach przeglądarki</p>
-            : isSubscribed
-              ? <p className="ok">◉ Powiadomienia aktywne</p>
-              : <button className="btn-subscribe" onClick={subscribe} disabled={isSubscribing}>
-                  {isSubscribing ? '◌ Łączenie…' : 'Włącz powiadomienia'}
-                </button>
-        }
-        <p className="info-text" style={{ marginTop: 6 }}>
-          Alert gdy wojskowy samolot pojawi się w zasięgu GPS — nawet gdy aplikacja jest zamknięta.
-        </p>
-      </section>
-
-      {!user.test && (
-        <section className="cp-section">
-          <div className="cp-label">ZMIEŃ HASŁO</div>
-          <form onSubmit={handleChangePassword} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <input
-              type="password"
-              placeholder="Obecne hasło"
-              value={currentPassword}
-              onChange={e => setCurrentPassword(e.target.value)}
-              required
-              className="panel-input"
-            />
-            <input
-              type="password"
-              placeholder="Nowe hasło (min. 8 znaków)"
-              value={newPassword}
-              onChange={e => setNewPassword(e.target.value)}
-              required
-              minLength={8}
-              className="panel-input"
-            />
-            {pwStatus === 'ok' && <p className="ok" style={{ fontSize: 11 }}>◉ {pwMsg}</p>}
-            {pwStatus === 'err' && <p className="err" style={{ fontSize: 11 }}>✗ {pwMsg}</p>}
-            <button type="submit" className="btn-refresh" disabled={pwLoading}>
-              {pwLoading ? '◌ Zapisywanie…' : 'Zmień hasło'}
-            </button>
-          </form>
-        </section>
-      )}
-    </div>
-  )
-}
 
 function haversine(lat1, lon1, lat2, lon2) {
   const R = 6371
