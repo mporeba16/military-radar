@@ -303,7 +303,7 @@ export function getShapeKey(t) {
   if (/^P3|^EP3|ORION/.test(type)) return 'p3_orion'
   if (/^C2$|^E2$|HAWKEYE|GREYHOUND/.test(type)) return 'c2'
   if (/RC135|JSTARS|SENTINEL/.test(type)) return 'b707'
-  if (/^KC135/.test(type)) return 'b707'
+  if (/^KC135|^K35[RT]/.test(type)) return 'b707'
   if (/^KC46|^KC10|^MRTT|A330MRT/.test(type)) return 'heavy_2e'
   if (/C130|C13J|C30J|C160|AN12|HERCULES/.test(type)) return 'c130'
   if (/IL76|IL78|CANDID/.test(type)) return 'heavy_4e'
