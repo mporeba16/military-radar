@@ -16,7 +16,7 @@ export default function App() {
   const [aircraft, setAircraft] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [mode, setMode] = useState('gps')
+  const [mode, setMode] = useState('europe')
   const [radius, setRadius] = useState(100)
   const [selectedHex, setSelectedHex] = useState(null)
   const [serverTrails, setServerTrails] = useState(new Map())

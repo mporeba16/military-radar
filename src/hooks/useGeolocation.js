@@ -1,16 +1,18 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 
 export function useGeolocation() {
   const [location, setLocation] = useState(null)
   const [locationError, setLocationError] = useState(null)
+  const watchIdRef = useRef(null)
 
-  const requestLocation = useCallback(() => {
+  const startWatch = useCallback(() => {
     if (!navigator.geolocation) {
       setLocationError('Geolokalizacja niedostępna w tej przeglądarce')
       return
     }
+    if (watchIdRef.current != null) return
     setLocationError(null)
-    navigator.geolocation.getCurrentPosition(
+    watchIdRef.current = navigator.geolocation.watchPosition(
       pos => setLocation({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
       err => {
         switch (err.code) {
@@ -24,9 +26,25 @@ export function useGeolocation() {
             setLocationError('Błąd geolokalizacji')
         }
       },
-      { enableHighAccuracy: false, timeout: 10000 }
+      { enableHighAccuracy: false, timeout: 15000, maximumAge: 30000 }
     )
   }, [])
 
-  return { location, locationError, requestLocation }
+  useEffect(() => {
+    if (!navigator.geolocation) return
+    if (navigator.permissions) {
+      navigator.permissions.query({ name: 'geolocation' }).then(result => {
+        if (result.state === 'granted') startWatch()
+        result.onchange = () => { if (result.state === 'granted') startWatch() }
+      }).catch(() => {})
+    }
+    return () => {
+      if (watchIdRef.current != null) {
+        navigator.geolocation.clearWatch(watchIdRef.current)
+        watchIdRef.current = null
+      }
+    }
+  }, [startWatch])
+
+  return { location, locationError, requestLocation: startWatch }
 }

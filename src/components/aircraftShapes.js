@@ -420,17 +420,17 @@ export function getCommonName(t) {
 }
 
 export function altToColor(altM) {
-  if (altM == null) return '#aaaaaa'
+  if (altM == null || isNaN(altM)) return '#aaaaaa'
   // Breakpoints match ADS-B Exchange feet scale converted to metres:
   // 0, 500, 1000, 2000, 4000, 6000, 8000, 10000, 20000, 30000, 40000 ft
   const stops = [
-    [    0, [255, 100,   0]],   //  0 ft  — orange-red
-    [  150, [255, 165,   0]],   //  500 ft — orange
-    [  300, [255, 220,   0]],   // 1000 ft — yellow
-    [  600, [200, 255,   0]],   // 2000 ft — yellow-green
-    [ 1200, [  0, 230,   0]],   // 4000 ft — green
-    [ 1800, [  0, 210,  90]],   // 6000 ft — green-teal
-    [ 2400, [  0, 200, 200]],   // 8000 ft — teal
+    [    0, [255,  80,   0]],   //  0 ft  — red-orange
+    [  150, [255, 140,   0]],   //  500 ft — orange
+    [  300, [255, 200,   0]],   // 1000 ft — yellow-orange
+    [  600, [255, 240,   0]],   // 2000 ft — yellow
+    [ 1200, [180, 255,   0]],   // 4000 ft — yellow-green
+    [ 1800, [  0, 220,  50]],   // 6000 ft — green
+    [ 2400, [  0, 210, 160]],   // 8000 ft — teal
     [ 3000, [  0, 180, 255]],   // 10000 ft — cyan
     [ 6000, [  0,  90, 255]],   // 20000 ft — blue
     [ 9000, [ 50,  30, 220]],   // 30000 ft — dark blue
@@ -447,5 +447,5 @@ export function altToColor(altM) {
   return 'rgb(140,0,210)'
 }
 
-export const ftToM   = ft => ft != null ? Math.round(ft  * 0.3048) : null
+export const ftToM   = ft => (ft != null && !isNaN(ft)) ? Math.round(ft * 0.3048) : null
 export const knToKmh = kn => kn != null ? Math.round(kn  * 1.852)  : null

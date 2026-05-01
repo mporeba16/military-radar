@@ -242,7 +242,7 @@
 }
 
 .alt-legend-bar {
-  width: 200px;
+  width: 240px;
   height: 8px;
   border-radius: 2px;
   border: 1px solid rgba(255,255,255,0.12);
@@ -250,7 +250,7 @@
 
 .alt-legend-labels {
   position: relative;
-  width: 200px;
+  width: 240px;
   height: 14px;
   margin-top: 2px;
 }
