@@ -153,7 +153,7 @@ async function tryOpenSky(lamin, lomin, lamax, lomax) {
     const data = await res.json()
     const states = data.states || []
     const military = states
-      .filter(s => s[5] != null && s[6] != null && !s[8] && isMilitary(s))
+      .filter(s => s[5] != null && s[6] != null && !s[8] && (s[7] == null || s[7] <= 18300) && isMilitary(s))
       .map(stateToAircraft)
     return { aircraft: military, _source: 'opensky' }
   } catch {
@@ -183,10 +183,12 @@ function mapADSBfiRecord(a) {
 function isADSBfiRecordInBox(a, lamin, lomin, lamax, lomax) {
   const lat = a.lat ?? a.rr_lat
   const lon = a.lon ?? a.rr_lon
+  const alt = typeof a.alt_baro === 'number' ? a.alt_baro : null
   return lat != null && lon != null &&
     lat >= lamin && lat <= lamax &&
     lon >= lomin && lon <= lomax &&
-    a.alt_baro !== 'ground' && !a.on_ground
+    a.alt_baro !== 'ground' && !a.on_ground &&
+    (alt == null || alt <= 60000)
 }
 
 function isMilitaryADSBfi(a) {
