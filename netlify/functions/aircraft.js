@@ -83,8 +83,8 @@ const MILITARY_CALLSIGN_PATTERNS = [
   /^VALOR/i,  // USAF
   /^HEAVY/i,  // USAF tankers
   /^SAVER/i,  // USAF Combat Search and Rescue
-  /^RIMC/i,   // Royal Irish Military Corps
-  /^SHAHD/i,  // Arab/Middle East military (partner nations)
+  /^RIMC/i,   // Italian military (Aeronautica Militare / Marina Militare)
+  /^SHAHD/i,  // Jordan Royal Air Force
   /^JAKE/i,   // USAF
   /^ZEUS/i,   // USAF
   /^BISON/i,  // USAF
