@@ -45,10 +45,14 @@ export default function App() {
     setIsLoading(true)
     setError(null)
     try {
-      const { aircraft: data, isDemo } = await fetchMilitaryAircraft(
+      const { aircraft: data, isDemo, source } = await fetchMilitaryAircraft(
         center,
         mode === 'poland' ? 400 : mode === 'europe' ? 2800 : radius
       )
+      if (source === 'unavailable') {
+        setError('API niedostępne')
+        return
+      }
       const enriched = data.map(ac => {
         if (mode === 'gps' && location) {
           const dist = haversine(location.lat, location.lon, ac.lat, ac.lon)
