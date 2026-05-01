@@ -39,6 +39,12 @@ const MILITARY_HEX_PREFIXES = [
   '4a0',
   // Węgry wojsko
   '47a', '47b',
+  // Norwegia wojsko (478xxx)
+  '478',
+  // Włochy wojsko (górny zakres 33x)
+  '33f',
+  // Jordania wojsko (74x)
+  '743', '744',
 ]
 
 // Callsigny wojskowe — prefiksy używane przez polskie i NATO lotnictwo
@@ -82,7 +88,7 @@ const MILITARY_CALLSIGN_PATTERNS = [
   /^SWORD/i,  // USAF
   /^VALOR/i,  // USAF
   /^HEAVY/i,  // USAF tankers
-  /^SAVER/i,  // USAF Combat Search and Rescue
+  /^SAVER/i,  // Norwegian Air Force (Luftforsvaret)
   /^RIMC/i,   // Italian military (Aeronautica Militare / Marina Militare)
   /^SRA/i,    // Saudi Royal Air Force
   /^SHAHD/i,  // Jordan Royal Air Force
