@@ -421,20 +421,22 @@ export function getCommonName(t) {
 
 export function altToColor(altM) {
   if (altM == null) return '#aaaaaa'
+  // Breakpoints match ADS-B Exchange feet scale converted to metres:
+  // 0, 500, 1000, 2000, 4000, 6000, 8000, 10000, 20000, 30000, 40000 ft
   const stops = [
-    [    0, [255,  20,  20]],
-    [  600, [255,  90,   0]],
-    [ 1500, [255, 140,   0]],
-    [ 3000, [255, 215,   0]],
-    [ 4600, [160, 230,   0]],
-    [ 6100, [  0, 200,  20]],
-    [ 7600, [  0, 215, 180]],
-    [ 9100, [  0, 200, 255]],
-    [10700, [ 40, 130, 255]],
-    [12200, [ 80,  60, 255]],
-    [15200, [180,   0, 255]],
+    [    0, [255, 100,   0]],   //  0 ft  — orange-red
+    [  150, [255, 165,   0]],   //  500 ft — orange
+    [  300, [255, 220,   0]],   // 1000 ft — yellow
+    [  600, [200, 255,   0]],   // 2000 ft — yellow-green
+    [ 1200, [  0, 230,   0]],   // 4000 ft — green
+    [ 1800, [  0, 210,  90]],   // 6000 ft — green-teal
+    [ 2400, [  0, 200, 200]],   // 8000 ft — teal
+    [ 3000, [  0, 180, 255]],   // 10000 ft — cyan
+    [ 6000, [  0,  90, 255]],   // 20000 ft — blue
+    [ 9000, [ 50,  30, 220]],   // 30000 ft — dark blue
+    [12200, [140,   0, 210]],   // 40000 ft — purple
   ]
-  const alt = Math.max(0, Math.min(altM, 15200))
+  const alt = Math.max(0, Math.min(altM, 12200))
   for (let i = 0; i < stops.length - 1; i++) {
     const [a0, c0] = stops[i], [a1, c1] = stops[i + 1]
     if (alt >= a0 && alt <= a1) {
@@ -442,7 +444,7 @@ export function altToColor(altM) {
       return `rgb(${Math.round(c0[0]+(c1[0]-c0[0])*t)},${Math.round(c0[1]+(c1[1]-c0[1])*t)},${Math.round(c0[2]+(c1[2]-c0[2])*t)})`
     }
   }
-  return 'rgb(180,0,255)'
+  return 'rgb(140,0,210)'
 }
 
 export const ftToM   = ft => ft != null ? Math.round(ft  * 0.3048) : null

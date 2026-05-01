@@ -161,27 +161,31 @@ export default function RadarMap({ aircraft, trails, serverTrails, center, radiu
 
 function AltitudeLegend() {
   const colorStops = [
-    { m: 0,     color: 'rgb(255,20,20)' },
-    { m: 600,   color: 'rgb(255,128,0)' },
-    { m: 1500,  color: 'rgb(255,215,0)' },
-    { m: 3000,  color: 'rgb(160,230,0)' },
-    { m: 6100,  color: 'rgb(0,200,20)' },
-    { m: 9100,  color: 'rgb(0,200,255)' },
-    { m: 12200, color: 'rgb(80,60,255)' },
-    { m: 15200, color: 'rgb(180,0,255)' },
+    { m:     0, color: 'rgb(255,100,0)' },
+    { m:   150, color: 'rgb(255,165,0)' },
+    { m:   300, color: 'rgb(255,220,0)' },
+    { m:   600, color: 'rgb(200,255,0)' },
+    { m:  1200, color: 'rgb(0,230,0)' },
+    { m:  1800, color: 'rgb(0,210,90)' },
+    { m:  2400, color: 'rgb(0,200,200)' },
+    { m:  3000, color: 'rgb(0,180,255)' },
+    { m:  6000, color: 'rgb(0,90,255)' },
+    { m:  9000, color: 'rgb(50,30,220)' },
+    { m: 12200, color: 'rgb(140,0,210)' },
   ]
-  const maxM = 15200
+  const maxM = 12200
   const gradient = `linear-gradient(to right, ${colorStops.map(s => `${s.color} ${(s.m / maxM * 100).toFixed(1)}%`).join(', ')})`
-  const ticks = [0, 1500, 3000, 6000, 9000, 12000, 15000]
+  const ticks = [0, 150, 300, 600, 1200, 1800, 2400, 3000, 6000, 9000, 12000]
 
   return (
     <div className="alt-legend">
-      <div className="alt-legend-title">WYSOKOŚĆ (m)</div>
+      <div className="alt-legend-title">ALTITUDE (m)</div>
       <div className="alt-legend-bar" style={{ background: gradient }} />
       <div className="alt-legend-labels">
-        {ticks.map(m => (
+        {ticks.map((m, i) => (
           <span key={m} style={{ left: `${(m / maxM * 100).toFixed(1)}%` }}>
             {m === 0 ? '0' : m >= 1000 ? `${m / 1000}k` : m}
+            {i === ticks.length - 1 ? '+' : ''}
           </span>
         ))}
       </div>
