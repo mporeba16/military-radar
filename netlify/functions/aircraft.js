@@ -134,6 +134,22 @@ const CIVILIAN_CALLSIGN_PATTERNS = [
 
 const MILITARY_SQUAWKS = new Set(['7777', '7400'])
 
+// Odrzuć adresy ICAO które wyglądają na syntetyczne / testowe:
+// - sekwencyjne bajty (np. 0x44-0x55-0x66, różnica stała) → fake/test
+// - kończące się na 0xFFF → TIS-B synthetic (FAA/TC tymczasowe adresy)
+// - wszystkie bajty identyczne (np. 0xAAAAAA)
+function isSuspiciousHex(hex) {
+  const n = parseInt(hex, 16)
+  if (isNaN(n) || n === 0) return true
+  const b1 = (n >> 16) & 0xFF
+  const b2 = (n >> 8) & 0xFF
+  const b3 = n & 0xFF
+  if (b1 === b2 && b2 === b3) return true           // 0xAAAAAA
+  if (b2 - b1 === b3 - b2 && b1 !== b2) return true // 0x445566
+  if ((n & 0xFFF) === 0xFFF) return true             // 0xC2BFFF
+  return false
+}
+
 function isMilitary(ac) {
   const hex = (ac[0] || '').toLowerCase()
   const callsign = (ac[1] || '').trim()
@@ -187,7 +203,7 @@ async function tryOpenSky(lamin, lomin, lamax, lomax) {
     const data = await res.json()
     const states = data.states || []
     const military = states
-      .filter(s => s[5] != null && s[6] != null && !s[8] && (s[7] == null || s[7] <= 18300) && isMilitary(s))
+      .filter(s => s[5] != null && s[6] != null && !s[8] && (s[7] == null || s[7] <= 18300) && !isSuspiciousHex(s[0]) && isMilitary(s))
       .map(stateToAircraft)
     return { aircraft: military, _source: 'opensky' }
   } catch {
@@ -222,7 +238,8 @@ function isADSBfiRecordInBox(a, lamin, lomin, lamax, lomax) {
     lat >= lamin && lat <= lamax &&
     lon >= lomin && lon <= lomax &&
     a.alt_baro !== 'ground' && !a.on_ground &&
-    (alt == null || alt <= 60000)
+    (alt == null || alt <= 60000) &&
+    !isSuspiciousHex(a.hex)
 }
 
 function isMilitaryADSBfi(a) {
