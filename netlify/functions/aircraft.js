@@ -57,7 +57,7 @@ const MILITARY_CALLSIGN_PATTERNS = [
   /^COMET/i,  // UK RAF
   /^NATO/i,   // NATO AWACS
   /^NAOC/i,   // NATO
-  /^GAF\d/i,  // German Air Force (GAF + cyfra, nie GAFER itp.)
+  /^GAF\d/i,  // German Air Force
   /^FRAF/i,   // French Air Force
   /^BAF\d/i,  // Belgian Air Force
   /^DAMP/i,   // Danish Air Force
@@ -66,6 +66,22 @@ const MILITARY_CALLSIGN_PATTERNS = [
   /^HUNAF/i,  // Hungarian Air Force
   /^BUAF/i,   // Bulgarian Air Force
   /^ROTAF/i,  // Romanian Air Force
+  /^FNY/i,    // Finnish Air Force (Ilmavoimat)
+  /^FINAF/i,  // Finnish Air Force
+  /^NRAF/i,   // Norwegian Air Force
+  /^SWAF/i,   // Swedish Air Force
+  /^LTAF/i,   // Lithuanian Air Force
+  /^LVAF/i,   // Latvian Air Force
+  /^EEAF/i,   // Estonian Air Force
+  /^NATOQ/i,  // NATO Quick Reaction
+  /^FORTE/i,  // USAF
+  /^RAZER/i,  // USAF
+  /^KNIFE/i,  // USAF
+  /^ROCKY/i,  // USAF
+  /^IRON/i,   // USAF
+  /^SWORD/i,  // USAF
+  /^VALOR/i,  // USAF
+  /^HEAVY/i,  // USAF tankers
 ]
 
 // Callsigny cywilnych linii — wyklucz nawet jeśli hex pasuje
@@ -145,34 +161,80 @@ async function tryOpenSky(lamin, lomin, lamax, lomax) {
   }
 }
 
+function mapADSBfiRecord(a) {
+  return {
+    hex: a.hex,
+    flight: (a.flight || a.hex || '').trim(),
+    t: a.t || '',
+    lat: a.lat,
+    lon: a.lon,
+    alt_baro: (a.alt_baro != null && a.alt_baro !== 'ground') ? a.alt_baro : null,
+    gs: a.gs != null ? Math.round(a.gs) : null,
+    track: a.track != null ? Math.round(a.track) : null,
+    squawk: a.squawk || null,
+    reg: a.r || null,
+    country: '',
+  }
+}
+
+function isADSBfiRecordInBox(a, lamin, lomin, lamax, lomax) {
+  return a.lat != null && a.lon != null &&
+    a.lat >= lamin && a.lat <= lamax &&
+    a.lon >= lomin && a.lon <= lomax &&
+    a.alt_baro !== 'ground' && !a.on_ground
+}
+
+function isMilitaryADSBfi(a) {
+  const hex = (a.hex || '').toLowerCase()
+  const callsign = (a.flight || '').trim()
+  const squawk = a.squawk || ''
+  if (CIVILIAN_CALLSIGN_PATTERNS.some(re => re.test(callsign))) return false
+  if (MILITARY_HEX_PREFIXES.some(p => hex.startsWith(p))) return true
+  if (MILITARY_CALLSIGN_PATTERNS.some(re => re.test(callsign))) return true
+  if (MILITARY_SQUAWKS.has(squawk)) return true
+  return false
+}
+
 // adsb.fi — publiczne API, działa z serverless, pokrywa Europę
-async function tryADSBfi(lamin, lomin, lamax, lomax) {
+// radiusKm: dla małych obszarów (Polska/GPS) robimy też zapytanie geograficzne
+// żeby złapać samoloty nieoznaczone jako military w bazie adsb.fi
+async function tryADSBfi(lamin, lomin, lamax, lomax, radiusKm) {
   try {
-    const url = `https://opendata.adsb.fi/api/v2/mil`
-    const res = await fetch(url, {
-      signal: AbortSignal.timeout(10000),
-      headers: { 'User-Agent': 'MilitaryRadarPL/1.0', 'Accept': 'application/json' }
+    const headers = { 'User-Agent': 'MilitaryRadarPL/1.0', 'Accept': 'application/json' }
+
+    // Zapytanie 1: globalny endpoint /mil (baza adsb.fi)
+    const milRes = await fetch('https://opendata.adsb.fi/api/v2/mil', {
+      signal: AbortSignal.timeout(10000), headers
     })
-    if (!res.ok) return null
-    const data = await res.json()
-    const ac = (data.ac || data.aircraft || []).filter(a =>
-      a.lat != null && a.lon != null &&
-      a.lat >= lamin && a.lat <= lamax &&
-      a.lon >= lomin && a.lon <= lomax &&
-      a.alt_baro !== 'ground' && !a.on_ground
-    ).map(a => ({
-      hex: a.hex,
-      flight: (a.flight || a.hex || '').trim(),
-      t: a.t || '',
-      lat: a.lat,
-      lon: a.lon,
-      alt_baro: (a.alt_baro != null && a.alt_baro !== 'ground') ? a.alt_baro : null,
-      gs: a.gs != null ? Math.round(a.gs) : null,
-      track: a.track != null ? Math.round(a.track) : null,
-      squawk: a.squawk || null,
-      reg: a.r || null,
-      country: '',
-    }))
+    if (!milRes.ok) return null
+    const milData = await milRes.json()
+    const milAircraft = (milData.ac || []).filter(a => isADSBfiRecordInBox(a, lamin, lomin, lamax, lomax))
+    const milHexes = new Set(milAircraft.map(a => a.hex))
+
+    // Zapytanie 2: supplement geograficzny — tylko dla małych obszarów (≤900km)
+    // Łapie samoloty znane nam jako wojskowe (hex/callsign), ale nieoznaczone w bazie adsb.fi
+    let supplementAircraft = []
+    if (radiusKm <= 900) {
+      const centerLat = ((lamin + lamax) / 2).toFixed(4)
+      const centerLon = ((lomin + lomax) / 2).toFixed(4)
+      const radiusNm = Math.round(radiusKm * 0.54)
+      try {
+        const geoRes = await fetch(
+          `https://opendata.adsb.fi/api/v2/lat/${centerLat}/lon/${centerLon}/dist/${radiusNm}`,
+          { signal: AbortSignal.timeout(8000), headers }
+        )
+        if (geoRes.ok) {
+          const geoData = await geoRes.json()
+          supplementAircraft = (geoData.ac || []).filter(a =>
+            isADSBfiRecordInBox(a, lamin, lomin, lamax, lomax) &&
+            !milHexes.has(a.hex) &&
+            isMilitaryADSBfi(a)
+          )
+        }
+      } catch { /* supplement is best-effort */ }
+    }
+
+    const ac = [...milAircraft, ...supplementAircraft].map(mapADSBfiRecord)
     return { aircraft: ac, _source: 'adsbfi' }
   } catch {
     return null
@@ -218,7 +280,7 @@ export const handler = async (event) => {
   const lomin = lonN - degLon
   const lomax = lonN + degLon
 
-  const result = await tryADSBfi(lamin, lomin, lamax, lomax)
+  const result = await tryADSBfi(lamin, lomin, lamax, lomax, radiusKm)
     || await tryOpenSky(lamin, lomin, lamax, lomax)
     || { aircraft: [], _source: 'unavailable' }
 
