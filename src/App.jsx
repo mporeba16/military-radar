@@ -145,12 +145,12 @@ export default function App() {
 
       {/* Control buttons — top right */}
       <div className="map-ctrl-btns">
-        <button className={`map-ctrl-btn ${activePanel === 'tryby' ? 'active' : ''}`}
-          onClick={() => togglePanel('tryby')}>Tryb</button>
-        <button className={`map-ctrl-btn ${activePanel === 'mapy' ? 'active' : ''}`}
-          onClick={() => togglePanel('mapy')}>Mapy</button>
-        <button className={`map-ctrl-btn ${activePanel === 'profil' ? 'active' : ''}`}
-          onClick={() => togglePanel('profil')}>Profil</button>
+        <button className={`map-ctrl-btn map-ctrl-icon ${activePanel === 'tryby' ? 'active' : ''}`}
+          onClick={() => togglePanel('tryby')} title="Tryb">T</button>
+        <button className={`map-ctrl-btn map-ctrl-icon ${activePanel === 'mapy' ? 'active' : ''}`}
+          onClick={() => togglePanel('mapy')} title="Mapy">M</button>
+        <button className={`map-ctrl-btn map-ctrl-icon ${activePanel === 'profil' ? 'active' : ''}`}
+          onClick={() => togglePanel('profil')} title="Profil">P</button>
       </div>
 
       {/* Side panels — slide from right */}
