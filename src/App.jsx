@@ -107,6 +107,8 @@ export default function App() {
   // Immediate refetch on mode/radius change (not on GPS location change)
   useEffect(() => {
     if (!isMountedRef.current) { isMountedRef.current = true; return }
+    setAircraft([])
+    trailsRef.current.clear()
     fetchDataRef.current()
   }, [mode, radius]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -128,7 +130,11 @@ export default function App() {
   }, [mode, location])
 
   useEffect(() => {
-    if (!selectedHex || serverTrailFetchedRef.current.has(selectedHex)) return
+    if (!selectedHex) {
+      serverTrailFetchedRef.current.clear()
+      return
+    }
+    if (serverTrailFetchedRef.current.has(selectedHex)) return
     serverTrailFetchedRef.current.add(selectedHex)
     fetch(`/.netlify/functions/aircraft?hex=${selectedHex}`)
       .then(r => r.json())

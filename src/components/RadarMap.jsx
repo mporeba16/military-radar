@@ -103,7 +103,7 @@ function TileFilter({ filter }) {
 }
 
 export default function RadarMap({ aircraft, trails, serverTrails, center, centerKey, radius, mode, selectedHex, onSelect, activeTileId }) {
-  const initialZoom = mode === 'poland' ? 6 : 8
+  const initialZoom = mode === 'europe' ? 5 : mode === 'poland' ? 6 : 8
   const markersRef = useRef({})
   const tileLayer = TILE_LAYERS.find(l => l.id === activeTileId) || TILE_LAYERS[0]
 
