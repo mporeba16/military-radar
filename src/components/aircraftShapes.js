@@ -428,17 +428,16 @@ export function altToColor(altM) {
   // Breakpoints match ADS-B Exchange feet scale converted to metres:
   // 0, 500, 1000, 2000, 4000, 6000, 8000, 10000, 20000, 30000, 40000 ft
   const stops = [
-    [    0, [255,  80,   0]],   //  0 ft  — red-orange
-    [  150, [255, 140,   0]],   //  500 ft — orange
-    [  300, [255, 200,   0]],   // 1000 ft — yellow-orange
-    [  600, [255, 240,   0]],   // 2000 ft — yellow
-    [ 1200, [180, 255,   0]],   // 4000 ft — yellow-green
-    [ 1800, [  0, 220,  50]],   // 6000 ft — green
-    [ 2400, [  0, 210, 160]],   // 8000 ft — teal
-    [ 3000, [  0, 180, 255]],   // 10000 ft — cyan
-    [ 6000, [  0,  90, 255]],   // 20000 ft — blue
-    [ 9000, [ 50,  30, 220]],   // 30000 ft — dark blue
-    [12200, [140,   0, 210]],   // 40000 ft — purple
+    [    0, [255,  80,   0]],   // red-orange
+    [  300, [255, 160,   0]],   // orange
+    [  600, [255, 210,   0]],   // yellow-orange
+    [ 1200, [255, 255,   0]],   // yellow
+    [ 1800, [160, 255,   0]],   // yellow-green
+    [ 2400, [  0, 220,  50]],   // green
+    [ 3000, [  0, 210, 180]],   // teal
+    [ 6000, [  0, 130, 255]],   // blue
+    [ 9000, [ 60,  40, 220]],   // indigo
+    [12200, [180,   0, 210]],   // purple
   ]
   const alt = Math.max(0, Math.min(altM, 12200))
   for (let i = 0; i < stops.length - 1; i++) {
