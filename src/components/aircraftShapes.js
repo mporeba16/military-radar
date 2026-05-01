@@ -323,7 +323,7 @@ export function getShapeKey(t) {
   if (/A380/.test(type)) return 'a380'
   if (/A340|IL96/.test(type)) return 'heavy_4e'
   if (/IL62/.test(type)) return 'il_62'
-  if (/B767|B777|B787|MD11|DC10/.test(type)) return 'heavy_2e'
+  if (/B76[234WZ]|B767|B77[23LW89]|B777|B787|MD11|DC10/.test(type)) return 'heavy_2e'
   if (/A332|A333|A338|A339/.test(type)) return 'heavy_2e'
   if (/A350|A359|A35K/.test(type)) return 'a359'
   if (/B707/.test(type)) return 'b707'

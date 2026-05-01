@@ -84,6 +84,7 @@ const MILITARY_CALLSIGN_PATTERNS = [
   /^HEAVY/i,  // USAF tankers
   /^SAVER/i,  // USAF Combat Search and Rescue
   /^RIMC/i,   // Italian military (Aeronautica Militare / Marina Militare)
+  /^SRA/i,    // Saudi Royal Air Force
   /^SHAHD/i,  // Jordan Royal Air Force
   /^JAKE/i,   // USAF
   /^ZEUS/i,   // USAF
