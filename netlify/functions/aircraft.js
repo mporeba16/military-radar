@@ -117,6 +117,10 @@ const MILITARY_CALLSIGN_PATTERNS = [
   /^KING\d/i,   // USAF tanker/CSAR (z cyfra — odróżnienie od King Airlines)
   /^PAVE/i,     // USAF special ops
   /^COMBAT/i,   // USAF
+  /^BAH/i,      // Bahrain Amiri Air Force
+  /^KAF/i,      // Kuwait Air Force
+  /^QAF/i,      // Qatar Emiri Air Force
+  /^OAF/i,      // Oman Royal Air Force
 ]
 
 // Callsigny naziemnych stacji radarowych/sensorów MLAT — wyklucz zawsze
