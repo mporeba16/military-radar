@@ -124,7 +124,7 @@ export default function App() {
   const selectedAc = aircraft.find(ac => ac.hex === selectedHex) || null
 
   return (
-    <div className="app">
+    <div className={`app${activePanel ? ' panel-open' : ''}`}>
       <RadarMap
         aircraft={aircraft}
         trails={trailsRef}
@@ -139,8 +139,15 @@ export default function App() {
         activeTileId={activeTileId}
       />
 
-      {/* Aircraft count — bottom left */}
-      <div className="map-overlay-count">{aircraft.length} OBJ</div>
+      {/* Aircraft count + GPS status — bottom left */}
+      <div className="map-overlay-count">
+        {aircraft.length} OBJ
+        {location
+          ? <span className="count-gps-ok">◉ GPS</span>
+          : locationError
+            ? <span className="count-gps-err">✗ GPS</span>
+            : <span className="count-gps-wait">◌ GPS</span>}
+      </div>
 
       {/* Logo — top left */}
       <div className="map-logo">
@@ -157,8 +164,8 @@ export default function App() {
 
       {/* Control buttons — top right */}
       <div className="map-ctrl-btns">
-        <button className={`map-ctrl-btn map-ctrl-icon ${activePanel === 'tryby' ? 'active' : ''}`}
-          onClick={() => togglePanel('tryby')} title="Ustawienia">T</button>
+        <button className={`map-ctrl-btn map-ctrl-icon ${activePanel === 'ustawienia' ? 'active' : ''}`}
+          onClick={() => togglePanel('ustawienia')} title="Ustawienia">S</button>
         <button className={`map-ctrl-btn map-ctrl-icon ${activePanel === 'mapy' ? 'active' : ''}`}
           onClick={() => togglePanel('mapy')} title="Mapy">M</button>
         <button className={`map-ctrl-btn map-ctrl-icon ${activePanel === 'powiadomienia' ? 'active' : ''}`}
@@ -170,14 +177,14 @@ export default function App() {
         <div className="side-panel">
           <div className="side-panel-header">
             <span className="side-panel-title">
-              {activePanel === 'tryby' && 'USTAWIENIA'}
+              {activePanel === 'ustawienia' && 'USTAWIENIA'}
               {activePanel === 'mapy' && 'MAPY'}
               {activePanel === 'powiadomienia' && 'POWIADOMIENIA'}
             </span>
             <button className="side-panel-close" onClick={() => setActivePanel(null)}>✕</button>
           </div>
 
-          {activePanel === 'tryby' && (
+          {activePanel === 'ustawienia' && (
             <div className="panel-body">
               <section className="cp-section">
                 <div className="cp-label">GPS</div>

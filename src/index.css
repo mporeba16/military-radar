@@ -38,13 +38,3 @@ body {
 .leaflet-tile-pane {
   filter: brightness(0.6) saturate(0.4) hue-rotate(200deg);
 }
-
-.leaflet-control-zoom a {
-  background: var(--bg-card) !important;
-  color: var(--accent) !important;
-  border-color: var(--border) !important;
-}
-
-.leaflet-control-zoom a:hover {
-  background: var(--border) !important;
-}

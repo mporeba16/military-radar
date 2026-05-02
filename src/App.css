@@ -377,6 +377,13 @@
 }
 
 
+/* Hide aircraft info panel when side panel is open on mobile */
+@media (max-width: 480px) {
+  .panel-open .ac-info-panel {
+    display: none;
+  }
+}
+
 @media (max-width: 480px) {
   .side-panel {
     width: 100vw;
