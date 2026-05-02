@@ -131,6 +131,7 @@ export default function App() {
         serverTrails={serverTrails}
         center={center}
         centerKey={0}
+        gpsCenter={location ? [location.lat, location.lon] : null}
         radius={location ? radius : null}
         mode="europe"
         selectedHex={selectedHex}

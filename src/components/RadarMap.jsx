@@ -102,7 +102,7 @@ function TileFilter({ filter }) {
   return null
 }
 
-export default function RadarMap({ aircraft, trails, serverTrails, center, centerKey, radius, mode, selectedHex, onSelect, activeTileId }) {
+export default function RadarMap({ aircraft, trails, serverTrails, center, centerKey, gpsCenter, radius, mode, selectedHex, onSelect, activeTileId }) {
   const initialZoom = mode === 'europe' ? 5 : mode === 'poland' ? 6 : 8
   const markersRef = useRef({})
   const tileLayer = TILE_LAYERS.find(l => l.id === activeTileId) || TILE_LAYERS[0]
@@ -121,8 +121,8 @@ export default function RadarMap({ aircraft, trails, serverTrails, center, cente
         <MapClickHandler onSelect={onSelect} />
         <TileFilter filter={tileLayer.filter} />
 
-        {radius && (
-          <Circle center={center} radius={radius * 1000} pathOptions={{
+        {radius && gpsCenter && (
+          <Circle center={gpsCenter} radius={radius * 1000} pathOptions={{
             color: '#00ff88', fillOpacity: 0, weight: 1.5, dashArray: '6 4',
           }} />
         )}
