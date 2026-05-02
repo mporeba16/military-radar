@@ -119,6 +119,14 @@ const MILITARY_CALLSIGN_PATTERNS = [
   /^COMBAT/i,   // USAF
 ]
 
+// Callsigny naziemnych stacji radarowych/sensorów MLAT — wyklucz zawsze
+// (transmitują własną pozycję jak samolot, ale są stacjami naziemnymi)
+const GROUND_STATION_PATTERNS = [
+  /XCAM/i,  // ADS-B/MLAT ground sensor (np. 7777XCAM, XCAM01)
+  /XCAT/i,  // ADS-B/MLAT ground sensor
+  /XBAT/i,  // ADS-B/MLAT ground sensor
+]
+
 // Callsigny cywilnych linii — wyklucz nawet jeśli hex pasuje
 const CIVILIAN_CALLSIGN_PATTERNS = [
   /^LOT/i,   // LOT Polish Airlines
@@ -156,6 +164,7 @@ function isMilitary(ac) {
   const callsign = (ac[1] || '').trim()
   const squawk = ac[14] != null ? String(ac[14]).padStart(4, '0') : ''
 
+  if (GROUND_STATION_PATTERNS.some(re => re.test(callsign))) return false
   if (CIVILIAN_CALLSIGN_PATTERNS.some(re => re.test(callsign))) return false
   if (MILITARY_HEX_PREFIXES.some(p => hex.startsWith(p))) return true
   if (MILITARY_CALLSIGN_PATTERNS.some(re => re.test(callsign))) return true
@@ -247,6 +256,7 @@ function isMilitaryADSBfi(a) {
   const hex = (a.hex || '').toLowerCase()
   const callsign = (a.flight || '').trim()
   const squawk = a.squawk || ''
+  if (GROUND_STATION_PATTERNS.some(re => re.test(callsign))) return false
   if (CIVILIAN_CALLSIGN_PATTERNS.some(re => re.test(callsign))) return false
   if (MILITARY_HEX_PREFIXES.some(p => hex.startsWith(p))) return true
   if (MILITARY_CALLSIGN_PATTERNS.some(re => re.test(callsign))) return true
