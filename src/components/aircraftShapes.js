@@ -265,7 +265,7 @@ export function getShapeKey(t) {
   if (/SA342|GAZELLE/.test(type)) return 'gazelle'
   if (/AS332|AS532|EC225|EC25|EC725|PUMA|COUGAR|SUPERPUMA/.test(type)) return 'puma'
   if (/GYRO|AUTOGYRO/.test(type)) return 'gyrocopter'
-  if (/^UH|^AH|^MH|^HH|^SH|^H6|^H4|^H7|^H9|EC135|EC35|EC145|EC45|EC665|W3A?|MI8|MI17|MI28|KA50|KA52|LYNX|SEAHAWK|WILDCAT|R44|R66|A139|AW139|AW169|AW189|NH90|NH9/.test(type)) return 'helicopter'
+  if (/^UH|^AH|^MH|^HH|^SH|^H6|^H4|^H7|^H9|EC135|EC35|EC145|EC45|EC665|W3A?|MI8|MI17|MI28|KA50|KA52|LYNX|SEAHAWK|WILDCAT|R44|R66|A139|AW139|AW149|AW169|AW189|NH90|NH9|MD9[02]|EXPLORER/.test(type)) return 'helicopter'
 
   if (/B1B|LANCER/.test(type)) return 'b1b_lancer'
   if (/B52|STRATOFORTRESS/.test(type)) return 'b52'
@@ -294,7 +294,7 @@ export function getShapeKey(t) {
   if (/F16|MIG29|MIG31|SU27|SU30|SU35|SU57|FLANKER|FULCRUM|VIPER/.test(type)) return 'hi_perf'
 
   if (/^C17[A-Z]?$|GLOBEMASTER/.test(type)) return 'c17'
-  if (/^C5$|GALAXY/.test(type)) return 'c5'
+  if (/^C5[A-Z]?$|GALAXY/.test(type)) return 'c5'
   if (/SUPERGUPPY/.test(type)) return 'super_guppy'
   if (/BELUGA/.test(type)) return 'beluga'
   if (/^E3|AWACS|SENTRY/.test(type)) return 'e3awacs'
@@ -331,7 +331,7 @@ export function getShapeKey(t) {
   if (/A319/.test(type)) return 'a319'
   if (/A321/.test(type)) return 'a321'
   if (/A320|A318|A20N|A21N/.test(type)) return 'a320'
-  if (/B73[0-9]|B38M|B39M/.test(type)) return 'a320'
+  if (/B73[0-9]|B38M|B39M/.test(type)) return 'a319'
   if (/E39[0-9]|E29[0-9]|E17[0-9]|E19[0-9]|E13[0-9]|E14[0-9]|RJ[0-9]|B46[123]/.test(type)) return 'e390'
   if (/C295|CN235|C235|C212|AN26|AN32|DHC6|DHC5|CASA|C27J|C27/.test(type)) return 'twin_large'
   if (/M28|SKYTRUCK|BRYZA/.test(type)) return 'single_turbo'

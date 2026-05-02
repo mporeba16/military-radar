@@ -87,6 +87,7 @@ const MILITARY_CALLSIGN_PATTERNS = [
   /^VALOR/i,  // USAF
   /^HEAVY/i,  // USAF tankers
   /^SAVER/i,    // Norwegian Air Force (Luftforsvaret)
+  /^EXPL/i,     // military exploration/reconnaissance helicopter
   /^RIMC/i,     // Italian military (Aeronautica Militare / Marina Militare)
   /^SRA/i,      // Saudi Royal Air Force
   /^SHAHD/i,    // Jordan Royal Air Force
