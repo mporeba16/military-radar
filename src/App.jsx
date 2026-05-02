@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import RadarMap, { TILE_LAYERS } from './components/RadarMap'
 import AircraftInfoPanel from './components/AircraftInfoPanel'
 import { useGeolocation } from './hooks/useGeolocation'
@@ -6,7 +6,6 @@ import { usePushNotifications } from './hooks/usePushNotifications'
 import { fetchMilitaryAircraft } from './api'
 import './App.css'
 
-const POLAND_CENTER = [52.0, 19.5]
 const EUROPE_CENTER = [52.0, 15.0]
 const POLL_INTERVAL = 5_000
 const TRAIL_MIN_INTERVAL_MS = 20_000
@@ -16,7 +15,6 @@ export default function App() {
   const [aircraft, setAircraft] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [mode, setMode] = useState('europe')
   const [radius, setRadius] = useState(100)
   const [selectedHex, setSelectedHex] = useState(null)
   const [serverTrails, setServerTrails] = useState(new Map())
@@ -26,35 +24,25 @@ export default function App() {
   const alertedHexRef = useRef(new Set())
   const trailsRef = useRef(new Map())
   const serverTrailFetchedRef = useRef(new Set())
-  const [mapCenterKey, setMapCenterKey] = useState(0)
-  const prevModeRef = useRef(mode)
-  const hasGPSCentered = useRef(false)
   const isMountedRef = useRef(false)
   const fetchDataRef = useRef(null)
 
   const { location, locationError, requestLocation } = useGeolocation()
   const { isSubscribed, isSubscribing, subscribe, permissionState } = usePushNotifications(location, radius)
 
-  const center = useMemo(() => {
-    if (mode === 'poland') return POLAND_CENTER
-    if (mode === 'europe') return EUROPE_CENTER
-    return location ? [location.lat, location.lon] : POLAND_CENTER
-  }, [mode, location?.lat, location?.lon])
+  const center = EUROPE_CENTER
 
   const fetchData = useCallback(async () => {
     setIsLoading(true)
     setError(null)
     try {
-      const { aircraft: data, isDemo, source } = await fetchMilitaryAircraft(
-        center,
-        mode === 'poland' ? 400 : mode === 'europe' ? 2800 : radius
-      )
+      const { aircraft: data, isDemo, source } = await fetchMilitaryAircraft(center, 2800)
       if (source === 'unavailable') {
         setError('API niedostępne')
         return
       }
       const enriched = data.map(ac => {
-        if (mode === 'gps' && location) {
+        if (location) {
           const dist = haversine(location.lat, location.lon, ac.lat, ac.lon)
           return { ...ac, _inRadius: dist <= radius, _dist: dist }
         }
@@ -77,7 +65,7 @@ export default function App() {
         if (!currentHexes.has(hex)) serverTrailFetchedRef.current.delete(hex)
       setAircraft(enriched)
       setSelectedHex(prev => (prev && !currentHexes.has(prev) ? null : prev))
-      if (mode === 'gps' && location && !isDemo) {
+      if (location && !isDemo) {
         enriched.forEach(ac => {
           if (!alertedHexRef.current.has(ac.hex) && ac._dist <= radius) {
             triggerNotification(ac, ac._dist)
@@ -92,10 +80,13 @@ export default function App() {
     } finally {
       setIsLoading(false)
     }
-  }, [center, radius, mode, location])
+  }, [radius, location])
 
   // Keep ref fresh so stable interval always calls latest closure
   fetchDataRef.current = fetchData
+
+  // Auto-start GPS tracking on mount
+  useEffect(() => { requestLocation() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Stable interval — never restarts on GPS location updates
   useEffect(() => {
@@ -104,32 +95,11 @@ export default function App() {
     return () => clearInterval(id)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Immediate refetch on mode/radius change (not on GPS location change)
+  // Immediate refetch on radius change
   useEffect(() => {
     if (!isMountedRef.current) { isMountedRef.current = true; return }
-    if (prevModeRef.current !== mode) {
-      setAircraft([])
-      trailsRef.current.clear()
-    }
     fetchDataRef.current()
-  }, [mode, radius]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Recenter map only on mode switch, not on every GPS update
-  useEffect(() => {
-    if (prevModeRef.current !== mode) {
-      prevModeRef.current = mode
-      hasGPSCentered.current = false
-      setMapCenterKey(k => k + 1)
-    }
-  }, [mode])
-
-  // Recenter once on first GPS fix
-  useEffect(() => {
-    if (mode === 'gps' && location && !hasGPSCentered.current) {
-      hasGPSCentered.current = true
-      setMapCenterKey(k => k + 1)
-    }
-  }, [mode, location])
+  }, [radius]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!selectedHex) {
@@ -160,9 +130,9 @@ export default function App() {
         trails={trailsRef}
         serverTrails={serverTrails}
         center={center}
-        centerKey={mapCenterKey}
-        radius={mode === 'gps' ? radius : null}
-        mode={mode}
+        centerKey={0}
+        radius={location ? radius : null}
+        mode="europe"
         selectedHex={selectedHex}
         onSelect={hex => { setSelectedHex(hex); if (hex) setActivePanel(null) }}
         activeTileId={activeTileId}
@@ -187,11 +157,11 @@ export default function App() {
       {/* Control buttons — top right */}
       <div className="map-ctrl-btns">
         <button className={`map-ctrl-btn map-ctrl-icon ${activePanel === 'tryby' ? 'active' : ''}`}
-          onClick={() => togglePanel('tryby')} title="Tryb">T</button>
+          onClick={() => togglePanel('tryby')} title="Ustawienia">T</button>
         <button className={`map-ctrl-btn map-ctrl-icon ${activePanel === 'mapy' ? 'active' : ''}`}
           onClick={() => togglePanel('mapy')} title="Mapy">M</button>
-        <button className={`map-ctrl-btn map-ctrl-icon ${activePanel === 'profil' ? 'active' : ''}`}
-          onClick={() => togglePanel('profil')} title="Profil">P</button>
+        <button className={`map-ctrl-btn map-ctrl-icon ${activePanel === 'powiadomienia' ? 'active' : ''}`}
+          onClick={() => togglePanel('powiadomienia')} title="Powiadomienia">N</button>
       </div>
 
       {/* Side panels — slide from right */}
@@ -199,9 +169,9 @@ export default function App() {
         <div className="side-panel">
           <div className="side-panel-header">
             <span className="side-panel-title">
-              {activePanel === 'tryby' && 'TRYB'}
+              {activePanel === 'tryby' && 'USTAWIENIA'}
               {activePanel === 'mapy' && 'MAPY'}
-              {activePanel === 'profil' && 'PROFIL'}
+              {activePanel === 'powiadomienia' && 'POWIADOMIENIA'}
             </span>
             <button className="side-panel-close" onClick={() => setActivePanel(null)}>✕</button>
           </div>
@@ -209,33 +179,19 @@ export default function App() {
           {activePanel === 'tryby' && (
             <div className="panel-body">
               <section className="cp-section">
-                <div className="cp-label">TRYB</div>
-                <div className="btn-group">
-                  <button className={`btn-mode ${mode === 'gps' ? 'active' : ''}`}
-                    onClick={() => { setMode('gps'); if (!location) requestLocation() }}>GPS</button>
-                  <button className={`btn-mode ${mode === 'poland' ? 'active' : ''}`}
-                    onClick={() => setMode('poland')}>Polska</button>
-                  <button className={`btn-mode ${mode === 'europe' ? 'active' : ''}`}
-                    onClick={() => setMode('europe')}>Europa</button>
-                </div>
-                {mode === 'gps' && (
-                  <div className="gps-status">
-                    {location
-                      ? <span className="ok">◉ {location.lat.toFixed(3)}°N {location.lon.toFixed(3)}°E</span>
-                      : locationError
-                        ? <span className="err">✗ {locationError}</span>
-                        : <button className="link-btn" onClick={requestLocation}>Pobierz lokalizację</button>}
-                  </div>
-                )}
+                <div className="cp-label">GPS</div>
+                {location
+                  ? <p className="ok">◉ {location.lat.toFixed(3)}°N {location.lon.toFixed(3)}°E</p>
+                  : locationError
+                    ? <p className="err" style={{ fontSize: 11 }}>✗ {locationError}</p>
+                    : <button className="link-btn" onClick={requestLocation}>Pobierz lokalizację</button>}
               </section>
-              {mode === 'gps' && (
-                <section className="cp-section">
-                  <div className="cp-label">ZASIĘG: {radius} km</div>
-                  <input type="range" min="25" max="500" step="25" value={radius}
-                    onChange={e => setRadius(Number(e.target.value))} className="range-slider" />
-                  <div className="range-marks"><span>25</span><span>100</span><span>250</span><span>500</span></div>
-                </section>
-              )}
+              <section className="cp-section">
+                <div className="cp-label">ZASIĘG ALERTÓW: {radius} km</div>
+                <input type="range" min="25" max="500" step="25" value={radius}
+                  onChange={e => setRadius(Number(e.target.value))} className="range-slider" />
+                <div className="range-marks"><span>25</span><span>100</span><span>250</span><span>500</span></div>
+              </section>
               <section className="cp-section cp-refresh">
                 <button className="btn-refresh" onClick={fetchData}>↻ Odśwież</button>
                 <span className="info-text">Auto co 5s</span>
@@ -260,7 +216,7 @@ export default function App() {
             </div>
           )}
 
-          {activePanel === 'profil' && (
+          {activePanel === 'powiadomienia' && (
             <div className="panel-body">
               <section className="cp-section">
                 <div className="cp-label">POWIADOMIENIA PUSH</div>
