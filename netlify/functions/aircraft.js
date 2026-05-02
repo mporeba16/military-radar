@@ -240,15 +240,19 @@ function mapADSBfiRecord(a) {
   }
 }
 
+const GROUND_STATION_TYPES = new Set(['TWR', 'GND', 'MLAT', 'RADAR'])
+
 function isADSBfiRecordInBox(a, lamin, lomin, lamax, lomax) {
   const lat = a.lat ?? a.rr_lat
   const lon = a.lon ?? a.rr_lon
   const alt = typeof a.alt_baro === 'number' ? a.alt_baro : null
+  if (GROUND_STATION_TYPES.has((a.t || '').toUpperCase())) return false
+  if (GROUND_STATION_TYPES.has((a.r || '').toUpperCase())) return false
   return lat != null && lon != null &&
     lat >= lamin && lat <= lamax &&
     lon >= lomin && lon <= lomax &&
     a.alt_baro !== 'ground' && !a.on_ground &&
-    (alt == null || alt <= 60000) &&
+    (alt == null || (alt >= 0 && alt <= 60000)) &&
     !isSuspiciousHex(a.hex)
 }
 
