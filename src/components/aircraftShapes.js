@@ -301,7 +301,7 @@ export function getShapeKey(t) {
   if (/^C5[A-Z]?$|GALAXY/.test(type)) return 'c5'
   if (/SUPERGUPPY/.test(type)) return 'super_guppy'
   if (/BELUGA/.test(type)) return 'beluga'
-  if (/^E3|AWACS|SENTRY/.test(type)) return 'e3awacs'
+  if (/^E3$|^E3[A-Z]|AWACS|SENTRY/.test(type)) return 'e3awacs'
   if (/E737|WEDGETAIL/.test(type)) return 'e737'
   if (/^P8|POSEIDON/.test(type)) return 'p8'
   if (/^P3|^EP3|ORION/.test(type)) return 'p3_orion'
