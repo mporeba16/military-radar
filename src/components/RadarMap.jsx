@@ -123,7 +123,7 @@ export default function RadarMap({ aircraft, trails, serverTrails, center, cente
 
         {radius && (
           <Circle center={center} radius={radius * 1000} pathOptions={{
-            color: '#00ff88', fillColor: '#00ff88', fillOpacity: 0.04, weight: 1, dashArray: '6 4',
+            color: '#00ff88', fillOpacity: 0, weight: 1.5, dashArray: '6 4',
           }} />
         )}
 
