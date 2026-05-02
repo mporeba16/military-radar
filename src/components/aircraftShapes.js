@@ -336,7 +336,7 @@ export function getShapeKey(t) {
   if (/A321/.test(type)) return 'a321'
   if (/A320|A318|A20N/.test(type)) return 'a320'
   if (/B73[0-9]|B38M|B39M/.test(type)) return 'a319'
-  if (/E39[0-9]|E29[0-9]|E17[0-9]|E19[0-9]|E13[0-9]|E14[0-9]|RJ[0-9]|B46[123]/.test(type)) return 'e390'
+  if (/E39[0-9]|E29[0-9]|E17[0-9]|E19[0-9]|E13[0-9]|E14[0-9]|RJ[0-9]|B46[123]/.test(type)) return 'beluga'
   if (/C295|CN235|C235|C212|AN26|AN32|DHC6|DHC5|CASA|C27J|C27/.test(type)) return 'twin_large'
   if (/M28|SKYTRUCK|BRYZA/.test(type)) return 'single_turbo'
   if (/ATR|PC6|CARAVAN|C208/.test(type)) return 'single_turbo'
