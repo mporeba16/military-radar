@@ -175,7 +175,7 @@ function AltitudeLegend() {
   ]
   const maxM = 12200
   const gradient = `linear-gradient(to right, ${colorStops.map(s => `${s.color} ${(s.m / maxM * 100).toFixed(1)}%`).join(', ')})`
-  const ticks = [0, 600, 1200, 3000, 6000, 9000, 12000]
+  const ticks = [0, 1200, 3000, 6000, 9000, 12000]
 
   return (
     <div className="alt-legend">
