@@ -69,7 +69,7 @@ function buildIcon(ac, isSelected) {
     : ''
 
   const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="${sz}" height="${sz}" viewBox="-${half} -${half} ${sz} ${sz}">
+    <svg xmlns="http://www.w3.org/2000/svg" width="${sz}" height="${sz}" viewBox="-${half} -${half} ${sz} ${sz}" overflow="visible">
       <g transform="rotate(${heading})">
         <g transform="translate(1.2,1.2)"><g transform="${tx}">${shadowPaths}</g></g>
         <g transform="${tx}">${mainPaths}</g>
