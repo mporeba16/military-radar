@@ -268,7 +268,7 @@ export function getShapeKey(t) {
   if (/SA342|GAZELLE/.test(type)) return 'gazelle'
   if (/AS332|AS532|EC225|EC25|EC725|PUMA|COUGAR|SUPERPUMA/.test(type)) return 'puma'
   if (/GYRO|AUTOGYRO/.test(type)) return 'gyrocopter'
-  if (/A139|AW139|AW149|AW169|AW189|A149|A169|AW109|AW119/.test(type)) return 'aw_heli'
+  if (/A139|AW139|AW149|AW169|AW189|A149|A169|AW109|AW119/.test(type)) return 's61'
   if (/^UH|^AH|^MH|^HH|^SH|^H6|^H4|^H7|^H9|EC135|EC35|EC145|EC45|EC665|W3A?|MI8|MI17|MI28|KA50|KA52|LYNX|SEAHAWK|WILDCAT|R44|R66|NH90|NH9|MD9[02]|EXPLORER/.test(type)) return 'helicopter'
 
   if (/B1B|LANCER/.test(type)) return 'b1b_lancer'
