@@ -34,7 +34,3 @@ body {
 .leaflet-container {
   background: #060e1a;
 }
-
-.leaflet-tile-pane {
-  filter: brightness(0.6) saturate(0.4) hue-rotate(200deg);
-}

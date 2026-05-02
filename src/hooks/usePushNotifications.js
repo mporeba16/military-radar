@@ -23,6 +23,7 @@ async function syncToServer(sub, lat, lon, radius) {
 export function usePushNotifications(location, radius) {
   const [isSubscribed, setIsSubscribed] = useState(false)
   const [isSubscribing, setIsSubscribing] = useState(false)
+  const [subscribeError, setSubscribeError] = useState(null)
   const [permissionState, setPermissionState] = useState(
     typeof Notification !== 'undefined' ? Notification.permission : 'unsupported'
   )
@@ -48,11 +49,12 @@ export function usePushNotifications(location, radius) {
 
   const subscribe = useCallback(async () => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-      alert('Push notifications nie są obsługiwane przez tę przeglądarkę')
+      setSubscribeError('Przeglądarka nie obsługuje push notifications')
       return
     }
 
     setIsSubscribing(true)
+    setSubscribeError(null)
     try {
       const permission = await Notification.requestPermission()
       setPermissionState(permission)
@@ -68,11 +70,15 @@ export function usePushNotifications(location, radius) {
       await syncToServer(sub, location?.lat, location?.lon, radius)
     } catch (err) {
       console.error('Push subscribe failed:', err)
-      if (Notification.permission === 'granted') setIsSubscribed(true)
+      if (Notification.permission === 'granted') {
+        setIsSubscribed(true)
+      } else {
+        setSubscribeError('Nie udało się włączyć powiadomień')
+      }
     } finally {
       setIsSubscribing(false)
     }
   }, [location, radius])
 
-  return { isSubscribed, isSubscribing, subscribe, permissionState }
+  return { isSubscribed, isSubscribing, subscribe, permissionState, subscribeError }
 }

@@ -55,6 +55,13 @@
   animation: pulse 1s ease-in-out infinite;
 }
 
+.map-logo-ts {
+  font-family: 'Courier New', monospace;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.35);
+  letter-spacing: 0.5px;
+}
+
 .map-logo-spinner {
   font-size: 13px;
   color: #00ff88;

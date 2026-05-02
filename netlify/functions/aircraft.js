@@ -187,6 +187,7 @@ function stateToAircraft(s) {
     alt_baro: s[7] != null ? Math.round(s[7] * 3.28084) : null, // m → ft
     gs: s[9] != null ? Math.round(s[9] * 1.94384) : null,       // m/s → kn
     track: s[10] != null ? Math.round(s[10]) : null,
+    baro_rate: s[11] != null ? Math.round(s[11] * 196.85) : null, // m/s → ft/min
     squawk: s[14] || null,
     reg: null,
     country: s[2],
@@ -234,6 +235,7 @@ function mapADSBfiRecord(a) {
     alt_baro: (a.alt_baro != null && a.alt_baro !== 'ground') ? a.alt_baro : null,
     gs: a.gs != null ? Math.round(a.gs) : null,
     track: a.track != null ? Math.round(a.track) : null,
+    baro_rate: a.baro_rate != null ? Math.round(a.baro_rate) : null,
     squawk: a.squawk || null,
     reg: a.r || null,
     country: '',

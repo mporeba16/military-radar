@@ -26,9 +26,14 @@ export default function AircraftInfoPanel({ ac, onClose }) {
 
   const country = ac.country || countryFromHex(ac.hex)
 
+  const vsLabel = ac.baro_rate != null
+    ? (ac.baro_rate > 64 ? `▲ +${ac.baro_rate}` : ac.baro_rate < -64 ? `▼ ${ac.baro_rate}` : '→ 0')
+    : null
+
   const rows = [
     ['Typ',      ac.t ? (commonName ? `${ac.t} · ${commonName}` : ac.t) : '—'],
     ['Wysokość', altM != null ? `${altM.toLocaleString()} m` : '—'],
+    vsLabel ? ['V/S', `${vsLabel} ft/min`] : null,
     ['Prędkość', kmh != null ? `${kmh} km/h` : '—'],
     ['Kurs',     ac.track != null ? `${Math.round(ac.track)}°` : '—'],
     ac.reg  ? ['Rej.',   ac.reg]      : null,

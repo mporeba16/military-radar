@@ -20,15 +20,18 @@ export default function App() {
   const [serverTrails, setServerTrails] = useState(new Map())
   const [activePanel, setActivePanel] = useState(null)
   const [activeTileId, setActiveTileId] = useState('osm-adsbx')
+  const [lastUpdated, setLastUpdated] = useState(null)
 
   const alertedHexRef = useRef(new Set())
   const trailsRef = useRef(new Map())
   const serverTrailFetchedRef = useRef(new Set())
   const isMountedRef = useRef(false)
   const fetchDataRef = useRef(null)
+  const isSubscribedRef = useRef(false)
 
   const { location, locationError, requestLocation } = useGeolocation()
-  const { isSubscribed, isSubscribing, subscribe, permissionState } = usePushNotifications(location, radius)
+  const { isSubscribed, isSubscribing, subscribe, permissionState, subscribeError } = usePushNotifications(location, radius)
+  isSubscribedRef.current = isSubscribed
 
   const center = EUROPE_CENTER
 
@@ -64,8 +67,15 @@ export default function App() {
       for (const hex of serverTrailFetchedRef.current)
         if (!currentHexes.has(hex)) serverTrailFetchedRef.current.delete(hex)
       setAircraft(enriched)
+      setLastUpdated(new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
       setSelectedHex(prev => (prev && !currentHexes.has(prev) ? null : prev))
-      if (location && !isDemo) {
+      setServerTrails(prev => {
+        if (prev.size === 0) return prev
+        const next = new Map(prev)
+        for (const hex of next.keys()) if (!currentHexes.has(hex)) next.delete(hex)
+        return next.size === prev.size ? prev : next
+      })
+      if (location && !isDemo && !isSubscribedRef.current) {
         enriched.forEach(ac => {
           if (!alertedHexRef.current.has(ac.hex) && ac._dist <= radius) {
             triggerNotification(ac, ac._dist)
@@ -100,6 +110,17 @@ export default function App() {
     if (!isMountedRef.current) { isMountedRef.current = true; return }
     fetchDataRef.current()
   }, [radius]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ESC closes panel first, then deselects aircraft
+  useEffect(() => {
+    const handler = e => {
+      if (e.key !== 'Escape') return
+      if (activePanel) setActivePanel(null)
+      else setSelectedHex(null)
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [activePanel])
 
   useEffect(() => {
     if (!selectedHex) {
@@ -155,6 +176,7 @@ export default function App() {
         <span className="map-logo-name">RADAR WOJSKOWY</span>
         {isLoading && <span className="map-logo-spinner">◌</span>}
         {error && !isLoading && <span className="map-logo-error" title={error}>!</span>}
+        {lastUpdated && !isLoading && !error && <span className="map-logo-ts">{lastUpdated}</span>}
       </div>
 
       {/* Aircraft info panel — left, below logo */}
@@ -164,12 +186,12 @@ export default function App() {
 
       {/* Control buttons — top right */}
       <div className="map-ctrl-btns">
-        <button className={`map-ctrl-btn map-ctrl-icon ${activePanel === 'ustawienia' ? 'active' : ''}`}
-          onClick={() => togglePanel('ustawienia')} title="Ustawienia">S</button>
-        <button className={`map-ctrl-btn map-ctrl-icon ${activePanel === 'mapy' ? 'active' : ''}`}
-          onClick={() => togglePanel('mapy')} title="Mapy">M</button>
-        <button className={`map-ctrl-btn map-ctrl-icon ${activePanel === 'powiadomienia' ? 'active' : ''}`}
-          onClick={() => togglePanel('powiadomienia')} title="Powiadomienia">N</button>
+        <button className={`map-ctrl-btn ${activePanel === 'ustawienia' ? 'active' : ''}`}
+          onClick={() => togglePanel('ustawienia')}>USTAW</button>
+        <button className={`map-ctrl-btn ${activePanel === 'mapy' ? 'active' : ''}`}
+          onClick={() => togglePanel('mapy')}>MAPY</button>
+        <button className={`map-ctrl-btn ${activePanel === 'powiadomienia' ? 'active' : ''}`}
+          onClick={() => togglePanel('powiadomienia')}>PUSH</button>
       </div>
 
       {/* Side panels — slide from right */}
@@ -234,9 +256,12 @@ export default function App() {
                     ? <p className="err" style={{ fontSize: 11 }}>✗ Zablokowane — odblokuj w ustawieniach przeglądarki</p>
                     : isSubscribed
                       ? <p className="ok">◉ Powiadomienia aktywne</p>
-                      : <button className="btn-subscribe" onClick={subscribe} disabled={isSubscribing}>
-                          {isSubscribing ? '◌ Łączenie…' : 'Włącz powiadomienia'}
-                        </button>
+                      : <>
+                          <button className="btn-subscribe" onClick={subscribe} disabled={isSubscribing}>
+                            {isSubscribing ? '◌ Łączenie…' : 'Włącz powiadomienia'}
+                          </button>
+                          {subscribeError && <p className="err" style={{ fontSize: 11, marginTop: 6 }}>✗ {subscribeError}</p>}
+                        </>
                 }
                 <p className="info-text" style={{ marginTop: 6 }}>
                   Alert gdy wojskowy samolot pojawi się w zasięgu GPS — nawet gdy aplikacja jest zamknięta.
