@@ -26,12 +26,15 @@ export const handler = async (event) => {
 
     const store = getStore('push-subscriptions')
 
+    // Preserve existing lat/lon if new values are missing (GPS not yet available)
+    let existing = null
+    try { existing = await store.get(key, { type: 'json' }) } catch {}
     await store.set(key, JSON.stringify({
       subscription,
-      lat: lat ?? null,
-      lon: lon ?? null,
-      radius: radius ?? 100,
-      updatedAt: Date.now(),
+      lat: lat ?? existing?.lat ?? null,
+      lon: lon ?? existing?.lon ?? null,
+      radius: radius ?? existing?.radius ?? 100,
+      updatedAt: lat != null ? Date.now() : (existing?.updatedAt ?? Date.now()),
     }))
 
     return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) }

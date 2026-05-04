@@ -264,9 +264,20 @@ export default function App() {
                         </>
                 }
                 <p className="info-text" style={{ marginTop: 6 }}>
-                  Alert gdy wojskowy samolot pojawi się w zasięgu GPS — nawet gdy aplikacja jest zamknięta.
+                  Alert gdy wojskowy samolot pojawi się w zasięgu GPS — nawet gdy aplikacja jest zamknięta. Sprawdzane co 5 minut przez serwer.
                 </p>
               </section>
+              {isSubscribed && (
+                <section className="cp-section">
+                  <div className="cp-label">POZYCJA NA SERWERZE</div>
+                  {location
+                    ? <p className="ok" style={{ fontSize: 11 }}>◉ {location.lat.toFixed(4)}°N {location.lon.toFixed(4)}°E · zasięg {radius} km</p>
+                    : <p className="err" style={{ fontSize: 11 }}>✗ Brak GPS — serwer nie wyśle alertów bez pozycji.<br/>
+                        <button className="link-btn" style={{ marginTop: 4 }} onClick={requestLocation}>Pobierz lokalizację</button>
+                      </p>
+                  }
+                </section>
+              )}
             </div>
           )}
         </div>
