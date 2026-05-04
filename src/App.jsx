@@ -9,7 +9,7 @@ import './App.css'
 
 const EUROPE_CENTER = [52.0, 15.0]
 const POLL_INTERVAL = 5_000
-const TRAIL_MIN_INTERVAL_MS = 20_000
+const TRAIL_MIN_INTERVAL_MS = 10_000
 const TRAIL_MAX_AGE_MS = 15 * 60 * 1000
 
 export default function App() {
@@ -48,7 +48,7 @@ export default function App() {
       const enriched = data.map(ac => {
         if (location) {
           const dist = haversine(location.lat, location.lon, ac.lat, ac.lon)
-          return { ...ac, _inRadius: dist <= radius, _dist: dist }
+          return { ...ac, _dist: dist }
         }
         return ac
       })
@@ -152,10 +152,8 @@ export default function App() {
         trails={trailsRef}
         serverTrails={serverTrails}
         center={center}
-        centerKey={0}
         gpsCenter={location ? [location.lat, location.lon] : null}
         radius={location ? radius : null}
-        mode="europe"
         selectedHex={selectedHex}
         onSelect={hex => { setSelectedHex(hex); if (hex) setActivePanel(null) }}
         activeTileId={activeTileId}
