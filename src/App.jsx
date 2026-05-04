@@ -22,8 +22,10 @@ export default function App() {
   const [activePanel, setActivePanel] = useState(null)
   const [activeTileId, setActiveTileId] = useState('osm-adsbx')
   const [lastUpdated, setLastUpdated] = useState(null)
+  const [alerts, setAlerts] = useState([])
 
   const alertedHexRef = useRef(new Set())
+  const alertIdRef = useRef(0)
   const trailsRef = useRef(new Map())
   const serverTrailFetchedRef = useRef(new Set())
   const isMountedRef = useRef(false)
@@ -76,6 +78,10 @@ export default function App() {
       if (location && !isDemo) {
         enriched.forEach(ac => {
           if (!alertedHexRef.current.has(ac.hex) && ac._dist <= radius) {
+            const id = ++alertIdRef.current
+            setAlerts(prev => [...prev.slice(-2), { id, ac, dist: ac._dist }])
+            setTimeout(() => setAlerts(prev => prev.filter(a => a.id !== id)), 8000)
+            navigator.vibrate?.([200, 100, 200])
             triggerNotification(ac, ac._dist)
             alertedHexRef.current.add(ac.hex)
           }
@@ -190,6 +196,24 @@ export default function App() {
         <button className={`map-ctrl-btn ${activePanel === 'powiadomienia' ? 'active' : ''}`}
           onClick={() => togglePanel('powiadomienia')}>PUSH</button>
       </div>
+
+      {/* Alert toasts — always visible when app is open, no OS permissions needed */}
+      {alerts.length > 0 && (
+        <div className="alert-stack">
+          {alerts.map(({ id, ac, dist }) => (
+            <div key={id} className="alert-toast"
+              onClick={() => { setSelectedHex(ac.hex); setActivePanel(null); setAlerts(prev => prev.filter(a => a.id !== id)) }}>
+              <div className="alert-toast-body">
+                <span className="alert-toast-tag">⚠ W ZASIĘGU</span>
+                <span className="alert-toast-call">{ac.flight?.trim() || ac.hex}</span>
+                <span className="alert-toast-detail">{ac.t || '?'} · {Math.round(dist)} km</span>
+              </div>
+              <button className="alert-toast-close"
+                onClick={e => { e.stopPropagation(); setAlerts(prev => prev.filter(a => a.id !== id)) }}>✕</button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Side panels — slide from right */}
       {activePanel && (
