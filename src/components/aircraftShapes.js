@@ -269,7 +269,7 @@ export function getShapeKey(t) {
   if (/AS332|AS532|EC225|EC25|EC725|PUMA|COUGAR|SUPERPUMA/.test(type)) return 'puma'
   if (/GYRO|AUTOGYRO/.test(type)) return 'gyrocopter'
   if (/A139|AW139|AW149|AW169|AW189|A149|A169|AW109|AW119/.test(type)) return 's61'
-  if (/^UH|^AH|^MH|^HH|^SH|^H6|^H4|^H7|^H9|EC135|EC35|EC145|EC45|EC665|W3A?|MI8|MI17|MI28|KA50|KA52|LYNX|SEAHAWK|WILDCAT|R44|R66|NH90|NH9|MD9[02]|EXPLORER/.test(type)) return 'helicopter'
+  if (/^UH|^AH|^MH|^HH|^SH|^H6|^H4|^H7|^H9|EC135|EC35|EC145|EC45|EC665|W3A?|MI8|MI17|MI28|KA50|KA52|LYNX|SEAHAWK|WILDCAT|R44|R66|NH90|NH9|MD9|EXPLORER/.test(type)) return 'helicopter'
 
   if (/B1B|LANCER/.test(type)) return 'b1b_lancer'
   if (/B52|STRATOFORTRESS/.test(type)) return 'b52'
@@ -289,6 +289,7 @@ export function getShapeKey(t) {
   if (/^HAWK|BAEHAWK/.test(type)) return 'bae_hawk'
   if (/L159|ALCA/.test(type)) return 'l159'
   if (/MB326|M326|M346/.test(type)) return 'm326'
+  if (/^L39|ALBATROS/.test(type)) return 'jet_nonswept'
   if (/^T38|TALON/.test(type)) return 't38'
   if (/^F5[A-Z]?$|^F5E$/.test(type)) return 'f5_tiger'
   if (/^A4$|TA4|SKYHAWK/.test(type)) return 'md_a4'
@@ -336,13 +337,17 @@ export function getShapeKey(t) {
   if (/A321/.test(type)) return 'a321'
   if (/A320|A318|A20N/.test(type)) return 'a320'
   if (/B73[0-9]|B38M|B39M/.test(type)) return 'a319'
+  if (/^E121|XINGU/.test(type)) return 'twin_small'
   if (/E39[0-9]|E29[0-9]|E17[0-9]|E19[0-9]|E13[0-9]|E14[0-9]|RJ[0-9]|B46[123]/.test(type)) return 'beluga'
   if (/C295|CN235|C235|C212|AN26|AN32|DHC6|DHC5|CASA|C27J|C27/.test(type)) return 'twin_large'
   if (/M28|SKYTRUCK|BRYZA/.test(type)) return 'single_turbo'
   if (/ATR|PC6|CARAVAN|C208/.test(type)) return 'single_turbo'
+  if (/^TBM/.test(type)) return 'single_turbo'
   if (/KINGAIR|PC12|PC21|PC9|PC7|DHC8|DASH8|BE20|BE9|C12/.test(type)) return 'twin_small'
+  if (/^DA62|^DA42|^BN2|ISLANDER/.test(type)) return 'twin_small'
   if (/CESSNA|C172|C182|C152|G115|G120|G140|SF260|SF50|PZL130|TB[0-9]|TB20|TB21/.test(type)) return 'cessna'
-  if (/CIRRUS|SR22|SR20/.test(type)) return 'cirrus_sr22'
+  if (/^Z42$|^Z142$|^Z242$|^ZLIN|^DR4|^ROBIN|^EXTRA[23456]?$|^M20/.test(type)) return 'cessna'
+  if (/CIRRUS|SR22|SR20|^DA40/.test(type)) return 'cirrus_sr22'
   if (/^PA[23]/.test(type)) return 'pa24'
   if (/GLIDER|SAILPLANE|^ASK|^ASW/.test(type)) return 'glider'
 
@@ -367,6 +372,7 @@ export function getCommonName(t) {
     [/L159|ALCA/, 'ALCA'],
     [/MB339|M339/, 'Aermacchi MB-339'],
     [/MB326|M326|M346/, 'Aermacchi MB-326'],
+    [/^L39|ALBATROS/, 'L-39 Albatros'],
     [/^T38|TALON/, 'Talon'],
     [/^F5|F5E/, 'Tiger II'],
     [/^A4$|TA4|SKYHAWK/, 'Skyhawk'],
@@ -420,6 +426,14 @@ export function getCommonName(t) {
     [/C212/, 'Aviocar'],
     [/C12$/, 'Huron'],
     [/B744|B747|B748/, 'Jumbo Jet'],
+    [/MD9|EXPLORER/, 'MD-900 Explorer'],
+    [/^E121|XINGU/, 'EMB-121 Xingu'],
+    [/^DA62/, 'Diamond DA-62'],
+    [/^DA42/, 'Diamond DA-42'],
+    [/^DA40/, 'Diamond DA-40'],
+    [/^Z42$|^Z142$|^Z242$|^ZLIN/, 'Zlin'],
+    [/^TBM/, 'TBM'],
+    [/^BN2|ISLANDER/, 'Islander'],
   ]
   for (const [re, name] of map) {
     if (re.test(type)) return name
