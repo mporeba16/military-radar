@@ -14,6 +14,9 @@ const OPENSKY_PASS = process.env.OPENSKY_PASS || ''
 const TRAIL_MAX_AGE_MS = 4 * 60 * 60 * 1000  // 4 godziny historii
 const TRAIL_MIN_INTERVAL_MS = 15_000           // min. 15s między punktami
 
+// In-memory cache — survives across warm function invocations (eliminates per-aircraft blob reads)
+const trailCache = new Map() // hex → { points, flight, t }
+
 // Bloki ICAO hex przydzielone WYŁĄCZNIE wojsku (nie cywilnemu)
 // Polska 489xxx obejmuje też cywilne SP- rejestracje — nie używamy go jako hex filtra
 const MILITARY_HEX_PREFIXES = [
@@ -364,7 +367,7 @@ export const handler = async (event) => {
     || await tryOpenSky(lamin, lomin, lamax, lomax)
     || { aircraft: [], _source: 'unavailable' }
 
-  saveTrails(result.aircraft).catch(() => {})
+  await saveTrails(result.aircraft)
 
   return {
     statusCode: 200,
@@ -378,16 +381,37 @@ async function saveTrails(aircraft) {
   const store = getStore('aircraft-trails')
   const now = Date.now()
 
-  await Promise.allSettled(aircraft.map(async ac => {
-    if (ac.lat == null || ac.lon == null) return
+  // Load from blob only for aircraft not yet in the in-memory cache (cold start / new aircraft)
+  const uncached = aircraft.filter(ac => ac.lat != null && ac.lon != null && !trailCache.has(ac.hex))
+  await Promise.allSettled(uncached.map(async ac => {
     let existing = null
     try { existing = await store.get(ac.hex, { type: 'json' }) } catch {}
-    const pts = (existing?.points || []).filter(p => now - p.ts < TRAIL_MAX_AGE_MS)
-    const last = pts[pts.length - 1]
-    if (!last || now - last.ts >= TRAIL_MIN_INTERVAL_MS) {
-      pts.push({ lat: ac.lat, lon: ac.lon, alt: ac.alt_baro, ts: now })
-      await store.set(ac.hex, JSON.stringify({ points: pts, flight: ac.flight, t: ac.t }))
-    }
+    trailCache.set(ac.hex, {
+      points: (existing?.points || []).filter(p => now - p.ts < TRAIL_MAX_AGE_MS),
+      flight: ac.flight,
+      t: ac.t,
+    })
   }))
+
+  // Determine which aircraft need a new trail point written
+  const toWrite = []
+  for (const ac of aircraft) {
+    if (ac.lat == null || ac.lon == null) continue
+    const entry = trailCache.get(ac.hex)
+    if (!entry) continue
+    entry.points = entry.points.filter(p => now - p.ts < TRAIL_MAX_AGE_MS)
+    const last = entry.points[entry.points.length - 1]
+    if (!last || now - last.ts >= TRAIL_MIN_INTERVAL_MS) {
+      entry.points.push({ lat: ac.lat, lon: ac.lon, alt: ac.alt_baro, ts: now })
+      entry.flight = ac.flight
+      entry.t = ac.t
+      toWrite.push(ac.hex)
+    }
+  }
+
+  // Write only those that changed (parallel)
+  await Promise.allSettled(toWrite.map(hex =>
+    store.set(hex, JSON.stringify(trailCache.get(hex)))
+  ))
 }
 

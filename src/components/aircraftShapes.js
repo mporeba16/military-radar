@@ -340,7 +340,7 @@ export function getShapeKey(t) {
   if (/^E121|XINGU/.test(type)) return 'twin_small'
   if (/E39[0-9]|E29[0-9]|E17[0-9]|E19[0-9]|E13[0-9]|E14[0-9]|RJ[0-9]|B46[123]/.test(type)) return 'beluga'
   if (/C295|CN235|C235|C212|AN26|AN32|DHC6|DHC5|CASA|C27J|C27/.test(type)) return 'twin_large'
-  if (/M28|SKYTRUCK|BRYZA/.test(type)) return 'single_turbo'
+  if (/M28|SKYTRUCK|BRYZA/.test(type)) return 'twin_large'
   if (/ATR|PC6|CARAVAN|C208/.test(type)) return 'single_turbo'
   if (/^TBM/.test(type)) return 'single_turbo'
   if (/KINGAIR|PC12|PC21|PC9|PC7|DHC8|DASH8|BE20|BE9|C12/.test(type)) return 'twin_small'

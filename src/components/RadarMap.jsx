@@ -127,22 +127,28 @@ export default function RadarMap({ aircraft, trails, serverTrails, center, cente
           }} />
         )}
 
-        {(() => {
-          if (!selectedHex) return null
-          const clientPts = trails?.current?.get(selectedHex) || []
-          const serverPts = serverTrails?.get(selectedHex) || []
-          const clientTs = new Set(clientPts.map(p => p.ts))
-          const merged = [...serverPts.filter(p => !clientTs.has(p.ts)), ...clientPts]
-          merged.sort((a, b) => a.ts - b.ts)
-          if (merged.length < 2) return null
-          return merged.slice(1).map((pt, i) => (
+        {Array.from(trails?.current?.entries() || []).flatMap(([hex, clientPts]) => {
+          const isSelected = hex === selectedHex
+          let pts = clientPts
+          if (isSelected) {
+            const serverPts = serverTrails?.get(hex) || []
+            const clientTs = new Set(clientPts.map(p => p.ts))
+            pts = [...serverPts.filter(p => !clientTs.has(p.ts)), ...clientPts]
+            pts.sort((a, b) => a.ts - b.ts)
+          }
+          if (pts.length < 2) return []
+          return pts.slice(1).map((pt, i) => (
             <Polyline
-              key={`trail-${selectedHex}-${i}`}
-              positions={[[merged[i].lat, merged[i].lon], [pt.lat, pt.lon]]}
-              pathOptions={{ color: altToColor(ftToM(pt.alt)), weight: 2.5, opacity: 0.85 }}
+              key={`trail-${hex}-${i}`}
+              positions={[[pts[i].lat, pts[i].lon], [pt.lat, pt.lon]]}
+              pathOptions={{
+                color: altToColor(ftToM(pt.alt)),
+                weight: isSelected ? 2.5 : 1.2,
+                opacity: isSelected ? 0.9 : 0.4,
+              }}
             />
           ))
-        })()}
+        })}
 
         {aircraft.map(ac => (
           <Marker
