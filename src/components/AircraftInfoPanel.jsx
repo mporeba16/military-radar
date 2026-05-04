@@ -4,27 +4,33 @@ import './AircraftInfoPanel.css'
 
 function useAircraftPhoto(hex) {
   const [photo, setPhoto] = useState(null)
+  const [loading, setLoading] = useState(false)
   useEffect(() => {
     if (!hex) return
     setPhoto(null)
+    setLoading(true)
     let cancelled = false
     fetch(`https://api.planespotters.net/pub/photos/hex/${hex}`)
       .then(r => r.json())
-      .then(data => { if (!cancelled && data?.photos?.length) setPhoto(data.photos[0]) })
-      .catch(() => {})
+      .then(data => { if (!cancelled) setPhoto(data?.photos?.length ? data.photos[0] : null) })
+      .catch(() => { if (!cancelled) setPhoto(null) })
+      .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [hex])
-  return photo
+  return { photo, loading }
 }
 
 export default function AircraftInfoPanel({ ac, onClose }) {
-  const photo = useAircraftPhoto(ac.hex)
+  const { photo, loading: photoLoading } = useAircraftPhoto(ac.hex)
+  const [imgError, setImgError] = useState(false)
   const altM = ftToM(ac.alt_baro)
   const kmh = knToKmh(ac.gs)
   const color = altToColor(altM)
   const commonName = getCommonName(ac.t)
-
   const country = ac.country || countryFromHex(ac.hex)
+
+  // Reset img error state when photo changes
+  useEffect(() => { setImgError(false) }, [photo])
 
   const vsLabel = ac.baro_rate != null
     ? (ac.baro_rate > 64 ? `▲ +${ac.baro_rate}` : ac.baro_rate < -64 ? `▼ ${ac.baro_rate}` : '→ 0')
@@ -32,6 +38,7 @@ export default function AircraftInfoPanel({ ac, onClose }) {
 
   const rows = [
     ['Typ',      ac.t ? (commonName ? `${ac.t} · ${commonName}` : ac.t) : '—'],
+    ac._dist != null ? ['Odległość', `${Math.round(ac._dist)} km`] : null,
     ['Wysokość', altM != null ? `${altM.toLocaleString()} m` : '—'],
     vsLabel ? ['V/S', `${vsLabel} ft/min`] : null,
     ['Prędkość', kmh != null ? `${kmh} km/h` : '—'],
@@ -42,6 +49,9 @@ export default function AircraftInfoPanel({ ac, onClose }) {
     ['ICAO',     ac.hex],
   ].filter(Boolean)
 
+  const showPhoto = photo && !imgError
+  const photoSrc = photo?.thumbnail_large?.src || photo?.thumbnail?.src
+
   return (
     <div className="ac-info-panel">
       <div className="ac-info-header">
@@ -51,12 +61,15 @@ export default function AircraftInfoPanel({ ac, onClose }) {
         <button className="ac-info-close" onClick={onClose}>✕</button>
       </div>
 
-      {photo && (
+      {photoLoading && <div className="ac-info-photo-skeleton" />}
+
+      {showPhoto && (
         <a className="ac-info-photo-wrap" href={photo.link} target="_blank" rel="noopener noreferrer">
           <img
-            src={photo.thumbnail_large?.src || photo.thumbnail?.src}
+            src={photoSrc}
             alt={ac.flight || ac.hex}
             className="ac-info-photo"
+            onError={() => setImgError(true)}
           />
           <span className="ac-info-photo-credit">© {photo.photographer}</span>
         </a>

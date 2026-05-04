@@ -131,7 +131,7 @@ export async function fetchMilitaryNear(lat, lon, radiusKm) {
   try {
     // Query 1: adsb.fi /mil — globally tagged military aircraft
     const milRes = await fetch('https://opendata.adsb.fi/api/v2/mil', {
-      signal: AbortSignal.timeout(10000), headers,
+      signal: AbortSignal.timeout(5000), headers,
     })
     if (!milRes.ok) throw new Error('adsb.fi /mil failed')
     const milData = await milRes.json()
@@ -149,7 +149,7 @@ export async function fetchMilitaryNear(lat, lon, radiusKm) {
       const radiusNm = Math.min(250, Math.round(radiusKm * 0.54))
       const geoRes = await fetch(
         `https://opendata.adsb.fi/api/v2/lat/${lat.toFixed(4)}/lon/${lon.toFixed(4)}/dist/${radiusNm}`,
-        { signal: AbortSignal.timeout(8000), headers }
+        { signal: AbortSignal.timeout(4000), headers }
       )
       if (geoRes.ok) {
         const geoData = await geoRes.json()

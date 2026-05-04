@@ -15,7 +15,7 @@ export default defineConfig({
         theme_color: '#080f1c',
         background_color: '#080f1c',
         display: 'standalone',
-        orientation: 'portrait',
+        orientation: 'any',
         icons: [
           { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },
           { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' }
@@ -30,6 +30,22 @@ export default defineConfig({
             handler: 'CacheFirst',
             options: {
               cacheName: 'osm-tiles',
+              expiration: { maxEntries: 200, maxAgeSeconds: 86400 }
+            }
+          },
+          {
+            urlPattern: /^https:\/\/[a-z]\.basemaps\.cartocdn\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'carto-tiles',
+              expiration: { maxEntries: 200, maxAgeSeconds: 86400 }
+            }
+          },
+          {
+            urlPattern: /^https:\/\/server\.arcgisonline\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'esri-tiles',
               expiration: { maxEntries: 200, maxAgeSeconds: 86400 }
             }
           }
