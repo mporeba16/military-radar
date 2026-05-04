@@ -4,6 +4,7 @@ import AircraftInfoPanel from './components/AircraftInfoPanel'
 import { useGeolocation } from './hooks/useGeolocation'
 import { usePushNotifications } from './hooks/usePushNotifications'
 import { fetchMilitaryAircraft } from './api'
+import { version } from '../package.json'
 import './App.css'
 
 const EUROPE_CENTER = [52.0, 15.0]
@@ -168,6 +169,7 @@ export default function App() {
           : locationError
             ? <span className="count-gps-err">✗ GPS</span>
             : <span className="count-gps-wait">◌ GPS</span>}
+        <span className="count-version">v{version}</span>
       </div>
 
       {/* Logo — top left */}

@@ -367,7 +367,7 @@ export const handler = async (event) => {
     || await tryOpenSky(lamin, lomin, lamax, lomax)
     || { aircraft: [], _source: 'unavailable' }
 
-  await Promise.race([saveTrails(result.aircraft), new Promise(r => setTimeout(r, 3000))])
+  await Promise.race([saveTrails(result.aircraft).catch(() => {}), new Promise(r => setTimeout(r, 3000))])
 
   return {
     statusCode: 200,
