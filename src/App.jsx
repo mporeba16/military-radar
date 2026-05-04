@@ -28,11 +28,8 @@ export default function App() {
   const serverTrailFetchedRef = useRef(new Set())
   const isMountedRef = useRef(false)
   const fetchDataRef = useRef(null)
-  const isSubscribedRef = useRef(false)
-
   const { location, locationError, requestLocation } = useGeolocation()
   const { isSubscribed, isSubscribing, subscribe, permissionState, subscribeError } = usePushNotifications(location, radius)
-  isSubscribedRef.current = isSubscribed
 
   const center = EUROPE_CENTER
 
@@ -76,7 +73,7 @@ export default function App() {
         for (const hex of next.keys()) if (!currentHexes.has(hex)) next.delete(hex)
         return next.size === prev.size ? prev : next
       })
-      if (location && !isDemo && !isSubscribedRef.current) {
+      if (location && !isDemo) {
         enriched.forEach(ac => {
           if (!alertedHexRef.current.has(ac.hex) && ac._dist <= radius) {
             triggerNotification(ac, ac._dist)
