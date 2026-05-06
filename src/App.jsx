@@ -248,24 +248,50 @@ export default function App() {
           {activePanel === 'ustawienia' && (
             <div className="panel-body">
               <section className="cp-section">
-                <div className="cp-label">GPS</div>
+                <div className="cp-label">GPS — wymagany do alertów</div>
                 {location
-                  ? <p className="ok">◉ {location.lat.toFixed(3)}°N {location.lon.toFixed(3)}°E</p>
+                  ? <p className="ok">◉ {location.lat.toFixed(4)}°N {location.lon.toFixed(4)}°E</p>
                   : locationError
-                    ? <p className="err" style={{ fontSize: 11 }}>✗ {locationError}</p>
-                    : <button className="link-btn" onClick={requestLocation}>Pobierz lokalizację</button>}
+                    ? <>
+                        <p className="err" style={{ fontSize: 11 }}>✗ {locationError}</p>
+                        <p className="info-text" style={{ marginTop: 4 }}>
+                          Bez GPS alerty nie działają. Odblokuj lokalizację w ustawieniach przeglądarki.
+                        </p>
+                      </>
+                    : <>
+                        <p className="info-text">Oczekiwanie na GPS…</p>
+                        <button className="link-btn" style={{ marginTop: 4 }} onClick={requestLocation}>Pobierz lokalizację</button>
+                      </>}
               </section>
               <section className="cp-section">
                 <div className="cp-label">ZASIĘG ALERTÓW: {radius} km</div>
                 <input type="range" min="25" max="500" step="25" value={radius}
                   onChange={e => setRadius(Number(e.target.value))} className="range-slider" />
                 <div className="range-marks"><span>25</span><span>100</span><span>250</span><span>500</span></div>
+                {location && (
+                  <p className="info-text" style={{ marginTop: 6 }}>
+                    W zasięgu teraz: <strong style={{ color: alerts.length > 0 ? '#ff5520' : '#00ff88' }}>
+                      {alerts.length} samolotów
+                    </strong>
+                  </p>
+                )}
               </section>
               <section className="cp-section cp-refresh">
                 <button className="btn-refresh" onClick={fetchData}>↻ Odśwież</button>
-                <span className="info-text">Auto co 5s</span>
+                <button className="btn-refresh" style={{ marginLeft: 6 }} onClick={() => {
+                  const testHex = '__test__'
+                  dismissedAlertsRef.current.delete(testHex)
+                  setAlerts(prev => {
+                    if (prev.find(a => a.hex === testHex)) return prev
+                    return [...prev, { hex: testHex, ac: { flight: 'TEST', hex: testHex, t: 'F-16C' }, dist: 12 }]
+                  })
+                  setTimeout(() => setAlerts(prev => prev.filter(a => a.hex !== testHex)), 6000)
+                }}>⚠ Test</button>
               </section>
               {error && <p className="err" style={{ fontSize: 11, marginTop: 8 }}>✗ {error}</p>}
+              <p className="info-text" style={{ marginTop: 12, borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 10 }}>
+                v{version} · Jeśli alerty nie działają: zamknij i otwórz app ponownie (wymuś odświeżenie).
+              </p>
             </div>
           )}
 
