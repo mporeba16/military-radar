@@ -25,7 +25,7 @@ export default function App() {
   const [alerts, setAlerts] = useState([])
 
   const alertedHexRef = useRef(new Set())
-  const alertIdRef = useRef(0)
+  const dismissedAlertsRef = useRef(new Set())
   const trailsRef = useRef(new Map())
   const serverTrailFetchedRef = useRef(new Set())
   const isMountedRef = useRef(false)
@@ -76,18 +76,29 @@ export default function App() {
         return next.size === prev.size ? prev : next
       })
       if (location && !isDemo) {
-        enriched.forEach(ac => {
-          if (!alertedHexRef.current.has(ac.hex) && ac._dist <= radius) {
-            const id = ++alertIdRef.current
-            setAlerts(prev => [...prev.slice(-2), { id, ac, dist: ac._dist }])
-            setTimeout(() => setAlerts(prev => prev.filter(a => a.id !== id)), 8000)
+        const inRange = enriched.filter(ac => ac._dist != null && ac._dist <= radius)
+        // Fire one-time effects (vibration + OS notification) for newly entered aircraft
+        inRange.forEach(ac => {
+          if (!alertedHexRef.current.has(ac.hex)) {
+            alertedHexRef.current.add(ac.hex)
+            dismissedAlertsRef.current.delete(ac.hex)
             navigator.vibrate?.([200, 100, 200])
             triggerNotification(ac, ac._dist)
-            alertedHexRef.current.add(ac.hex)
           }
         })
-        for (const h of alertedHexRef.current)
-          if (!currentHexes.has(h)) alertedHexRef.current.delete(h)
+        // Persistent alerts = all in-range aircraft not manually dismissed
+        setAlerts(
+          inRange
+            .filter(ac => !dismissedAlertsRef.current.has(ac.hex))
+            .map(ac => ({ hex: ac.hex, ac, dist: ac._dist }))
+        )
+        // When aircraft leaves radar: reset so it can re-alert on return
+        for (const h of alertedHexRef.current) {
+          if (!currentHexes.has(h)) {
+            alertedHexRef.current.delete(h)
+            dismissedAlertsRef.current.delete(h)
+          }
+        }
       }
     } catch (err) {
       setError(err.message)
@@ -165,6 +176,9 @@ export default function App() {
       {/* Aircraft count + GPS status — bottom left */}
       <div className="map-overlay-count">
         {aircraft.length} OBJ
+        {alerts.length > 0 && (
+          <span className="count-in-range">⚠ {alerts.length} W ZASIĘGU</span>
+        )}
         {location
           ? <span className="count-gps-ok">◉ GPS</span>
           : locationError
@@ -197,19 +211,23 @@ export default function App() {
           onClick={() => togglePanel('powiadomienia')}>PUSH</button>
       </div>
 
-      {/* Alert toasts — always visible when app is open, no OS permissions needed */}
+      {/* Alert toasts — persistent until aircraft leaves range or user dismisses */}
       {alerts.length > 0 && (
         <div className="alert-stack">
-          {alerts.map(({ id, ac, dist }) => (
-            <div key={id} className="alert-toast"
-              onClick={() => { setSelectedHex(ac.hex); setActivePanel(null); setAlerts(prev => prev.filter(a => a.id !== id)) }}>
+          {alerts.map(({ hex, ac, dist }) => (
+            <div key={hex} className="alert-toast"
+              onClick={() => { setSelectedHex(ac.hex); setActivePanel(null) }}>
               <div className="alert-toast-body">
                 <span className="alert-toast-tag">⚠ W ZASIĘGU</span>
                 <span className="alert-toast-call">{ac.flight?.trim() || ac.hex}</span>
                 <span className="alert-toast-detail">{ac.t || '?'} · {Math.round(dist)} km</span>
               </div>
               <button className="alert-toast-close"
-                onClick={e => { e.stopPropagation(); setAlerts(prev => prev.filter(a => a.id !== id)) }}>✕</button>
+                onClick={e => {
+                  e.stopPropagation()
+                  dismissedAlertsRef.current.add(hex)
+                  setAlerts(prev => prev.filter(a => a.hex !== hex))
+                }}>✕</button>
             </div>
           ))}
         </div>

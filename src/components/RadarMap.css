@@ -45,6 +45,7 @@
 .count-gps-err    { color: #ff7043; }
 .count-gps-wait   { color: #7a9ab5; }
 .count-version    { color: rgba(255,255,255,0.25); font-size: 9px; letter-spacing: 0.5px; margin-left: 2px; }
+.count-in-range   { color: #ff5520; font-weight: bold; letter-spacing: 0.5px; animation: pulse 1.2s ease-in-out infinite; }
 
 /* Altitude legend — bottom left, above count */
 .alt-legend {
