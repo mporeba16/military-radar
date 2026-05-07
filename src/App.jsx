@@ -23,6 +23,7 @@ export default function App() {
   const [activeTileId, setActiveTileId] = useState('osm-adsbx')
   const [lastUpdated, setLastUpdated] = useState(null)
   const [alerts, setAlerts] = useState([])
+  const [inRangeCount, setInRangeCount] = useState(0)
 
   const alertedHexRef = useRef(new Set())
   const dismissedAlertsRef = useRef(new Set())
@@ -77,6 +78,7 @@ export default function App() {
       })
       if (location && !isDemo) {
         const inRange = enriched.filter(ac => ac._dist != null && ac._dist <= radius)
+        setInRangeCount(inRange.length)
         // Fire one-time effects (vibration + OS notification) for newly entered aircraft
         inRange.forEach(ac => {
           if (!alertedHexRef.current.has(ac.hex)) {
@@ -99,6 +101,10 @@ export default function App() {
             dismissedAlertsRef.current.delete(h)
           }
         }
+      } else {
+        // GPS lost or demo mode — clear stale alerts
+        setAlerts([])
+        setInRangeCount(0)
       }
     } catch (err) {
       setError(err.message)
@@ -214,9 +220,13 @@ export default function App() {
       {/* Alert toasts — persistent until aircraft leaves range or user dismisses */}
       {alerts.length > 0 && (
         <div className="alert-stack">
-          {alerts.map(({ hex, ac, dist }) => (
+          {alerts.slice(0, 3).map(({ hex, ac, dist }) => (
             <div key={hex} className="alert-toast"
-              onClick={() => { setSelectedHex(ac.hex); setActivePanel(null) }}>
+              onClick={() => {
+                if (hex.startsWith('__')) return
+                setSelectedHex(ac.hex)
+                setActivePanel(null)
+              }}>
               <div className="alert-toast-body">
                 <span className="alert-toast-tag">⚠ W ZASIĘGU</span>
                 <span className="alert-toast-call">{ac.flight?.trim() || ac.hex}</span>
@@ -230,6 +240,9 @@ export default function App() {
                 }}>✕</button>
             </div>
           ))}
+          {alerts.length > 3 && (
+            <div className="alert-toast-overflow">+{alerts.length - 3} więcej w zasięgu</div>
+          )}
         </div>
       )}
 
@@ -270,8 +283,8 @@ export default function App() {
                 <div className="range-marks"><span>25</span><span>100</span><span>250</span><span>500</span></div>
                 {location && (
                   <p className="info-text" style={{ marginTop: 6 }}>
-                    W zasięgu teraz: <strong style={{ color: alerts.length > 0 ? '#ff5520' : '#00ff88' }}>
-                      {alerts.length} samolotów
+                    W zasięgu teraz: <strong style={{ color: inRangeCount > 0 ? '#ff5520' : '#00ff88' }}>
+                      {inRangeCount} samolotów
                     </strong>
                   </p>
                 )}
