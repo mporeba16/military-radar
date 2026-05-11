@@ -395,6 +395,14 @@ export default function App() {
                             </div>
                           </>
                         )}
+                        {serverStatus.storeErrors && serverStatus.storeErrors.length > 0 && (
+                          <div style={{ marginTop: 6 }}>
+                            <div className="err">Błędy blob store:</div>
+                            {serverStatus.storeErrors.map((e, i) => (
+                              <div key={i} className="err" style={{ fontSize: 10, wordBreak: 'break-all' }}>· {e}</div>
+                            ))}
+                          </div>
+                        )}
                         {serverStatus.latestRun && (
                           <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
                             <div style={{ color: 'rgba(255,255,255,0.55)' }}>Ostatni cron:</div>

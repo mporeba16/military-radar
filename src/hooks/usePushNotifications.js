@@ -17,8 +17,14 @@ async function syncToServer(sub, lat, lon, radius) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ subscription: sub.toJSON(), lat, lon, radius }),
     })
-    if (!res.ok) return { ok: false, error: `http-${res.status}` }
-    return { ok: true }
+    let payload = null
+    try { payload = await res.json() } catch {}
+    if (!res.ok) {
+      const code = payload?.error || `http-${res.status}`
+      const detail = payload?.detail ? `: ${payload.detail}` : ''
+      return { ok: false, error: `${code}${detail}` }
+    }
+    return { ok: true, hasGps: payload?.hasGps }
   } catch (err) {
     return { ok: false, error: err.message || 'network' }
   }
