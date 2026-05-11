@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import RadarMap, { TILE_LAYERS } from './components/RadarMap'
+import RadarMap, { TILE_LAYERS, AltitudeLegend } from './components/RadarMap'
 import AircraftInfoPanel from './components/AircraftInfoPanel'
 import { useGeolocation } from './hooks/useGeolocation'
 import { usePushNotifications } from './hooks/usePushNotifications'
@@ -25,11 +25,9 @@ export default function App() {
   const [activePanel, setActivePanel] = useState(null)
   const [activeTileId, setActiveTileId] = useLocalStorage('radar.tile', 'osm-adsbx')
   const [lastUpdated, setLastUpdated] = useState(null)
-  const [lastUpdatedTs, setLastUpdatedTs] = useState(null)
   const [alerts, setAlerts] = useState([])
   const [inRangeCount, setInRangeCount] = useState(0)
   const [testPushStatus, setTestPushStatus] = useState(null)
-  const [, forceTick] = useState(0)
 
   const alertedHexRef = useRef(new Set())
   const dismissedAlertsRef = useRef(new Set(loadDismissed()))
@@ -85,9 +83,7 @@ export default function App() {
       for (const hex of serverTrailFetchedRef.current)
         if (!currentHexes.has(hex)) serverTrailFetchedRef.current.delete(hex)
       setAircraft(enriched)
-      const tsNow = Date.now()
-      setLastUpdatedTs(tsNow)
-      setLastUpdated(new Date(tsNow).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
+      setLastUpdated(new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
       // B4: grace period — don't immediately drop selection if aircraft missing for one cycle
       setSelectedHex(prev => {
         if (!prev || currentHexes.has(prev)) {
@@ -173,13 +169,6 @@ export default function App() {
     fetchDataRef.current()
   }, [radius]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Live "X s temu" tick (U9) — only ticks while we have a timestamp
-  useEffect(() => {
-    if (!lastUpdatedTs) return
-    const id = setInterval(() => forceTick(t => t + 1), 1000)
-    return () => clearInterval(id)
-  }, [lastUpdatedTs])
-
   // ESC closes panel first, then deselects aircraft (B12 — skip when typing)
   useEffect(() => {
     const handler = e => {
@@ -232,7 +221,6 @@ export default function App() {
   }, [aircraft, location, radius])
 
   const selectedAc = aircraft.find(ac => ac.hex === selectedHex) || null
-  const freshness = lastUpdatedTs ? formatFreshness(Date.now() - lastUpdatedTs) : null
 
   async function handleTestPush() {
     setTestPushStatus({ kind: 'loading' })
@@ -260,20 +248,8 @@ export default function App() {
         activeTileId={activeTileId}
       />
 
-      {/* Aircraft count + GPS status — bottom left */}
+      {/* Version — bottom left */}
       <div className="map-overlay-count">
-        {aircraft.length} OBJ
-        {alerts.length > 0 && (
-          <span className="count-in-range">⚠ {alerts.length} W ZASIĘGU</span>
-        )}
-        {location
-          ? <span className="count-gps-ok">◉ GPS</span>
-          : locationError
-            ? <span className="count-gps-err">✗ GPS</span>
-            : <span className="count-gps-wait">◌ GPS</span>}
-        {freshness && (
-          <span className={freshness.stale ? 'count-fresh-stale' : 'count-fresh'}>{freshness.label}</span>
-        )}
         <span className="count-version">v{version}</span>
       </div>
 
@@ -301,8 +277,6 @@ export default function App() {
           onClick={() => togglePanel('ustawienia')}>USTAW</button>
         <button className={`map-ctrl-btn ${activePanel === 'mapy' ? 'active' : ''}`}
           onClick={() => togglePanel('mapy')}>MAPY</button>
-        <button className={`map-ctrl-btn ${activePanel === 'powiadomienia' ? 'active' : ''}`}
-          onClick={() => togglePanel('powiadomienia')}>PUSH</button>
       </div>
 
       {/* Alert toasts — persistent until aircraft leaves range or user dismisses */}
@@ -349,13 +323,13 @@ export default function App() {
             <span className="side-panel-title">
               {activePanel === 'ustawienia' && 'USTAWIENIA'}
               {activePanel === 'mapy' && 'MAPY'}
-              {activePanel === 'powiadomienia' && 'POWIADOMIENIA'}
             </span>
             <button className="side-panel-close" onClick={() => setActivePanel(null)}>✕</button>
           </div>
 
           {activePanel === 'ustawienia' && (
             <div className="panel-body">
+              {/* 1. GPS — fundament wszystkiego */}
               <section className="cp-section">
                 <div className="cp-label">GPS — wymagany do alertów</div>
                 {location
@@ -372,6 +346,8 @@ export default function App() {
                         <button className="link-btn" style={{ marginTop: 4 }} onClick={requestLocation}>Pobierz lokalizację</button>
                       </>}
               </section>
+
+              {/* 2. Zasięg alertów */}
               <section className="cp-section">
                 <div className="cp-label">ZASIĘG ALERTÓW: {radius} km</div>
                 <input type="range" min="25" max="500" step="25" value={radius}
@@ -385,34 +361,8 @@ export default function App() {
                   </p>
                 )}
               </section>
-              <section className="cp-section cp-refresh">
-                <button className="btn-refresh" onClick={fetchData}>↻ Odśwież</button>
-              </section>
-              {error && <p className="err" style={{ fontSize: 11, marginTop: 8 }}>✗ {error}</p>}
-              <p className="info-text" style={{ marginTop: 12, borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 10 }}>
-                v{version} · Jeśli alerty nie działają: zamknij i otwórz app ponownie (wymuś odświeżenie).
-              </p>
-            </div>
-          )}
 
-          {activePanel === 'mapy' && (
-            <div className="panel-body">
-              <div className="cp-label">WYBIERZ MAPĘ</div>
-              <div className="map-layer-list">
-                {TILE_LAYERS.map(layer => (
-                  <button key={layer.id}
-                    className={`map-layer-item ${activeTileId === layer.id ? 'active' : ''}`}
-                    onClick={() => setActiveTileId(layer.id)}>
-                    <span className="map-layer-name">{layer.name}</span>
-                    {activeTileId === layer.id && <span className="map-layer-check">◉</span>}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {activePanel === 'powiadomienia' && (
-            <div className="panel-body">
+              {/* 3. Powiadomienia push */}
               <section className="cp-section">
                 <div className="cp-label">POWIADOMIENIA PUSH</div>
                 {permissionState === 'unsupported'
@@ -432,6 +382,8 @@ export default function App() {
                   Alert gdy wojskowy samolot pojawi się w zasięgu GPS — nawet gdy aplikacja jest zamknięta. Sprawdzane co 5 minut przez serwer.
                 </p>
               </section>
+
+              {/* 4. Test push (gdy zasubskrybowane) */}
               {isSubscribed && (
                 <section className="cp-section">
                   <div className="cp-label">TESTOWY PUSH</div>
@@ -453,6 +405,8 @@ export default function App() {
                   )}
                 </section>
               )}
+
+              {/* 5. Pozycja na serwerze (gdy zasubskrybowane) */}
               {isSubscribed && (
                 <section className="cp-section">
                   <div className="cp-label">POZYCJA NA SERWERZE</div>
@@ -469,6 +423,8 @@ export default function App() {
                   )}
                 </section>
               )}
+
+              {/* 6. Diagnostyka push (gdy zasubskrybowane) */}
               {isSubscribed && (
                 <section className="cp-section">
                   <div className="cp-label">DIAGNOSTYKA SERWERA</div>
@@ -540,8 +496,40 @@ export default function App() {
                   }
                 </section>
               )}
+
+              {/* 7. Legenda wysokości (referencja kolorów) */}
+              <section className="cp-section">
+                <div className="cp-label">SKALA WYSOKOŚCI</div>
+                <AltitudeLegend />
+              </section>
+
+              {/* 8. Akcje + info */}
+              <section className="cp-section cp-refresh">
+                <button className="btn-refresh" onClick={fetchData}>↻ Odśwież</button>
+              </section>
+              {error && <p className="err" style={{ fontSize: 11, marginTop: 8 }}>✗ {error}</p>}
+              <p className="info-text" style={{ marginTop: 12, borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 10 }}>
+                v{version} · Jeśli alerty nie działają: zamknij i otwórz app ponownie (wymuś odświeżenie).
+              </p>
             </div>
           )}
+
+          {activePanel === 'mapy' && (
+            <div className="panel-body">
+              <div className="cp-label">WYBIERZ MAPĘ</div>
+              <div className="map-layer-list">
+                {TILE_LAYERS.map(layer => (
+                  <button key={layer.id}
+                    className={`map-layer-item ${activeTileId === layer.id ? 'active' : ''}`}
+                    onClick={() => setActiveTileId(layer.id)}>
+                    <span className="map-layer-name">{layer.name}</span>
+                    {activeTileId === layer.id && <span className="map-layer-check">◉</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
         </div>
       )}
     </div>
@@ -572,15 +560,6 @@ function formatAge(ms) {
   const h = Math.round(m / 60)
   if (h < 24) return `${h}h`
   return `${Math.round(h / 24)} dni`
-}
-
-function formatFreshness(ms) {
-  const s = Math.round(ms / 1000)
-  const stale = s > 30
-  if (s < 5) return { label: '◉ live', stale: false }
-  if (s < 60) return { label: `${s}s temu`, stale }
-  const m = Math.floor(s / 60)
-  return { label: `${m} min temu`, stale: true }
 }
 
 function haversine(lat1, lon1, lat2, lon2) {

@@ -273,13 +273,11 @@ export default function RadarMap({
           zoomScale={zoomScale}
         />
       </MapContainer>
-
-      <AltitudeLegend />
     </div>
   )
 }
 
-function AltitudeLegend() {
+export function AltitudeLegend() {
   const colorStops = [
     { m:     0, color: 'rgb(255,80,0)' },
     { m:   300, color: 'rgb(255,160,0)' },
@@ -298,7 +296,6 @@ function AltitudeLegend() {
 
   return (
     <div className="alt-legend">
-      <div className="alt-legend-title">ALTITUDE (m)</div>
       <div className="alt-legend-bar" style={{ background: gradient }} />
       <div className="alt-legend-labels">
         {ticks.map((m, i) => (
@@ -308,6 +305,7 @@ function AltitudeLegend() {
           </span>
         ))}
       </div>
+      <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>w metrach (m)</div>
     </div>
   )
 }

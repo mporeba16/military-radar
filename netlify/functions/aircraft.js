@@ -204,12 +204,40 @@ function stateToAircraft(s) {
 
 // Pobiera trasę historyczną z OpenSky `/tracks/all` (od ostatniego startu).
 // path: [[time_s, lat, lon, alt_m, heading, on_ground], ...]
+//
+// OpenSky bywa wolny (3-8s), więc:
+// - cache w blobie z TTL 20 min (kolejne klikniecia tego samego samolotu = instant)
+// - timeout 9s (Netlify ma 10s limit na funkcję synchroniczną)
+const OPENSKY_CACHE_TTL_MS = 20 * 60 * 1000
+const OPENSKY_TIMEOUT_MS = 9000
+
 async function fetchOpenSkyTrack(hex) {
-  const meta = { status: 0, points: 0, error: null }
+  const meta = { status: 0, points: 0, error: null, cached: false, ageMs: null }
+
+  let cache = null
+  try { cache = getStore('opensky-tracks-cache') } catch {}
+
+  // 1) cache first
+  if (cache) {
+    try {
+      const entry = await cache.get(hex, { type: 'json' })
+      if (entry?.ts) {
+        const age = Date.now() - entry.ts
+        if (age < OPENSKY_CACHE_TTL_MS) {
+          meta.cached = true
+          meta.ageMs = age
+          meta.points = entry.points?.length || 0
+          return { points: entry.points || [], meta }
+        }
+      }
+    } catch {}
+  }
+
+  // 2) fetch fresh
   try {
     const url = `https://opensky-network.org/api/tracks/all?icao24=${hex}&time=0`
     const fetchOpts = {
-      signal: AbortSignal.timeout(6000),
+      signal: AbortSignal.timeout(OPENSKY_TIMEOUT_MS),
       headers: {
         'User-Agent': 'MilitaryRadarPL/1.0',
         'Accept': 'application/json',
@@ -235,6 +263,12 @@ async function fetchOpenSkyTrack(hex) {
         ts: p[0] * 1000,
       }))
     meta.points = points.length
+
+    // 3) write to cache only on success with data (don't poison cache with empty/error)
+    if (cache && points.length > 0) {
+      try { await cache.set(hex, JSON.stringify({ points, ts: Date.now() })) } catch {}
+    }
+
     return { points, meta }
   } catch (err) {
     meta.error = err.message || 'exception'
@@ -419,6 +453,8 @@ export const handler = async (event) => {
           opensky: openskyTrack.length,
           openskyStatus: openskyResult.meta.status,
           openskyError: openskyResult.meta.error,
+          openskyCached: openskyResult.meta.cached,
+          openskyAgeMs: openskyResult.meta.ageMs,
           blobError: blobMeta.error,
         },
       }),

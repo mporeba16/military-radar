@@ -42,11 +42,7 @@ export default function AircraftInfoPanel({ ac, trailSources, onClose }) {
     ['Wysokość', altM != null ? `${altM.toLocaleString()} m` : '—'],
     vsLabel ? ['V/S', `${vsLabel} ft/min`] : null,
     ['Prędkość', kmh != null ? `${kmh} km/h` : '—'],
-    ['Kurs',     ac.track != null ? `${Math.round(ac.track)}°` : '—'],
-    ac.reg  ? ['Rej.',   ac.reg]      : null,
     country ? ['Kraj', `${countryFlag(country)} ${country}`.trim()] : null,
-    ['Squawk',   ac.squawk || '—'],
-    ['ICAO',     ac.hex],
   ].filter(Boolean)
 
   const photoSrc = photo?.thumbnail_large?.src || photo?.thumbnail?.src
@@ -89,7 +85,8 @@ export default function AircraftInfoPanel({ ac, trailSources, onClose }) {
       {trailSources && (
         <div className="ac-info-trail-info">
           Trasa: <span style={{ color: '#fff' }}>{(trailSources.blob || 0) + (trailSources.opensky || 0)}</span> pkt
-          {' '}(serwer: {trailSources.blob || 0}, OpenSky: {trailSources.opensky || 0})
+          {' '}(serwer: {trailSources.blob || 0}, OpenSky: {trailSources.opensky || 0}
+          {trailSources.openskyCached ? ' · cache' : ''})
           {trailSources.openskyError && (
             <div className="ac-info-trail-warn">
               OpenSky: {trailSources.openskyError}
