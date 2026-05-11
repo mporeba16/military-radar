@@ -21,6 +21,7 @@ export default function App() {
   const [radius, setRadius] = useLocalStorage('radar.radius', 100)
   const [selectedHex, setSelectedHex] = useState(null)
   const [serverTrails, setServerTrails] = useState(new Map())
+  const [trailSources, setTrailSources] = useState(new Map())
   const [activePanel, setActivePanel] = useState(null)
   const [activeTileId, setActiveTileId] = useLocalStorage('radar.tile', 'osm-adsbx')
   const [lastUpdated, setLastUpdated] = useState(null)
@@ -28,7 +29,6 @@ export default function App() {
   const [alerts, setAlerts] = useState([])
   const [inRangeCount, setInRangeCount] = useState(0)
   const [testPushStatus, setTestPushStatus] = useState(null)
-  const [centerOnGpsToken, setCenterOnGpsToken] = useState(0)
   const [, forceTick] = useState(0)
 
   const alertedHexRef = useRef(new Set())
@@ -102,6 +102,12 @@ export default function App() {
         return prev
       })
       setServerTrails(prev => {
+        if (prev.size === 0) return prev
+        const next = new Map(prev)
+        for (const hex of next.keys()) if (!currentHexes.has(hex)) next.delete(hex)
+        return next.size === prev.size ? prev : next
+      })
+      setTrailSources(prev => {
         if (prev.size === 0) return prev
         const next = new Map(prev)
         for (const hex of next.keys()) if (!currentHexes.has(hex)) next.delete(hex)
@@ -197,7 +203,10 @@ export default function App() {
     serverTrailFetchedRef.current.add(selectedHex)
     fetch(`/.netlify/functions/aircraft?hex=${selectedHex}`)
       .then(r => r.json())
-      .then(({ trail }) => {
+      .then(({ trail, sources }) => {
+        if (sources) {
+          setTrailSources(prev => { const next = new Map(prev); next.set(selectedHex, sources); return next })
+        }
         if (!trail?.length) return
         setServerTrails(prev => { const next = new Map(prev); next.set(selectedHex, trail); return next })
       })
@@ -249,7 +258,6 @@ export default function App() {
           if (hex) setActivePanel(null)
         }}
         activeTileId={activeTileId}
-        centerOnGpsToken={centerOnGpsToken}
       />
 
       {/* Aircraft count + GPS status — bottom left */}
@@ -280,16 +288,15 @@ export default function App() {
 
       {/* Aircraft info panel — left, below logo */}
       {selectedAc && (
-        <AircraftInfoPanel ac={selectedAc} onClose={() => setSelectedHex(null)} />
+        <AircraftInfoPanel
+          ac={selectedAc}
+          trailSources={trailSources.get(selectedHex)}
+          onClose={() => setSelectedHex(null)}
+        />
       )}
 
       {/* Control buttons — top right */}
       <div className="map-ctrl-btns">
-        {location && (
-          <button className="map-ctrl-btn map-ctrl-icon-btn"
-            onClick={() => setCenterOnGpsToken(t => t + 1)}
-            title="Centruj na mojej pozycji">⊕</button>
-        )}
         <button className={`map-ctrl-btn ${activePanel === 'ustawienia' ? 'active' : ''}`}
           onClick={() => togglePanel('ustawienia')}>USTAW</button>
         <button className={`map-ctrl-btn ${activePanel === 'mapy' ? 'active' : ''}`}

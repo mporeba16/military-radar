@@ -186,7 +186,7 @@ function isMilitary(ac) {
 // 14:squawk, 15:spi, 16:position_source
 function stateToAircraft(s) {
   return {
-    hex: s[0],
+    hex: (s[0] || '').toLowerCase(),
     flight: (s[1] || '').trim() || s[0],
     t: '',          // OpenSky nie zwraca typu — uzupełniamy jeśli mamy
     lat: s[6],
@@ -205,6 +205,7 @@ function stateToAircraft(s) {
 // Pobiera trasę historyczną z OpenSky `/tracks/all` (od ostatniego startu).
 // path: [[time_s, lat, lon, alt_m, heading, on_ground], ...]
 async function fetchOpenSkyTrack(hex) {
+  const meta = { status: 0, points: 0, error: null }
   try {
     const url = `https://opensky-network.org/api/tracks/all?icao24=${hex}&time=0`
     const fetchOpts = {
@@ -219,9 +220,13 @@ async function fetchOpenSkyTrack(hex) {
         'Basic ' + Buffer.from(`${OPENSKY_USER}:${OPENSKY_PASS}`).toString('base64')
     }
     const res = await fetch(url, fetchOpts)
-    if (!res.ok) return []
+    meta.status = res.status
+    if (!res.ok) {
+      meta.error = `http-${res.status}`
+      return { points: [], meta }
+    }
     const data = await res.json()
-    return (data.path || [])
+    const points = (data.path || [])
       .filter(p => p[1] != null && p[2] != null)
       .map(p => ({
         lat: p[1],
@@ -229,8 +234,11 @@ async function fetchOpenSkyTrack(hex) {
         alt: p[3] != null ? Math.round(p[3] * 3.28084) : null, // m → ft
         ts: p[0] * 1000,
       }))
-  } catch {
-    return []
+    meta.points = points.length
+    return { points, meta }
+  } catch (err) {
+    meta.error = err.message || 'exception'
+    return { points: [], meta }
   }
 }
 
@@ -266,7 +274,7 @@ function mapADSBfiRecord(a) {
   const lat = a.lat ?? a.rr_lat
   const lon = a.lon ?? a.rr_lon
   return {
-    hex: a.hex,
+    hex: (a.hex || '').toLowerCase(),
     flight: (a.flight || a.hex || '').trim(),
     t: a.t || '',
     lat,
@@ -375,19 +383,21 @@ export const handler = async (event) => {
   // (od ostatniego startu samolotu — to samo źródło co pokazuje ADSB Exchange).
   if (hex) {
     const lowerHex = hex.toLowerCase()
-    const [blobPoints, openskyTrack] = await Promise.all([
+    const blobMeta = { error: null }
+    const [blobPoints, openskyResult] = await Promise.all([
       getStore('aircraft-trails')
         .get(lowerHex, { type: 'json' })
         .then(data => data?.points || [])
-        .catch(() => []),
+        .catch(err => { blobMeta.error = err.message; return [] }),
       fetchOpenSkyTrack(lowerHex),
     ])
+
+    const openskyTrack = openskyResult.points
 
     // Merge with dedup: OpenSky timestamps are seconds, blob's are ms.
     // Drop OpenSky points within 5s of a blob point (blob is more accurate when present).
     const blobTsList = blobPoints.map(p => p.ts).sort((a, b) => a - b)
     const closeToBlob = (ts) => {
-      // binary search would be nicer but blob is tiny here
       for (const bts of blobTsList) {
         if (Math.abs(bts - ts) < 5000) return true
         if (bts > ts + 5000) break
@@ -407,6 +417,9 @@ export const handler = async (event) => {
         sources: {
           blob: blobPoints.length,
           opensky: openskyTrack.length,
+          openskyStatus: openskyResult.meta.status,
+          openskyError: openskyResult.meta.error,
+          blobError: blobMeta.error,
         },
       }),
     }

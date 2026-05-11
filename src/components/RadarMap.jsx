@@ -2,9 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { MapContainer, TileLayer, Circle, Polyline, ZoomControl, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import 'leaflet.markercluster/dist/MarkerCluster.css'
-import 'leaflet.markercluster/dist/MarkerCluster.Default.css'
-import 'leaflet.markercluster'
 import './RadarMap.css'
 import { SHAPES, getShapeKey, altToColor, ftToM } from './aircraftShapes'
 
@@ -145,40 +142,14 @@ function ZoomTracker({ onZoomChange }) {
   return null
 }
 
-function CenterOnGps({ token, gpsCenter }) {
-  const map = useMap()
-  const lastToken = useRef(0)
-  useEffect(() => {
-    if (!token || token === lastToken.current) return
-    lastToken.current = token
-    if (gpsCenter) {
-      map.flyTo(gpsCenter, Math.max(map.getZoom(), 9), { duration: 0.6 })
-    }
-  }, [token, gpsCenter, map])
-  return null
-}
-
 function AircraftLayer({ aircraft, selectedHex, inRangeHexes, onSelect, zoomScale }) {
   const map = useMap()
   const groupRef = useRef(null)
   const markersRef = useRef(new Map()) // hex → { marker, key }
 
-  // Initialize cluster group once
+  // Initialize layer group once
   useEffect(() => {
-    const group = L.markerClusterGroup({
-      showCoverageOnHover: false,
-      spiderfyOnMaxZoom: false,
-      disableClusteringAtZoom: 10,
-      maxClusterRadius: 35,
-      iconCreateFunction: (cluster) => {
-        const count = cluster.getChildCount()
-        return L.divIcon({
-          html: `<div class="ac-cluster">${count}</div>`,
-          className: 'ac-cluster-wrap',
-          iconSize: [34, 34],
-        })
-      },
-    })
+    const group = L.layerGroup()
     map.addLayer(group)
     groupRef.current = group
     return () => {
@@ -236,8 +207,8 @@ function AircraftLayer({ aircraft, selectedHex, inRangeHexes, onSelect, zoomScal
       }
     }
 
-    if (removals.length) group.removeLayers(removals)
-    if (additions.length) group.addLayers(additions)
+    for (const m of removals) group.removeLayer(m)
+    for (const m of additions) group.addLayer(m)
   }, [aircraft, selectedHex, inRangeHexes, zoomScale, onSelect])
 
   return null
@@ -245,7 +216,7 @@ function AircraftLayer({ aircraft, selectedHex, inRangeHexes, onSelect, zoomScal
 
 export default function RadarMap({
   aircraft, trails, serverTrails, center, gpsCenter, radius,
-  selectedHex, inRangeHexes, onSelect, activeTileId, centerOnGpsToken,
+  selectedHex, inRangeHexes, onSelect, activeTileId,
 }) {
   const initialZoom = 5
   const [zoom, setZoom] = useState(initialZoom)
@@ -282,7 +253,6 @@ export default function RadarMap({
         <MapClickHandler onSelect={onSelect} />
         <TileFilter filter={tileLayer.filter} />
         <ZoomTracker onZoomChange={setZoom} />
-        <CenterOnGps token={centerOnGpsToken} gpsCenter={gpsCenter} />
 
         {radius && gpsCenter && (
           <Circle center={gpsCenter} radius={radius * 1000} pathOptions={{

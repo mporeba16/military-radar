@@ -20,7 +20,7 @@ function useAircraftPhoto(hex) {
   return { photo, loading }
 }
 
-export default function AircraftInfoPanel({ ac, onClose }) {
+export default function AircraftInfoPanel({ ac, trailSources, onClose }) {
   const { photo, loading: photoLoading } = useAircraftPhoto(ac.hex)
   const [imgError, setImgError] = useState(false)
   const altM = ftToM(ac.alt_baro)
@@ -85,6 +85,18 @@ export default function AircraftInfoPanel({ ac, onClose }) {
           ))}
         </tbody>
       </table>
+
+      {trailSources && (
+        <div className="ac-info-trail-info">
+          Trasa: <span style={{ color: '#fff' }}>{(trailSources.blob || 0) + (trailSources.opensky || 0)}</span> pkt
+          {' '}(serwer: {trailSources.blob || 0}, OpenSky: {trailSources.opensky || 0})
+          {trailSources.openskyError && (
+            <div className="ac-info-trail-warn">
+              OpenSky: {trailSources.openskyError}
+            </div>
+          )}
+        </div>
+      )}
 
       <a
         className="ac-info-ext-link"

@@ -49,23 +49,6 @@
 .count-fresh       { color: rgba(255,255,255,0.55); font-size: 10px; letter-spacing: 0.5px; }
 .count-fresh-stale { color: #ffb74d; font-size: 10px; letter-spacing: 0.5px; }
 
-/* Aircraft cluster */
-.ac-cluster-wrap { background: transparent !important; border: none !important; }
-.ac-cluster {
-  width: 34px; height: 34px;
-  border-radius: 50%;
-  background: rgba(0, 255, 136, 0.18);
-  border: 1.5px solid rgba(0, 255, 136, 0.9);
-  color: #00ff88;
-  font-family: 'Courier New', monospace;
-  font-size: 12px;
-  font-weight: bold;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 0 12px rgba(0, 255, 136, 0.3);
-}
-
 /* Altitude legend — bottom left, above count */
 .alt-legend {
   position: absolute;
