@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import RadarMap, { TILE_LAYERS } from './components/RadarMap'
 import AircraftInfoPanel from './components/AircraftInfoPanel'
 import { useGeolocation } from './hooks/useGeolocation'
 import { usePushNotifications } from './hooks/usePushNotifications'
+import { useLocalStorage } from './hooks/useLocalStorage'
 import { fetchMilitaryAircraft } from './api'
 import { version } from '../package.json'
 import './App.css'
@@ -10,29 +11,38 @@ import './App.css'
 const EUROPE_CENTER = [52.0, 15.0]
 const POLL_INTERVAL = 5_000
 const TRAIL_MIN_INTERVAL_MS = 10_000
-const TRAIL_MAX_AGE_MS = 15 * 60 * 1000
+const TRAIL_MAX_AGE_MS = 60 * 60 * 1000  // 60 min — aligned closer to server's 4h cache
+const SELECTION_GRACE_CYCLES = 2
 
 export default function App() {
   const [aircraft, setAircraft] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [radius, setRadius] = useState(100)
+  const [radius, setRadius] = useLocalStorage('radar.radius', 100)
   const [selectedHex, setSelectedHex] = useState(null)
   const [serverTrails, setServerTrails] = useState(new Map())
   const [activePanel, setActivePanel] = useState(null)
-  const [activeTileId, setActiveTileId] = useState('osm-adsbx')
+  const [activeTileId, setActiveTileId] = useLocalStorage('radar.tile', 'osm-adsbx')
   const [lastUpdated, setLastUpdated] = useState(null)
+  const [lastUpdatedTs, setLastUpdatedTs] = useState(null)
   const [alerts, setAlerts] = useState([])
   const [inRangeCount, setInRangeCount] = useState(0)
+  const [testPushStatus, setTestPushStatus] = useState(null)
+  const [centerOnGpsToken, setCenterOnGpsToken] = useState(0)
+  const [, forceTick] = useState(0)
 
   const alertedHexRef = useRef(new Set())
-  const dismissedAlertsRef = useRef(new Set())
+  const dismissedAlertsRef = useRef(new Set(loadDismissed()))
+  const selectionMissCountRef = useRef(0)
   const trailsRef = useRef(new Map())
   const serverTrailFetchedRef = useRef(new Set())
   const isMountedRef = useRef(false)
   const fetchDataRef = useRef(null)
   const { location, locationError, requestLocation } = useGeolocation()
-  const { isSubscribed, isSubscribing, subscribe, permissionState, subscribeError, syncError, serverStatus } = usePushNotifications(location, radius)
+  const {
+    isSubscribed, isSubscribing, subscribe, sendTestPush,
+    permissionState, subscribeError, syncError, serverStatus,
+  } = usePushNotifications(location, radius)
 
   const center = EUROPE_CENTER
 
@@ -45,7 +55,14 @@ export default function App() {
         setError('API niedostępne')
         return
       }
-      const enriched = data.map(ac => {
+      // Dedup by hex (B7)
+      const seen = new Set()
+      const dedup = data.filter(ac => {
+        if (!ac.hex || seen.has(ac.hex)) return false
+        seen.add(ac.hex)
+        return true
+      })
+      const enriched = dedup.map(ac => {
         if (location) {
           const dist = haversine(location.lat, location.lon, ac.lat, ac.lon)
           return { ...ac, _dist: dist }
@@ -68,8 +85,22 @@ export default function App() {
       for (const hex of serverTrailFetchedRef.current)
         if (!currentHexes.has(hex)) serverTrailFetchedRef.current.delete(hex)
       setAircraft(enriched)
-      setLastUpdated(new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
-      setSelectedHex(prev => (prev && !currentHexes.has(prev) ? null : prev))
+      const tsNow = Date.now()
+      setLastUpdatedTs(tsNow)
+      setLastUpdated(new Date(tsNow).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
+      // B4: grace period — don't immediately drop selection if aircraft missing for one cycle
+      setSelectedHex(prev => {
+        if (!prev || currentHexes.has(prev)) {
+          selectionMissCountRef.current = 0
+          return prev
+        }
+        selectionMissCountRef.current++
+        if (selectionMissCountRef.current >= SELECTION_GRACE_CYCLES) {
+          selectionMissCountRef.current = 0
+          return null
+        }
+        return prev
+      })
       setServerTrails(prev => {
         if (prev.size === 0) return prev
         const next = new Map(prev)
@@ -84,7 +115,9 @@ export default function App() {
           if (!alertedHexRef.current.has(ac.hex)) {
             alertedHexRef.current.add(ac.hex)
             dismissedAlertsRef.current.delete(ac.hex)
+            persistDismissed(dismissedAlertsRef.current)
             navigator.vibrate?.([200, 100, 200])
+            playAlertSound()
             triggerNotification(ac, ac._dist)
           }
         })
@@ -95,12 +128,14 @@ export default function App() {
             .map(ac => ({ hex: ac.hex, ac, dist: ac._dist }))
         )
         // When aircraft leaves radar: reset so it can re-alert on return
+        let dirty = false
         for (const h of alertedHexRef.current) {
           if (!currentHexes.has(h)) {
             alertedHexRef.current.delete(h)
-            dismissedAlertsRef.current.delete(h)
+            if (dismissedAlertsRef.current.delete(h)) dirty = true
           }
         }
+        if (dirty) persistDismissed(dismissedAlertsRef.current)
       } else {
         // GPS lost or demo mode — clear stale alerts
         setAlerts([])
@@ -132,10 +167,19 @@ export default function App() {
     fetchDataRef.current()
   }, [radius]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ESC closes panel first, then deselects aircraft
+  // Live "X s temu" tick (U9) — only ticks while we have a timestamp
+  useEffect(() => {
+    if (!lastUpdatedTs) return
+    const id = setInterval(() => forceTick(t => t + 1), 1000)
+    return () => clearInterval(id)
+  }, [lastUpdatedTs])
+
+  // ESC closes panel first, then deselects aircraft (B12 — skip when typing)
   useEffect(() => {
     const handler = e => {
       if (e.key !== 'Escape') return
+      const tag = (e.target?.tagName || '').toUpperCase()
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target?.isContentEditable) return
       if (activePanel) setActivePanel(null)
       else setSelectedHex(null)
     }
@@ -148,6 +192,7 @@ export default function App() {
       serverTrailFetchedRef.current.clear()
       return
     }
+    if (selectedHex.startsWith('__')) return
     if (serverTrailFetchedRef.current.has(selectedHex)) return
     serverTrailFetchedRef.current.add(selectedHex)
     fetch(`/.netlify/functions/aircraft?hex=${selectedHex}`)
@@ -163,7 +208,30 @@ export default function App() {
     setActivePanel(p => p === name ? null : name)
   }
 
+  // B3: memoize gpsCenter so RadarMap props are stable
+  const gpsCenter = useMemo(
+    () => location ? [location.lat, location.lon] : null,
+    [location?.lat, location?.lon]
+  )
+
+  // Determine which hex are in-range for visual distinction on the map (U5)
+  const inRangeHexes = useMemo(() => {
+    if (!location) return null
+    const s = new Set()
+    for (const ac of aircraft) if (ac._dist != null && ac._dist <= radius) s.add(ac.hex)
+    return s
+  }, [aircraft, location, radius])
+
   const selectedAc = aircraft.find(ac => ac.hex === selectedHex) || null
+  const freshness = lastUpdatedTs ? formatFreshness(Date.now() - lastUpdatedTs) : null
+
+  async function handleTestPush() {
+    setTestPushStatus({ kind: 'loading' })
+    const res = await sendTestPush()
+    if (res.ok) setTestPushStatus({ kind: 'ok' })
+    else setTestPushStatus({ kind: 'err', detail: res.error })
+    setTimeout(() => setTestPushStatus(null), 6000)
+  }
 
   return (
     <div className={`app${activePanel ? ' panel-open' : ''}`}>
@@ -172,11 +240,16 @@ export default function App() {
         trails={trailsRef}
         serverTrails={serverTrails}
         center={center}
-        gpsCenter={location ? [location.lat, location.lon] : null}
+        gpsCenter={gpsCenter}
         radius={location ? radius : null}
         selectedHex={selectedHex}
-        onSelect={hex => { setSelectedHex(hex); if (hex) setActivePanel(null) }}
+        inRangeHexes={inRangeHexes}
+        onSelect={hex => {
+          setSelectedHex(prev => prev === hex ? null : hex)
+          if (hex) setActivePanel(null)
+        }}
         activeTileId={activeTileId}
+        centerOnGpsToken={centerOnGpsToken}
       />
 
       {/* Aircraft count + GPS status — bottom left */}
@@ -190,6 +263,9 @@ export default function App() {
           : locationError
             ? <span className="count-gps-err">✗ GPS</span>
             : <span className="count-gps-wait">◌ GPS</span>}
+        {freshness && (
+          <span className={freshness.stale ? 'count-fresh-stale' : 'count-fresh'}>{freshness.label}</span>
+        )}
         <span className="count-version">v{version}</span>
       </div>
 
@@ -209,6 +285,11 @@ export default function App() {
 
       {/* Control buttons — top right */}
       <div className="map-ctrl-btns">
+        {location && (
+          <button className="map-ctrl-btn map-ctrl-icon-btn"
+            onClick={() => setCenterOnGpsToken(t => t + 1)}
+            title="Centruj na mojej pozycji">⊕</button>
+        )}
         <button className={`map-ctrl-btn ${activePanel === 'ustawienia' ? 'active' : ''}`}
           onClick={() => togglePanel('ustawienia')}>USTAW</button>
         <button className={`map-ctrl-btn ${activePanel === 'mapy' ? 'active' : ''}`}
@@ -235,7 +316,10 @@ export default function App() {
               <button className="alert-toast-close"
                 onClick={e => {
                   e.stopPropagation()
-                  dismissedAlertsRef.current.add(hex)
+                  if (!hex.startsWith('__')) {
+                    dismissedAlertsRef.current.add(hex)
+                    persistDismissed(dismissedAlertsRef.current)
+                  }
                   setAlerts(prev => prev.filter(a => a.hex !== hex))
                 }}>✕</button>
             </div>
@@ -244,6 +328,11 @@ export default function App() {
             <div className="alert-toast-overflow">+{alerts.length - 3} więcej w zasięgu</div>
           )}
         </div>
+      )}
+
+      {/* Side panel backdrop — mobile only (U10) */}
+      {activePanel && (
+        <div className="side-panel-backdrop" onClick={() => setActivePanel(null)} />
       )}
 
       {/* Side panels — slide from right */}
@@ -291,15 +380,6 @@ export default function App() {
               </section>
               <section className="cp-section cp-refresh">
                 <button className="btn-refresh" onClick={fetchData}>↻ Odśwież</button>
-                <button className="btn-refresh" style={{ marginLeft: 6 }} onClick={() => {
-                  const testHex = '__test__'
-                  dismissedAlertsRef.current.delete(testHex)
-                  setAlerts(prev => {
-                    if (prev.find(a => a.hex === testHex)) return prev
-                    return [...prev, { hex: testHex, ac: { flight: 'TEST', hex: testHex, t: 'F-16C' }, dist: 12 }]
-                  })
-                  setTimeout(() => setAlerts(prev => prev.filter(a => a.hex !== testHex)), 6000)
-                }}>⚠ Test</button>
               </section>
               {error && <p className="err" style={{ fontSize: 11, marginTop: 8 }}>✗ {error}</p>}
               <p className="info-text" style={{ marginTop: 12, borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 10 }}>
@@ -345,6 +425,27 @@ export default function App() {
                   Alert gdy wojskowy samolot pojawi się w zasięgu GPS — nawet gdy aplikacja jest zamknięta. Sprawdzane co 5 minut przez serwer.
                 </p>
               </section>
+              {isSubscribed && (
+                <section className="cp-section">
+                  <div className="cp-label">TESTOWY PUSH</div>
+                  <button
+                    className="btn-refresh"
+                    onClick={handleTestPush}
+                    disabled={testPushStatus?.kind === 'loading'}>
+                    {testPushStatus?.kind === 'loading' ? '◌ Wysyłanie…' : '⚠ Wyślij testowy push z serwera'}
+                  </button>
+                  {testPushStatus?.kind === 'ok' && (
+                    <p className="ok" style={{ fontSize: 11, marginTop: 6 }}>
+                      ◉ Wysłane. Jeśli nie dostałeś powiadomienia — problem z APNS/iOS.
+                    </p>
+                  )}
+                  {testPushStatus?.kind === 'err' && (
+                    <p className="err" style={{ fontSize: 11, marginTop: 6, wordBreak: 'break-all' }}>
+                      ✗ {testPushStatus.detail}
+                    </p>
+                  )}
+                </section>
+              )}
               {isSubscribed && (
                 <section className="cp-section">
                   <div className="cp-label">POZYCJA NA SERWERZE</div>
@@ -441,6 +542,20 @@ export default function App() {
 }
 
 
+function loadDismissed() {
+  try {
+    const raw = localStorage.getItem('radar.dismissed')
+    if (!raw) return []
+    const arr = JSON.parse(raw)
+    return Array.isArray(arr) ? arr : []
+  } catch { return [] }
+}
+function persistDismissed(set) {
+  try {
+    localStorage.setItem('radar.dismissed', JSON.stringify([...set].filter(h => !h.startsWith('__'))))
+  } catch {}
+}
+
 function formatAge(ms) {
   if (ms == null) return '—'
   const s = Math.round(ms / 1000)
@@ -452,6 +567,15 @@ function formatAge(ms) {
   return `${Math.round(h / 24)} dni`
 }
 
+function formatFreshness(ms) {
+  const s = Math.round(ms / 1000)
+  const stale = s > 30
+  if (s < 5) return { label: '◉ live', stale: false }
+  if (s < 60) return { label: `${s}s temu`, stale }
+  const m = Math.floor(s / 60)
+  return { label: `${m} min temu`, stale: true }
+}
+
 function haversine(lat1, lon1, lat2, lon2) {
   const R = 6371
   const dLat = (lat2 - lat1) * Math.PI / 180
@@ -461,17 +585,45 @@ function haversine(lat1, lon1, lat2, lon2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
 
+let alertAudio = null
+function playAlertSound() {
+  try {
+    if (!alertAudio) {
+      // Short synthesized ping — generated once, reused
+      const AC = window.AudioContext || window.webkitAudioContext
+      if (!AC) return
+      alertAudio = () => {
+        const ctx = new AC()
+        const osc = ctx.createOscillator()
+        const gain = ctx.createGain()
+        osc.type = 'sine'
+        osc.frequency.value = 880
+        gain.gain.setValueAtTime(0.15, ctx.currentTime)
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35)
+        osc.connect(gain).connect(ctx.destination)
+        osc.start()
+        osc.stop(ctx.currentTime + 0.4)
+        setTimeout(() => ctx.close(), 600)
+      }
+    }
+    alertAudio()
+  } catch {}
+}
+
 function triggerNotification(ac, dist) {
-  if ('serviceWorker' in navigator && Notification.permission === 'granted') {
-    navigator.serviceWorker.ready.then(reg => {
-      reg.showNotification('Wojskowy samolot w zasięgu!', {
-        body: `${ac.flight?.trim() || ac.hex} (${ac.t || 'nieznany typ'}) — ${Math.round(dist)} km`,
-        icon: '/pwa-192x192.png',
-        badge: '/pwa-192x192.png',
-        tag: ac.hex,
-        renotify: false,
-        data: { hex: ac.hex },
-      })
-    })
+  if (!('serviceWorker' in navigator)) return
+  if (Notification.permission !== 'granted') {
+    console.debug('[notify] skipped: permission =', Notification.permission)
+    return
   }
+  navigator.serviceWorker.ready.then(reg => {
+    reg.showNotification('Wojskowy samolot w zasięgu!', {
+      body: `${ac.flight?.trim() || ac.hex} (${ac.t || 'nieznany typ'}) — ${Math.round(dist)} km`,
+      icon: '/pwa-192x192.png',
+      badge: '/pwa-192x192.png',
+      tag: ac.hex,
+      renotify: false,
+      data: { hex: ac.hex },
+    })
+  })
 }

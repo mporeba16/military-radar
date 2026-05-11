@@ -56,20 +56,20 @@ export function usePushNotifications(location, radius) {
   )
   const subRef = useRef(null)
 
-  // On mount: restore existing subscription and re-sync to server
+  // On mount: restore existing subscription. Re-sync handled by the
+  // separate effect below, which reacts to location/radius changes.
   useEffect(() => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
+    let cancelled = false
     navigator.serviceWorker.ready
       .then(reg => reg.pushManager.getSubscription())
-      .then(async sub => {
-        if (!sub) return
+      .then(sub => {
+        if (cancelled || !sub) return
         subRef.current = sub
         setIsSubscribed(true)
-        // Re-sync subscription on every app open (handles stale records)
-        const res = await syncToServer(sub, location?.lat, location?.lon, radius)
-        if (!res.ok) setSyncError(res.error)
       })
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    return () => { cancelled = true }
+  }, [])
 
   // Whenever GPS position or radius changes, push updated position to server
   useEffect(() => {
@@ -133,10 +133,32 @@ export function usePushNotifications(location, radius) {
     }
   }, [location, radius])
 
+  const sendTestPush = useCallback(async () => {
+    if (!subRef.current) return { ok: false, error: 'no-subscription' }
+    try {
+      const res = await fetch('/.netlify/functions/test-push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpoint: subRef.current.endpoint }),
+      })
+      let payload = null
+      try { payload = await res.json() } catch {}
+      if (!res.ok) {
+        const code = payload?.error || `http-${res.status}`
+        const detail = payload?.detail ? `: ${payload.detail}` : ''
+        return { ok: false, error: `${code}${detail}` }
+      }
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: err.message || 'network' }
+    }
+  }, [])
+
   return {
     isSubscribed,
     isSubscribing,
     subscribe,
+    sendTestPush,
     permissionState,
     subscribeError,
     syncError,

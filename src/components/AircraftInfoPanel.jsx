@@ -9,13 +9,13 @@ function useAircraftPhoto(hex) {
     if (!hex) return
     setPhoto(null)
     setLoading(true)
-    let cancelled = false
-    fetch(`https://api.planespotters.net/pub/photos/hex/${hex}`)
+    const ctrl = new AbortController()
+    fetch(`https://api.planespotters.net/pub/photos/hex/${hex}`, { signal: ctrl.signal })
       .then(r => r.json())
-      .then(data => { if (!cancelled) setPhoto(data?.photos?.length ? data.photos[0] : null) })
-      .catch(() => { if (!cancelled) setPhoto(null) })
-      .finally(() => { if (!cancelled) setLoading(false) })
-    return () => { cancelled = true }
+      .then(data => setPhoto(data?.photos?.length ? data.photos[0] : null))
+      .catch(err => { if (err.name !== 'AbortError') setPhoto(null) })
+      .finally(() => { if (!ctrl.signal.aborted) setLoading(false) })
+    return () => ctrl.abort()
   }, [hex])
   return { photo, loading }
 }
@@ -49,8 +49,8 @@ export default function AircraftInfoPanel({ ac, onClose }) {
     ['ICAO',     ac.hex],
   ].filter(Boolean)
 
-  const showPhoto = photo && !imgError
   const photoSrc = photo?.thumbnail_large?.src || photo?.thumbnail?.src
+  const showPhoto = !!(photo && photoSrc && !imgError)
 
   return (
     <div className="ac-info-panel">
