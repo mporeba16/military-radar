@@ -212,14 +212,6 @@ export default function App() {
     [location?.lat, location?.lon]
   )
 
-  // Determine which hex are in-range for visual distinction on the map (U5)
-  const inRangeHexes = useMemo(() => {
-    if (!location) return null
-    const s = new Set()
-    for (const ac of aircraft) if (ac._dist != null && ac._dist <= radius) s.add(ac.hex)
-    return s
-  }, [aircraft, location, radius])
-
   const selectedAc = aircraft.find(ac => ac.hex === selectedHex) || null
 
   async function handleTestPush() {
@@ -240,7 +232,6 @@ export default function App() {
         gpsCenter={gpsCenter}
         radius={location ? radius : null}
         selectedHex={selectedHex}
-        inRangeHexes={inRangeHexes}
         onSelect={hex => {
           setSelectedHex(prev => prev === hex ? null : hex)
           if (hex) setActivePanel(null)

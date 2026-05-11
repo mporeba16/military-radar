@@ -53,9 +53,8 @@ function iconScaleForZoom(z) {
   return Math.max(0.65, Math.min(1.5, 0.70 + (z - 4) * 0.085))
 }
 
-function buildIconSvg(ac, isSelected, inRange, zoomScale) {
-  const hasTrack = ac.track != null
-  const heading = hasTrack ? ac.track : 0
+function buildIconSvg(ac, isSelected, zoomScale) {
+  const heading = ac.track != null ? ac.track : 0
   const altM = ftToM(ac.alt_baro)
   const color = isSelected ? '#ffffff' : altToColor(altM)
   const shapeKey = getShapeKey(ac.t, ac.gs)
@@ -65,7 +64,6 @@ function buildIconSvg(ac, isSelected, inRange, zoomScale) {
   const effectiveSz = Math.round(sz * zoomScale)
   const half = effectiveSz / 2
   const paths = Array.isArray(shape.path) ? shape.path : [shape.path]
-  // Combine drawing transform with zoom scale
   const tx = `scale(${scale * zoomScale}) translate(${-cx} ${-cy})`
 
   const mainPaths = paths.map(d =>
@@ -76,15 +74,8 @@ function buildIconSvg(ac, isSelected, inRange, zoomScale) {
   const selectionRing = isSelected
     ? `<circle r="${ringR}" fill="none" stroke="#ffffff" stroke-width="2" opacity="0.9"/>`
     : ''
-  const inRangeRing = inRange && !isSelected
-    ? `<circle r="${ringR + 2}" fill="none" stroke="#ff5520" stroke-width="1.5" opacity="0.85"><animate attributeName="opacity" values="0.4;0.9;0.4" dur="1.5s" repeatCount="indefinite"/></circle>`
-    : ''
-  const noTrackRing = !hasTrack
-    ? `<circle r="${ringR - 3}" fill="none" stroke="rgba(255,255,255,0.55)" stroke-width="1" stroke-dasharray="2 2"/>`
-    : ''
 
-  // U16: enlarge tap target — invisible circle with iconSize.
-  // overflow="visible" lets the shape render outside the bounding box.
+  // Enlarged invisible tap target
   const tapPad = 6
   const hitR = half + tapPad
   const hitArea = `<circle r="${hitR}" fill="rgba(0,0,0,0)"/>`
@@ -98,20 +89,18 @@ function buildIconSvg(ac, isSelected, inRange, zoomScale) {
       <g transform="rotate(${heading})">
         <g transform="${tx}">${mainPaths}</g>
       </g>
-      ${inRangeRing}
-      ${noTrackRing}
       ${selectionRing}
     </svg>`
 }
 
-function buildLeafletIcon(ac, isSelected, inRange, zoomScale) {
+function buildLeafletIcon(ac, isSelected, zoomScale) {
   const shape = SHAPES[getShapeKey(ac.t, ac.gs)] || SHAPES.jet_swept
   const sz = shape.sz || 44
   const tapPad = 6
   const totalSz = Math.round(sz * zoomScale) + tapPad * 2
   const half = totalSz / 2
   return L.divIcon({
-    html: buildIconSvg(ac, isSelected, inRange, zoomScale),
+    html: buildIconSvg(ac, isSelected, zoomScale),
     iconSize: [totalSz, totalSz],
     iconAnchor: [half, half],
     className: '',
@@ -142,7 +131,7 @@ function ZoomTracker({ onZoomChange }) {
   return null
 }
 
-function AircraftLayer({ aircraft, selectedHex, inRangeHexes, onSelect, zoomScale }) {
+function AircraftLayer({ aircraft, selectedHex, onSelect, zoomScale }) {
   const map = useMap()
   const groupRef = useRef(null)
   const markersRef = useRef(new Map()) // hex → { marker, key }
@@ -172,23 +161,21 @@ function AircraftLayer({ aircraft, selectedHex, inRangeHexes, onSelect, zoomScal
       if (ac.lat == null || ac.lon == null) continue
       next.add(ac.hex)
       const isSelected = ac.hex === selectedHex
-      const inRange = !!inRangeHexes?.has(ac.hex)
-      const key = `${ac.lat.toFixed(5)}|${ac.lon.toFixed(5)}|${ac.track ?? 'na'}|${ac.alt_baro ?? 'na'}|${ac.gs ?? 'na'}|${ac.t || ''}|${isSelected ? 1 : 0}|${inRange ? 1 : 0}|${zoomScale}`
+      const key = `${ac.lat.toFixed(5)}|${ac.lon.toFixed(5)}|${ac.track ?? 'na'}|${ac.alt_baro ?? 'na'}|${ac.gs ?? 'na'}|${ac.t || ''}|${isSelected ? 1 : 0}|${zoomScale}`
 
       const existing = markersRef.current.get(ac.hex)
       if (existing && existing.key === key) continue  // unchanged — keep marker
 
       if (existing) {
-        // Position/icon changed — update in place
         if (existing.lastPos[0] !== ac.lat || existing.lastPos[1] !== ac.lon) {
           existing.marker.setLatLng([ac.lat, ac.lon])
           existing.lastPos = [ac.lat, ac.lon]
         }
-        existing.marker.setIcon(buildLeafletIcon(ac, isSelected, inRange, zoomScale))
+        existing.marker.setIcon(buildLeafletIcon(ac, isSelected, zoomScale))
         existing.key = key
       } else {
         const marker = L.marker([ac.lat, ac.lon], {
-          icon: buildLeafletIcon(ac, isSelected, inRange, zoomScale),
+          icon: buildLeafletIcon(ac, isSelected, zoomScale),
         })
         const hex = ac.hex
         marker.on('click', (e) => {
@@ -209,14 +196,14 @@ function AircraftLayer({ aircraft, selectedHex, inRangeHexes, onSelect, zoomScal
 
     for (const m of removals) group.removeLayer(m)
     for (const m of additions) group.addLayer(m)
-  }, [aircraft, selectedHex, inRangeHexes, zoomScale, onSelect])
+  }, [aircraft, selectedHex, zoomScale, onSelect])
 
   return null
 }
 
 export default function RadarMap({
   aircraft, trails, serverTrails, center, gpsCenter, radius,
-  selectedHex, inRangeHexes, onSelect, activeTileId,
+  selectedHex, onSelect, activeTileId,
 }) {
   const initialZoom = 5
   const [zoom, setZoom] = useState(initialZoom)
@@ -268,7 +255,6 @@ export default function RadarMap({
         <AircraftLayer
           aircraft={aircraft}
           selectedHex={selectedHex}
-          inRangeHexes={inRangeHexes}
           onSelect={onSelect}
           zoomScale={zoomScale}
         />
