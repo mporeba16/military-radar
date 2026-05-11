@@ -29,15 +29,25 @@ export const handler = async (event) => {
     // Preserve existing lat/lon if new values are missing (GPS not yet available)
     let existing = null
     try { existing = await store.get(key, { type: 'json' }) } catch {}
+
+    const newLat = lat ?? existing?.lat ?? null
+    const newLon = lon ?? existing?.lon ?? null
+    const hasGps = newLat != null && newLon != null
+
     await store.set(key, JSON.stringify({
       subscription,
-      lat: lat ?? existing?.lat ?? null,
-      lon: lon ?? existing?.lon ?? null,
+      lat: newLat,
+      lon: newLon,
       radius: radius ?? existing?.radius ?? 100,
       updatedAt: lat != null ? Date.now() : (existing?.updatedAt ?? Date.now()),
+      createdAt: existing?.createdAt ?? Date.now(),
     }))
 
-    return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) }
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({ ok: true, key, hasGps }),
+    }
   } catch (err) {
     console.error('Subscribe error:', err)
     return { statusCode: 500, headers, body: JSON.stringify({ error: 'Internal error' }) }

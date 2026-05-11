@@ -10,46 +10,92 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 async function syncToServer(sub, lat, lon, radius) {
-  if (!sub || lat == null || lon == null) return
+  if (!sub) return { ok: false, error: 'no-subscription' }
   try {
-    await fetch('/.netlify/functions/subscribe', {
+    const res = await fetch('/.netlify/functions/subscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ subscription: sub.toJSON(), lat, lon, radius }),
     })
-  } catch {}
+    if (!res.ok) return { ok: false, error: `http-${res.status}` }
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err.message || 'network' }
+  }
+}
+
+async function fetchStatus(sub) {
+  if (!sub) return null
+  try {
+    const res = await fetch('/.netlify/functions/status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ endpoint: sub.endpoint }),
+    })
+    if (!res.ok) return null
+    return await res.json()
+  } catch {
+    return null
+  }
 }
 
 export function usePushNotifications(location, radius) {
   const [isSubscribed, setIsSubscribed] = useState(false)
   const [isSubscribing, setIsSubscribing] = useState(false)
   const [subscribeError, setSubscribeError] = useState(null)
+  const [syncError, setSyncError] = useState(null)
+  const [serverStatus, setServerStatus] = useState(null)
   const [permissionState, setPermissionState] = useState(
     typeof Notification !== 'undefined' ? Notification.permission : 'unsupported'
   )
   const subRef = useRef(null)
 
-  // On mount: restore existing subscription and re-sync position to server
+  // On mount: restore existing subscription and re-sync to server
   useEffect(() => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
     navigator.serviceWorker.ready
       .then(reg => reg.pushManager.getSubscription())
-      .then(sub => {
+      .then(async sub => {
         if (!sub) return
         subRef.current = sub
         setIsSubscribed(true)
+        // Re-sync subscription on every app open (handles stale records)
+        const res = await syncToServer(sub, location?.lat, location?.lon, radius)
+        if (!res.ok) setSyncError(res.error)
       })
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Whenever GPS position or radius changes, push updated position to server
   useEffect(() => {
-    if (!isSubscribed || !subRef.current || !location) return
-    syncToServer(subRef.current, location.lat, location.lon, radius)
+    if (!isSubscribed || !subRef.current) return
+    syncToServer(subRef.current, location?.lat, location?.lon, radius).then(res => {
+      setSyncError(res.ok ? null : res.error)
+    })
+  }, [isSubscribed, location?.lat, location?.lon, radius])
+
+  // Periodically refresh server-side status while subscribed
+  useEffect(() => {
+    if (!isSubscribed || !subRef.current) {
+      setServerStatus(null)
+      return
+    }
+    let cancelled = false
+    const refresh = async () => {
+      const s = await fetchStatus(subRef.current)
+      if (!cancelled) setServerStatus(s)
+    }
+    refresh()
+    const id = setInterval(refresh, 60_000)
+    return () => { cancelled = true; clearInterval(id) }
   }, [isSubscribed, location?.lat, location?.lon, radius])
 
   const subscribe = useCallback(async () => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
       setSubscribeError('Przeglądarka nie obsługuje push notifications')
+      return
+    }
+    if (!VAPID_PUBLIC_KEY) {
+      setSubscribeError('Brak klucza VAPID (VITE_VAPID_PUBLIC_KEY)')
       return
     }
 
@@ -67,7 +113,8 @@ export function usePushNotifications(location, radius) {
       })
       subRef.current = sub
       setIsSubscribed(true)
-      await syncToServer(sub, location?.lat, location?.lon, radius)
+      const res = await syncToServer(sub, location?.lat, location?.lon, radius)
+      if (!res.ok) setSyncError(res.error)
     } catch (err) {
       console.error('Push subscribe failed:', err)
       if (Notification.permission === 'granted') {
@@ -80,5 +127,13 @@ export function usePushNotifications(location, radius) {
     }
   }, [location, radius])
 
-  return { isSubscribed, isSubscribing, subscribe, permissionState, subscribeError }
+  return {
+    isSubscribed,
+    isSubscribing,
+    subscribe,
+    permissionState,
+    subscribeError,
+    syncError,
+    serverStatus,
+  }
 }

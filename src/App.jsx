@@ -32,7 +32,7 @@ export default function App() {
   const isMountedRef = useRef(false)
   const fetchDataRef = useRef(null)
   const { location, locationError, requestLocation } = useGeolocation()
-  const { isSubscribed, isSubscribing, subscribe, permissionState, subscribeError } = usePushNotifications(location, radius)
+  const { isSubscribed, isSubscribing, subscribe, permissionState, subscribeError, syncError, serverStatus } = usePushNotifications(location, radius)
 
   const center = EUROPE_CENTER
 
@@ -354,6 +354,74 @@ export default function App() {
                         <button className="link-btn" style={{ marginTop: 4 }} onClick={requestLocation}>Pobierz lokalizację</button>
                       </p>
                   }
+                  {syncError && (
+                    <p className="err" style={{ fontSize: 11, marginTop: 6 }}>
+                      ✗ Błąd synchronizacji z serwerem: {syncError}
+                    </p>
+                  )}
+                </section>
+              )}
+              {isSubscribed && (
+                <section className="cp-section">
+                  <div className="cp-label">DIAGNOSTYKA SERWERA</div>
+                  {!serverStatus
+                    ? <p className="info-text" style={{ fontSize: 11 }}>◌ Pobieranie statusu…</p>
+                    : <div style={{ fontSize: 11, fontFamily: "'Courier New', monospace", lineHeight: 1.7 }}>
+                        <div className={serverStatus.ok ? 'ok' : 'err'}>
+                          {serverStatus.ok ? '◉' : '✗'} {' '}
+                          {serverStatus.reason === 'ready' && 'Gotowe do wysyłki'}
+                          {serverStatus.reason === 'no-gps' && 'Brak GPS na serwerze'}
+                          {serverStatus.reason === 'stale-gps' && 'Pozycja >7 dni (przeterminowana)'}
+                          {serverStatus.reason === 'not-registered' && 'Subskrypcja nie zapisana!'}
+                        </div>
+                        <div style={{ color: 'rgba(255,255,255,0.55)' }}>
+                          Provider: <span style={{ color: '#fff' }}>{serverStatus.provider}</span>
+                          {serverStatus.provider === 'apple' && ' (iOS APNS)'}
+                        </div>
+                        {serverStatus.gpsAgeMs != null && (
+                          <div style={{ color: 'rgba(255,255,255,0.55)' }}>
+                            Wiek GPS: <span style={{ color: '#fff' }}>{formatAge(serverStatus.gpsAgeMs)}</span>
+                          </div>
+                        )}
+                        {serverStatus.server && (
+                          <>
+                            <div style={{ color: 'rgba(255,255,255,0.55)' }}>
+                              VAPID skonfig.: <span className={serverStatus.server.vapidConfigured ? 'ok' : 'err'}>
+                                {serverStatus.server.vapidConfigured ? 'tak' : 'NIE'}
+                              </span>
+                            </div>
+                            <div style={{ color: 'rgba(255,255,255,0.55)', wordBreak: 'break-all' }}>
+                              VAPID subject: <span style={{ color: '#fff' }}>{serverStatus.server.vapidSubject}</span>
+                            </div>
+                          </>
+                        )}
+                        {serverStatus.latestRun && (
+                          <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                            <div style={{ color: 'rgba(255,255,255,0.55)' }}>Ostatni cron:</div>
+                            <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 10 }}>
+                              {new Date(serverStatus.latestRun.startedAt).toLocaleString('pl-PL')}
+                            </div>
+                            <div style={{ color: 'rgba(255,255,255,0.55)' }}>
+                              Subskrypcji: <span style={{ color: '#fff' }}>{serverStatus.latestRun.totalSubs}</span>
+                              {' · '}
+                              Wysłano: <span style={{ color: '#fff' }}>{serverStatus.latestRun.notificationsSent}</span>
+                              {' · '}
+                              Błędów: <span className={serverStatus.latestRun.pushErrors > 0 ? 'err' : ''}>{serverStatus.latestRun.pushErrors}</span>
+                            </div>
+                            {serverStatus.latestRun.skippedNoGps > 0 && (
+                              <div className="err">
+                                Pominięto (brak GPS): {serverStatus.latestRun.skippedNoGps}
+                              </div>
+                            )}
+                            {serverStatus.latestRun.skippedStaleGps > 0 && (
+                              <div className="err">
+                                Pominięto (stary GPS): {serverStatus.latestRun.skippedStaleGps}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                  }
                 </section>
               )}
             </div>
@@ -364,6 +432,17 @@ export default function App() {
   )
 }
 
+
+function formatAge(ms) {
+  if (ms == null) return '—'
+  const s = Math.round(ms / 1000)
+  if (s < 60) return `${s}s`
+  const m = Math.round(s / 60)
+  if (m < 60) return `${m} min`
+  const h = Math.round(m / 60)
+  if (h < 24) return `${h}h`
+  return `${Math.round(h / 24)} dni`
+}
 
 function haversine(lat1, lon1, lat2, lon2) {
   const R = 6371
