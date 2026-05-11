@@ -1,4 +1,4 @@
-import { getStore } from '@netlify/blobs'
+import { getStore, connectLambda } from '@netlify/blobs'
 import webpush from 'web-push'
 import { fetchMilitaryNear, haversine } from './lib/military.js'
 
@@ -8,7 +8,8 @@ const VAPID_EMAIL = process.env.VAPID_SUBJECT || process.env.VAPID_EMAIL || 'mai
 
 const MAX_POSITION_AGE_MS = 7 * 24 * 60 * 60 * 1000  // 7 days
 
-export const handler = async () => {
+export const handler = async (event) => {
+  try { if (event?.blobs) connectLambda(event) } catch {}
   const runStart = Date.now()
   const stats = {
     startedAt: new Date(runStart).toISOString(),

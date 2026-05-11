@@ -1,4 +1,4 @@
-import { getStore } from '@netlify/blobs'
+import { getStore, connectLambda } from '@netlify/blobs'
 import crypto from 'crypto'
 
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY
@@ -6,6 +6,7 @@ const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY
 const VAPID_SUBJECT = process.env.VAPID_SUBJECT || process.env.VAPID_EMAIL || null
 
 export const handler = async (event) => {
+  connectLambda(event)
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Content-Type': 'application/json',

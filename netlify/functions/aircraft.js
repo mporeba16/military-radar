@@ -6,7 +6,7 @@
 // 2. Callsignach wojskowych (RCF, PLF, DUKE, JAKE, itp.)
 // 3. Squawk kodach wojskowych (7777, 7400 itp.)
 
-import { getStore } from '@netlify/blobs'
+import { getStore, connectLambda } from '@netlify/blobs'
 
 const OPENSKY_USER = process.env.OPENSKY_USER || ''
 const OPENSKY_PASS = process.env.OPENSKY_PASS || ''
@@ -325,6 +325,7 @@ async function tryADSBfi(lamin, lomin, lamax, lomax, radiusKm) {
 }
 
 export const handler = async (event) => {
+  connectLambda(event)
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Content-Type': 'application/json',
