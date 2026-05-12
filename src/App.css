@@ -455,6 +455,11 @@
   .panel-open .ac-info-panel {
     display: none;
   }
+  /* S1: when info card is open at the bottom on mobile, hide the zoom control
+     which would otherwise be hidden behind the card */
+  .info-open .leaflet-control-zoom {
+    display: none;
+  }
 }
 
 @media (max-width: 480px) {

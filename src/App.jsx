@@ -33,7 +33,7 @@ export default function App() {
   const dismissedAlertsRef = useRef(new Set(loadDismissed()))
   const selectionMissCountRef = useRef(0)
   const trailsRef = useRef(new Map())
-  const serverTrailFetchedRef = useRef(new Set())
+  const firstSeenRef = useRef(new Map())
   const isMountedRef = useRef(false)
   const fetchDataRef = useRef(null)
   const { location, locationError, requestLocation } = useGeolocation()
@@ -60,14 +60,18 @@ export default function App() {
         seen.add(ac.hex)
         return true
       })
+      const now = Date.now()
       const enriched = dedup.map(ac => {
+        if (!firstSeenRef.current.has(ac.hex)) {
+          firstSeenRef.current.set(ac.hex, now)
+        }
         if (location) {
           const dist = haversine(location.lat, location.lon, ac.lat, ac.lon)
-          return { ...ac, _dist: dist }
+          const brg = bearing(location.lat, location.lon, ac.lat, ac.lon)
+          return { ...ac, _dist: dist, _bearing: brg }
         }
         return ac
       })
-      const now = Date.now()
       enriched.forEach(ac => {
         if (ac.lat == null || ac.lon == null) return
         const pts = trailsRef.current.get(ac.hex) || []
@@ -80,8 +84,8 @@ export default function App() {
       const currentHexes = new Set(enriched.map(a => a.hex))
       for (const hex of trailsRef.current.keys())
         if (!currentHexes.has(hex)) trailsRef.current.delete(hex)
-      for (const hex of serverTrailFetchedRef.current)
-        if (!currentHexes.has(hex)) serverTrailFetchedRef.current.delete(hex)
+      for (const hex of firstSeenRef.current.keys())
+        if (!currentHexes.has(hex)) firstSeenRef.current.delete(hex)
       setAircraft(enriched)
       setLastUpdated(new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
       // B4: grace period — don't immediately drop selection if aircraft missing for one cycle
@@ -182,24 +186,28 @@ export default function App() {
     return () => window.removeEventListener('keydown', handler)
   }, [activePanel])
 
+  // T4: refresh server trail periodically while an aircraft is selected,
+  // so server-side cron updates are picked up without a re-click
   useEffect(() => {
-    if (!selectedHex) {
-      serverTrailFetchedRef.current.clear()
-      return
-    }
-    if (selectedHex.startsWith('__')) return
-    if (serverTrailFetchedRef.current.has(selectedHex)) return
-    serverTrailFetchedRef.current.add(selectedHex)
-    fetch(`/.netlify/functions/aircraft?hex=${selectedHex}`)
-      .then(r => r.json())
-      .then(({ trail, sources }) => {
+    if (!selectedHex || selectedHex.startsWith('__')) return
+    const ctrl = new AbortController()
+    const fetchTrail = async () => {
+      try {
+        const r = await fetch(`/.netlify/functions/aircraft?hex=${selectedHex}`, { signal: ctrl.signal })
+        const { trail, sources } = await r.json()
         if (sources) {
           setTrailSources(prev => { const next = new Map(prev); next.set(selectedHex, sources); return next })
         }
-        if (!trail?.length) return
-        setServerTrails(prev => { const next = new Map(prev); next.set(selectedHex, trail); return next })
-      })
-      .catch(() => {})
+        if (trail?.length) {
+          setServerTrails(prev => { const next = new Map(prev); next.set(selectedHex, trail); return next })
+        }
+      } catch (err) {
+        if (err.name !== 'AbortError') console.debug('[trail] fetch failed', err.message)
+      }
+    }
+    fetchTrail()
+    const id = setInterval(fetchTrail, 60_000)
+    return () => { ctrl.abort(); clearInterval(id) }
   }, [selectedHex])
 
   function togglePanel(name) {
@@ -223,7 +231,7 @@ export default function App() {
   }
 
   return (
-    <div className={`app${activePanel ? ' panel-open' : ''}`}>
+    <div className={`app${activePanel ? ' panel-open' : ''}${selectedAc ? ' info-open' : ''}`}>
       <RadarMap
         aircraft={aircraft}
         trails={trailsRef}
@@ -258,6 +266,8 @@ export default function App() {
         <AircraftInfoPanel
           ac={selectedAc}
           trailSources={trailSources.get(selectedHex)}
+          firstSeen={firstSeenRef.current.get(selectedHex)}
+          userLocation={location}
           onClose={() => setSelectedHex(null)}
         />
       )}
@@ -560,6 +570,15 @@ function haversine(lat1, lon1, lat2, lon2) {
   const a = Math.sin(dLat / 2) ** 2 +
     Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+function bearing(lat1, lon1, lat2, lon2) {
+  const φ1 = lat1 * Math.PI / 180
+  const φ2 = lat2 * Math.PI / 180
+  const Δλ = (lon2 - lon1) * Math.PI / 180
+  const y = Math.sin(Δλ) * Math.cos(φ2)
+  const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ)
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360
 }
 
 let alertAudio = null

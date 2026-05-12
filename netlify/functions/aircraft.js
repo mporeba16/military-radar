@@ -358,7 +358,12 @@ export const handler = async (event) => {
       headers,
       body: JSON.stringify({
         trail: blobPoints,
-        sources: { blob: blobPoints.length, blobError },
+        sources: {
+          blob: blobPoints.length,
+          blobError,
+          blobFirstTs: blobPoints[0]?.ts || null,
+          blobLastTs: blobPoints[blobPoints.length - 1]?.ts || null,
+        },
       }),
     }
   }

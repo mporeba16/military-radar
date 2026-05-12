@@ -49,6 +49,45 @@
   color: #ffffff;
 }
 
+.ac-info-squawk-badge {
+  margin: 0 12px 6px;
+  padding: 5px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+  text-align: center;
+  animation: badgePulse 1.5s ease-in-out infinite;
+}
+
+.ac-info-squawk-critical {
+  background: rgba(255, 30, 30, 0.18);
+  border: 1px solid #ff3030;
+  color: #ff7070;
+}
+
+.ac-info-squawk-warn {
+  background: rgba(255, 170, 0, 0.15);
+  border: 1px solid #ffaa00;
+  color: #ffcc55;
+}
+
+@keyframes badgePulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.7; }
+}
+
+.ac-info-photo-empty {
+  margin: 4px 12px;
+  padding: 14px 10px;
+  text-align: center;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+}
+
 .ac-info-photo-wrap {
   display: block;
   position: relative;
@@ -144,6 +183,11 @@
 .ac-info-ext-link:hover {
   color: #33ccff;
   text-decoration: underline;
+}
+
+/* Wider card on big desktops where 230px looks small */
+@media (min-width: 1400px) {
+  .ac-info-panel { width: 290px; }
 }
 
 /* Mobile — wysuwana karta od dołu zamiast lewego boku */
