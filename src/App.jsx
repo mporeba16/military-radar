@@ -12,6 +12,7 @@ const EUROPE_CENTER = [52.0, 15.0]
 const POLL_INTERVAL = 5_000
 const TRAIL_MIN_INTERVAL_MS = 10_000
 const TRAIL_MAX_AGE_MS = 60 * 60 * 1000  // 60 min — aligned closer to server's 4h cache
+const TRAIL_FLIGHT_SPLIT_GAP_MS = 10 * 60 * 1000  // gap → reset client trail (new flight)
 const SELECTION_GRACE_CYCLES = 2
 
 export default function App() {
@@ -74,10 +75,18 @@ export default function App() {
       })
       enriched.forEach(ac => {
         if (ac.lat == null || ac.lon == null) return
+        // Don't record trail for grounded aircraft — keeps the trail a "current
+        // flight only" view and lets server-side gap detection do its job.
+        if (ac.on_ground) return
         const pts = trailsRef.current.get(ac.hex) || []
-        const fresh = pts.filter(p => now - p.ts < TRAIL_MAX_AGE_MS)
+        let fresh = pts.filter(p => now - p.ts < TRAIL_MAX_AGE_MS)
         const last = fresh[fresh.length - 1]
-        if (!last || now - last.ts >= TRAIL_MIN_INTERVAL_MS)
+        // Gap > 10 min → treat as new flight, discard old client points
+        if (last && now - last.ts > TRAIL_FLIGHT_SPLIT_GAP_MS) {
+          fresh = []
+        }
+        const lastFresh = fresh[fresh.length - 1]
+        if (!lastFresh || now - lastFresh.ts >= TRAIL_MIN_INTERVAL_MS)
           fresh.push({ lat: ac.lat, lon: ac.lon, alt: ac.alt_baro, ts: now })
         trailsRef.current.set(ac.hex, fresh)
       })

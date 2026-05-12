@@ -79,10 +79,15 @@ function dedupTrailPoints(sortedPoints) {
 }
 
 function buildIconSvg(ac, isSelected, zoomScale) {
+  const onGround = !!ac.on_ground
   const hasTrack = ac.track != null
   const heading = hasTrack ? ac.track : 0
   const altM = ftToM(ac.alt_baro)
-  const color = isSelected ? '#ffffff' : altToColor(altM)
+  const color = isSelected
+    ? '#ffffff'
+    : onGround
+      ? '#808080'
+      : altToColor(altM)
   const shapeKey = getShapeKey(ac.t, ac.gs)
   const shape = SHAPES[shapeKey] || SHAPES.jet_swept
 
@@ -197,7 +202,7 @@ function AircraftLayer({ aircraft, selectedHex, onSelect, zoomScale }) {
       // are expensive (full DOM rebuild via setIcon). Avoid setIcon when only
       // position changed.
       const posKey = `${ac.lat.toFixed(5)}|${ac.lon.toFixed(5)}`
-      const iconKey = `${ac.track ?? 'na'}|${ac.alt_baro ?? 'na'}|${ac.gs ?? 'na'}|${ac.t || ''}|${isSelected ? 1 : 0}|${zoomScale}`
+      const iconKey = `${ac.track ?? 'na'}|${ac.alt_baro ?? 'na'}|${ac.gs ?? 'na'}|${ac.t || ''}|${isSelected ? 1 : 0}|${ac.on_ground ? 1 : 0}|${zoomScale}`
 
       const existing = markersRef.current.get(ac.hex)
       if (existing) {

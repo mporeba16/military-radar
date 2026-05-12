@@ -78,6 +78,7 @@ function closestApproach(userLat, userLon, ac) {
 
 // M5: rough flight phase from V/S and altitude (feet)
 function flightPhase(ac) {
+  if (ac.on_ground) return 'Na ziemi'
   if (ac.alt_baro == null) return null
   const altFt = ac.alt_baro
   const vs = ac.baro_rate || 0

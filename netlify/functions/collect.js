@@ -16,7 +16,9 @@ function isValidRecord(a) {
   if (lat == null || lon == null) return false
   if (lat < COLLECT_BBOX.lamin || lat > COLLECT_BBOX.lamax) return false
   if (lon < COLLECT_BBOX.lomin || lon > COLLECT_BBOX.lomax) return false
-  if (a.alt_baro === 'ground' || a.on_ground) return false
+  // Note: ground / on_ground aircraft are allowed through here, but
+  // saveTrails skips them — so they don't get persisted as trail points.
+  // (We want grounded craft visible in the live feed, not in trails.)
   const alt = typeof a.alt_baro === 'number' ? a.alt_baro : null
   if (alt != null && (alt < 0 || alt > 60000)) return false
   if (GROUND_STATION_TYPES.has((a.t || '').toUpperCase())) return false
@@ -34,6 +36,7 @@ function mapRecord(a) {
     lat,
     lon,
     alt_baro: typeof a.alt_baro === 'number' ? a.alt_baro : null,
+    on_ground: a.alt_baro === 'ground' || !!a.on_ground,
   }
 }
 

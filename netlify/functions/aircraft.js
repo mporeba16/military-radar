@@ -13,6 +13,22 @@ const OPENSKY_PASS = process.env.OPENSKY_PASS || ''
 
 const TRAIL_MAX_AGE_MS = 4 * 60 * 60 * 1000  // 4 godziny historii
 const TRAIL_MIN_INTERVAL_MS = 15_000           // min. 15s między punktami
+// Gdy w trasie pojawia się przerwa dłuższa niż FLIGHT_SPLIT_GAP_MS, traktujemy
+// to jako granicę między lotami (samolot wylądował i wystartował ponownie).
+const FLIGHT_SPLIT_GAP_MS = 10 * 60 * 1000
+
+// Returns only the points after the most recent gap >= FLIGHT_SPLIT_GAP_MS.
+// Assumes input is sorted ascending by ts.
+function currentFlightOnly(sortedPoints) {
+  if (sortedPoints.length < 2) return sortedPoints
+  let cutIndex = 0
+  for (let i = 1; i < sortedPoints.length; i++) {
+    if (sortedPoints[i].ts - sortedPoints[i - 1].ts > FLIGHT_SPLIT_GAP_MS) {
+      cutIndex = i
+    }
+  }
+  return sortedPoints.slice(cutIndex)
+}
 
 // In-memory cache — survives across warm function invocations (eliminates per-aircraft blob reads)
 const trailCache = new Map() // hex → { points, flight, t }
@@ -246,6 +262,7 @@ function mapADSBfiRecord(a) {
     squawk: a.squawk || null,
     reg: a.r || null,
     country: '',
+    on_ground: a.alt_baro === 'ground' || !!a.on_ground,
   }
 }
 
@@ -257,10 +274,11 @@ function isADSBfiRecordInBox(a, lamin, lomin, lamax, lomax) {
   const alt = typeof a.alt_baro === 'number' ? a.alt_baro : null
   if (GROUND_STATION_TYPES.has((a.t || '').toUpperCase())) return false
   if (GROUND_STATION_TYPES.has((a.r || '').toUpperCase())) return false
+  // Allow on_ground / alt_baro === 'ground' — they render as gray icons.
+  // Trail saving still skips them in saveTrails.
   return lat != null && lon != null &&
     lat >= lamin && lat <= lamax &&
     lon >= lomin && lon <= lomax &&
-    a.alt_baro !== 'ground' && !a.on_ground &&
     (alt == null || (alt >= 0 && alt <= 60000)) &&
     !isSuspiciousHex(a.hex)
 }
@@ -342,27 +360,34 @@ export const handler = async (event) => {
   // Trasa rośnie podczas:
   //   - aktywnego pollingu klienta (co 5 s, próbka 15 s)
   //   - scheduled `collect` cron (co 2 min, w tle)
+  // saveTrails pomija on_ground, więc przerwa > FLIGHT_SPLIT_GAP_MS w danych
+  // odpowiada okresowi na ziemi (lub utracie zasięgu ADS-B) — traktujemy ją
+  // jako granicę między lotami i zwracamy TYLKO bieżący lot.
   if (hex) {
     const lowerHex = hex.toLowerCase()
     let blobError = null
-    let blobPoints = []
+    let allPoints = []
     try {
       const data = await getStore('aircraft-trails').get(lowerHex, { type: 'json' })
-      blobPoints = data?.points || []
+      allPoints = data?.points || []
     } catch (err) {
       blobError = err.message
     }
+
+    allPoints.sort((a, b) => a.ts - b.ts)
+    const currentFlight = currentFlightOnly(allPoints)
 
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({
-        trail: blobPoints,
+        trail: currentFlight,
         sources: {
-          blob: blobPoints.length,
+          blob: currentFlight.length,
+          blobTotal: allPoints.length,
           blobError,
-          blobFirstTs: blobPoints[0]?.ts || null,
-          blobLastTs: blobPoints[blobPoints.length - 1]?.ts || null,
+          blobFirstTs: currentFlight[0]?.ts || null,
+          blobLastTs: currentFlight[currentFlight.length - 1]?.ts || null,
         },
       }),
     }
@@ -413,10 +438,13 @@ export async function saveTrails(aircraft) {
     })
   }))
 
-  // Determine which aircraft need a new trail point written
+  // Determine which aircraft need a new trail point written.
+  // Grounded aircraft are skipped — their gap in the trail data is what
+  // lets us detect the boundary between flights server-side.
   const toWrite = []
   for (const ac of aircraft) {
     if (ac.lat == null || ac.lon == null) continue
+    if (ac.on_ground) continue
     const entry = trailCache.get(ac.hex)
     if (!entry) continue
     entry.points = entry.points.filter(p => now - p.ts < TRAIL_MAX_AGE_MS)
