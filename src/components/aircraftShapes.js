@@ -250,20 +250,26 @@ export function getShapeKey(t, gs = null) {
   if (/A139|AW139|AW149|AW169|AW189|A149|A169|AW109|AW119/.test(type)) return 's61'
   if (/^UH|^AH|^MH|^HH|^SH|^H6|^H4|^H7|^H9|EC135|EC35|EC145|EC45|EC665|W3A?|MI8|MI17|MI28|KA50|KA52|LYNX|SEAHAWK|WILDCAT|R44|R66|NH90|NH9|MD9|EXPLORER/.test(type)) return 'helicopter'
 
-  if (/B1B|LANCER/.test(type)) return 'b1b_lancer'
-  if (/B52|STRATOFORTRESS/.test(type)) return 'b52'
-  if (/TORNADO/.test(type)) return 'tornado'
-  if (/^A10|WARTHOG/.test(type)) return 'a10'
+  // Bombers
+  if (/^B1$|^B1B$|LANCER/.test(type)) return 'b1b_lancer'
+  if (/^B52$|STRATOFORTRESS/.test(type)) return 'b52'
+  if (/^TORN$|TORNADO/.test(type)) return 'tornado'
+  if (/^A10$|WARTHOG/.test(type)) return 'a10'
   if (/^U2$|^TR1$/.test(type)) return 'u2'
 
-  if (/F35|LIGHTNING/.test(type)) return 'f35'
-  if (/F15|EAGLE/.test(type)) return 'md_f15'
-  if (/F18|FA18|HORNET/.test(type)) return 'f18'
-  if (/EF2000|TYPHOON/.test(type)) return 'typhoon'
-  if (/^RAFALE/.test(type)) return 'rafale'
-  if (/MIRAGEF1/.test(type)) return 'miragef1'
-  if (/^MIRAGE/.test(type)) return 'mirage'
-  if (/JAS39|GRIPEN|SB39/.test(type)) return 'sb39'
+  // Fighter / attack jets — ICAO 4-letter type codes used by adsb.fi.
+  // Order matters: Mirage F1 / Mirage 2000 / older Mirage III/V need
+  // separate matches, and the catch-all hi_perf line goes last for the
+  // fighters that don't have a dedicated shape.
+  if (/^F35[A-Z]?$|LIGHTNINGII/.test(type)) return 'f35'
+  if (/^F15[A-Z]?$|EAGLE/.test(type)) return 'md_f15'
+  if (/^F18[A-Z]?$|^FA18$|^F\/A18$|HORNET/.test(type)) return 'f18'
+  if (/^EUFI$|^EF2000$|TYPHOON/.test(type)) return 'typhoon'
+  if (/^RFAL$|^RAFALE$/.test(type)) return 'rafale'
+  if (/^MIRF$|MIRAGEF1/.test(type)) return 'miragef1'
+  if (/^MIR2$|^M2K[A-Z]?$|MIRAGE2000/.test(type)) return 'mirage'
+  if (/^MIRA$|^MIRAGE/.test(type)) return 'mirage'  // Mirage III / V (older delta-wing)
+  if (/^JS39$|JAS39|GRIPEN|SB39/.test(type)) return 'sb39'
   if (/ALPHAJET|ALPHAJ/.test(type)) return 'alpha_jet'
   if (/^HAWK|BAEHAWK/.test(type)) return 'bae_hawk'
   if (/L159|ALCA/.test(type)) return 'l159'
@@ -273,9 +279,11 @@ export function getShapeKey(t, gs = null) {
   if (/^F5[A-Z]?$|^F5E$/.test(type)) return 'f5_tiger'
   if (/^A4$|TA4|SKYHAWK/.test(type)) return 'md_a4'
   if (/^HUNTER/.test(type)) return 'hunter'
-  if (/MIG21|MIG23|FISHBED|FLOGGER/.test(type)) return 'mirage'
-  if (/^SU25|FROGFOOT/.test(type)) return 'a10'
-  if (/F22|RAPTOR|F16|MIG25|MIG27|MIG29|MIG31|SU24|SU34|SU27|SU30|SU35|SU57|FENCER|FULLBACK|FLANKER|FULCRUM|FOXHOUND|FOXBAT|FLOGGERD|TU22M|BACKFIRE|VIPER/.test(type)) return 'hi_perf'
+  if (/^MG21$|^MG23$|MIG21|MIG23|FISHBED|FLOGGER/.test(type)) return 'mirage'
+  if (/^SU25$|FROGFOOT/.test(type)) return 'a10'
+  // Catch-all for high-performance fighters without dedicated shapes.
+  // Includes ICAO codes (MG29, MG31, SU30, ...) and human names.
+  if (/^F22[A-Z]?$|RAPTOR|^F16[A-Z]?$|^MG25$|^MG27$|^MG29$|^MG31$|MIG25|MIG27|MIG29|MIG31|^SU24$|^SU34$|^SU27$|^SU30$|^SU35$|^SU57$|FENCER|FULLBACK|FLANKER|FULCRUM|FOXHOUND|FOXBAT|FLOGGERD|^TU22[A-Z]?$|TU22M|BACKFIRE|VIPER/.test(type)) return 'hi_perf'
 
   if (/^C17[A-Z]?$|GLOBEMASTER/.test(type)) return 'c17'
   if (/^C5[A-Z]?$|GALAXY/.test(type)) return 'c5'

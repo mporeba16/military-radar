@@ -56,6 +56,44 @@ function iconScaleForZoom(z) {
 // Minimum tap target diameter (px) — Apple HIG / Material guideline
 const MIN_TAP_TARGET = 44
 
+// Smooth marker animation: a single requestAnimationFrame loop interpolates
+// every animating marker from old to new position over ~2.5 s instead of
+// teleporting on each poll. This hides the 5-s-poll sampling step and
+// smooths over small jumps in adsb.fi data.
+const MARKER_ANIM_MS = 2500
+const animatingMarkers = new Map() // marker → { fromLat, fromLon, toLat, toLon, startTime }
+let animRafId = null
+function tickMarkerAnimations() {
+  const now = performance.now()
+  for (const [marker, a] of animatingMarkers) {
+    const t = Math.min(1, (now - a.startTime) / MARKER_ANIM_MS)
+    const eased = 1 - Math.pow(1 - t, 2)  // easeOutQuad
+    const lat = a.fromLat + (a.toLat - a.fromLat) * eased
+    const lon = a.fromLon + (a.toLon - a.fromLon) * eased
+    marker.setLatLng([lat, lon])
+    if (t >= 1) animatingMarkers.delete(marker)
+  }
+  animRafId = animatingMarkers.size > 0 ? requestAnimationFrame(tickMarkerAnimations) : null
+}
+function animateMarkerTo(marker, toLat, toLon) {
+  const from = marker.getLatLng()
+  animatingMarkers.set(marker, {
+    fromLat: from.lat, fromLon: from.lng, toLat, toLon,
+    startTime: performance.now(),
+  })
+  if (animRafId == null) animRafId = requestAnimationFrame(tickMarkerAnimations)
+}
+
+// Display-time implausibility filter: if the implied speed between the
+// previous and the new position exceeds this threshold, keep the previous
+// position (treat as a data glitch; next poll usually corrects itself).
+const DISPLAY_MAX_PLAUSIBLE_KMH = 3000
+
+// Trail rendering: don't draw a polyline segment across a gap larger than
+// this (e.g. signal loss over open water). The two real points stay at
+// their true positions; the bogus straight bridge between them does not.
+const TRAIL_VISUAL_GAP_MS = 3 * 60 * 1000
+
 // T2: drop a point if there is another within DIST_M metres AND TIME_MS milliseconds.
 // Client samples at ~15 s, server cron at ~120 s, so timestamps almost never
 // match exactly — proximity-based dedup avoids zigzags from overlapping points.
@@ -179,6 +217,9 @@ function AircraftLayer({ aircraft, selectedHex, onSelect, zoomScale }) {
     map.addLayer(group)
     groupRef.current = group
     return () => {
+      for (const entry of markersRef.current.values()) {
+        animatingMarkers.delete(entry.marker)
+      }
       map.removeLayer(group)
       groupRef.current = null
       markersRef.current.clear()
@@ -202,13 +243,34 @@ function AircraftLayer({ aircraft, selectedHex, onSelect, zoomScale }) {
       // are expensive (full DOM rebuild via setIcon). Avoid setIcon when only
       // position changed.
       const posKey = `${ac.lat.toFixed(5)}|${ac.lon.toFixed(5)}`
-      const iconKey = `${ac.track ?? 'na'}|${ac.alt_baro ?? 'na'}|${ac.gs ?? 'na'}|${ac.t || ''}|${isSelected ? 1 : 0}|${ac.on_ground ? 1 : 0}|${zoomScale}`
+      // Quantize track (5°) and altitude (200 ft) so a slowly climbing /
+      // turning aircraft doesn't rebuild its DOM every 5 s.
+      const trackQ = ac.track != null ? Math.round(ac.track / 5) : 'na'
+      const altQ = ac.alt_baro != null ? Math.round(ac.alt_baro / 200) : 'na'
+      const v22Slow = /V22|MV22|CV22|OSPREY/i.test(ac.t || '') && ac.gs != null && ac.gs < 100 ? 1 : 0
+      const iconKey = `${trackQ}|${altQ}|${v22Slow}|${ac.t || ''}|${isSelected ? 1 : 0}|${ac.on_ground ? 1 : 0}|${zoomScale}`
 
       const existing = markersRef.current.get(ac.hex)
       if (existing) {
         if (existing.posKey !== posKey) {
-          existing.marker.setLatLng([ac.lat, ac.lon])
-          existing.posKey = posKey
+          // Plausibility check — reject teleports
+          const prev = existing.marker.getLatLng()
+          const dtSec = existing.lastUpdateTs
+            ? (Date.now() - existing.lastUpdateTs) / 1000
+            : 0
+          let plausible = true
+          if (dtSec > 0 && dtSec < 60) {
+            const dx = (ac.lon - prev.lng) * 111 * Math.cos(prev.lat * Math.PI / 180)
+            const dy = (ac.lat - prev.lat) * 111
+            const distKm = Math.sqrt(dx * dx + dy * dy)
+            const impliedKmh = distKm / (dtSec / 3600)
+            if (impliedKmh > DISPLAY_MAX_PLAUSIBLE_KMH) plausible = false
+          }
+          if (plausible) {
+            animateMarkerTo(existing.marker, ac.lat, ac.lon)
+            existing.posKey = posKey
+            existing.lastUpdateTs = Date.now()
+          }
         }
         if (existing.iconKey !== iconKey) {
           existing.marker.setIcon(buildLeafletIcon(ac, isSelected, zoomScale))
@@ -223,7 +285,7 @@ function AircraftLayer({ aircraft, selectedHex, onSelect, zoomScale }) {
           if (e.originalEvent) e.originalEvent.stopPropagation()
           onSelect?.(hex)
         })
-        markersRef.current.set(ac.hex, { marker, posKey, iconKey })
+        markersRef.current.set(ac.hex, { marker, posKey, iconKey, lastUpdateTs: Date.now() })
         additions.push(marker)
       }
     }
@@ -235,7 +297,10 @@ function AircraftLayer({ aircraft, selectedHex, onSelect, zoomScale }) {
       }
     }
 
-    for (const m of removals) group.removeLayer(m)
+    for (const m of removals) {
+      animatingMarkers.delete(m)
+      group.removeLayer(m)
+    }
     for (const m of additions) group.addLayer(m)
   }, [aircraft, selectedHex, zoomScale, onSelect])
 
@@ -277,30 +342,42 @@ export default function RadarMap({
 
     if (all.length < 2) return empty
 
-    // T5: group consecutive same-color points into one Polyline
+    // T5 + visual gap cut: group consecutive same-color points into one
+    // Polyline. If two consecutive points are separated by more than
+    // TRAIL_VISUAL_GAP_MS (signal-loss period), DON'T draw a bridge line
+    // between them — start a fresh segment instead. This stops the trail
+    // from showing a long straight line across data outages.
     const segments = []
     let curColor = null
     let curPositions = null
+    let lastPt = null
+    const flush = () => {
+      if (curPositions && curPositions.length >= 2) {
+        segments.push({ key: `seg-${selectedHex}-${segments.length}`, color: curColor, positions: curPositions })
+      }
+    }
     for (const pt of all) {
       const c = altToColor(ftToM(pt.alt))
       const ll = [pt.lat, pt.lon]
-      if (c === curColor) {
+      const gapTooBig = lastPt && (pt.ts - lastPt.ts > TRAIL_VISUAL_GAP_MS)
+      if (gapTooBig) {
+        // Close current segment; start the next one fresh — NO bridge.
+        flush()
+        curPositions = [ll]
+        curColor = c
+      } else if (c === curColor) {
         curPositions.push(ll)
       } else {
-        if (curPositions && curPositions.length >= 2) {
-          segments.push({ key: `seg-${selectedHex}-${segments.length}`, color: curColor, positions: curPositions })
-        }
-        // Start new segment, including the last point of the previous segment
-        // so transitions render without gaps
+        flush()
+        // Color transition — bridge with previous point for continuity.
         curPositions = curPositions && curPositions.length > 0
           ? [curPositions[curPositions.length - 1], ll]
           : [ll]
         curColor = c
       }
+      lastPt = pt
     }
-    if (curPositions && curPositions.length >= 2) {
-      segments.push({ key: `seg-${selectedHex}-${segments.length}`, color: curColor, positions: curPositions })
-    }
+    flush()
 
     return { trailSegments: segments, trailStart: { lat: all[0].lat, lon: all[0].lon } }
   }, [selectedHex, trails, serverTrails, aircraft])

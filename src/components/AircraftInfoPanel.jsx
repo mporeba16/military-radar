@@ -103,7 +103,10 @@ function formatHhmm(ts) {
   return new Date(ts).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })
 }
 
-function useAircraftPhoto(hex) {
+// planespotters.net has separate lookup paths for hex vs registration.
+// For many military aircraft (Mi-17, etc.) the hex→photo mapping is empty
+// while the registration→photo mapping returns the photo we expect.
+function useAircraftPhoto(hex, reg) {
   const [photo, setPhoto] = useState(null)
   const [state, setState] = useState('idle')  // 'idle' | 'loading' | 'ok' | 'not-found'
   useEffect(() => {
@@ -111,25 +114,37 @@ function useAircraftPhoto(hex) {
     setPhoto(null)
     setState('loading')
     const ctrl = new AbortController()
-    fetch(`https://api.planespotters.net/pub/photos/hex/${hex}`, { signal: ctrl.signal })
-      .then(r => r.json())
-      .then(data => {
-        const p = data?.photos?.length ? data.photos[0] : null
-        setPhoto(p)
-        setState(p ? 'ok' : 'not-found')
-      })
-      .catch(err => {
+    const fetchJson = async (url) => {
+      const r = await fetch(url, { signal: ctrl.signal })
+      return r.json()
+    }
+    ;(async () => {
+      try {
+        // 1) hex first — fast path, works for civil aircraft
+        const byHex = await fetchJson(`https://api.planespotters.net/pub/photos/hex/${hex}`)
+        if (byHex?.photos?.length) {
+          setPhoto(byHex.photos[0]); setState('ok'); return
+        }
+        // 2) fallback to registration — catches military aircraft
+        if (reg) {
+          const byReg = await fetchJson(`https://api.planespotters.net/pub/photos/reg/${encodeURIComponent(reg)}`)
+          if (byReg?.photos?.length) {
+            setPhoto(byReg.photos[0]); setState('ok'); return
+          }
+        }
+        setPhoto(null); setState('not-found')
+      } catch (err) {
         if (err.name === 'AbortError') return
-        setPhoto(null)
-        setState('not-found')
-      })
+        setPhoto(null); setState('not-found')
+      }
+    })()
     return () => ctrl.abort()
-  }, [hex])
+  }, [hex, reg])
   return { photo, state }
 }
 
 export default function AircraftInfoPanel({ ac, trailSources, firstSeen, userLocation, onClose }) {
-  const { photo, state: photoState } = useAircraftPhoto(ac.hex)
+  const { photo, state: photoState } = useAircraftPhoto(ac.hex, ac.reg)
   const [imgError, setImgError] = useState(false)
   const altM = ftToM(ac.alt_baro)
   const kmh = knToKmh(ac.gs)
