@@ -18,6 +18,7 @@ const SELECTION_GRACE_CYCLES = 2
 export default function App() {
   const [aircraft, setAircraft] = useState([])
   const [isLoading, setIsLoading] = useState(false)
+  const [hasFetched, setHasFetched] = useState(false)
   const [error, setError] = useState(null)
   const [radius, setRadius] = useLocalStorage('radar.radius', 100)
   const [selectedHex, setSelectedHex] = useState(null)
@@ -109,6 +110,7 @@ export default function App() {
       for (const hex of firstSeenRef.current.keys())
         if (!currentHexes.has(hex)) firstSeenRef.current.delete(hex)
       setAircraft(enriched)
+      setHasFetched(true)
       setLastUpdated(new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
       // B4: grace period — don't immediately drop selection if aircraft missing for one cycle
       setSelectedHex(prev => {
@@ -266,7 +268,10 @@ export default function App() {
       }
     }
     fetchTrail()
-    const id = setInterval(fetchTrail, 60_000)
+    // Server collector cron updates the trail every 2 min, so polling
+    // faster than that just spends Netlify-function quota on identical
+    // responses. 120 s lines up with the cron cycle.
+    const id = setInterval(fetchTrail, 120_000)
     return () => { ctrl.abort(); clearInterval(id) }
   }, [selectedHex])
 
@@ -303,6 +308,7 @@ export default function App() {
     <div className={`app${activePanel ? ' panel-open' : ''}${selectedAc ? ' info-open' : ''}`}>
       <RadarMap
         aircraft={aircraft}
+        hasFetched={hasFetched}
         trails={trailsRef}
         serverTrails={serverTrails}
         center={center}
@@ -630,9 +636,15 @@ function loadDismissed() {
     return Array.isArray(arr) ? arr : []
   } catch { return [] }
 }
+// Keep at most this many dismissed hexes in localStorage — Set preserves
+// insertion order, so we trim to the most-recent N to bound storage growth
+// across long-running sessions.
+const DISMISSED_LIST_CAP = 100
+
 function persistDismissed(set) {
   try {
-    localStorage.setItem('radar.dismissed', JSON.stringify([...set].filter(h => !h.startsWith('__'))))
+    const arr = [...set].filter(h => !h.startsWith('__')).slice(-DISMISSED_LIST_CAP)
+    localStorage.setItem('radar.dismissed', JSON.stringify(arr))
   } catch {}
 }
 

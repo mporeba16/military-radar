@@ -5,8 +5,12 @@ export async function fetchMilitaryAircraft(center, radiusKm, signal) {
   const url = `${API_BASE}/aircraft?lat=${lat}&lon=${lon}&radius=${radiusKm}`
   const res = await fetch(url, { signal })
   if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`API error ${res.status}: ${text}`)
+    // Don't surface the raw response body (often a multi-line Netlify HTML
+    // error page) — it ends up in `setError(err.message)` and looks awful.
+    const label = res.status === 429 ? 'limit zapytań'
+      : res.status >= 500 ? 'serwer niedostępny'
+      : 'błąd API'
+    throw new Error(`${label} (HTTP ${res.status})`)
   }
   const data = await res.json()
   return {

@@ -8,3 +8,64 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <App />
   </React.StrictMode>
 )
+
+// Show a "new version available" prompt when the service worker swaps
+// underneath us. vite-plugin-pwa is configured with registerType:
+// 'autoUpdate' — the new SW takes over via skipWaiting + controllerchange.
+// We don't want the page silently running mismatched JS, so we offer a
+// reload button instead of a hard reload.
+if ('serviceWorker' in navigator) {
+  const hadControllerOnLoad = !!navigator.serviceWorker.controller
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    // First install fires controllerchange too — only prompt on real updates.
+    if (!hadControllerOnLoad) return
+    showUpdateToast()
+  })
+}
+
+function showUpdateToast() {
+  if (document.getElementById('sw-update-toast')) return
+  const el = document.createElement('div')
+  el.id = 'sw-update-toast'
+  el.setAttribute('role', 'status')
+  el.innerHTML = '<span>◉ Nowa wersja dostępna</span><button type="button" aria-label="Przeładuj">Przeładuj</button>'
+  Object.assign(el.style, {
+    position: 'fixed',
+    bottom: '12px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    zIndex: '9999',
+    background: 'rgba(0, 255, 136, 0.18)',
+    border: '1px solid #00ff88',
+    color: '#dffff0',
+    fontFamily: "'Courier New', monospace",
+    fontSize: '12px',
+    letterSpacing: '0.5px',
+    padding: '8px 12px',
+    borderRadius: '4px',
+    display: 'flex',
+    gap: '12px',
+    alignItems: 'center',
+    boxShadow: '0 4px 24px rgba(0,0,0,0.5)',
+    backdropFilter: 'blur(8px)',
+  })
+  const btn = el.querySelector('button')
+  Object.assign(btn.style, {
+    background: '#00ff88',
+    color: '#003020',
+    border: 'none',
+    padding: '6px 12px',
+    fontFamily: "'Courier New', monospace",
+    fontSize: '11px',
+    fontWeight: 'bold',
+    letterSpacing: '0.8px',
+    borderRadius: '3px',
+    cursor: 'pointer',
+  })
+  btn.addEventListener('click', () => {
+    btn.disabled = true
+    btn.textContent = '◌'
+    window.location.reload()
+  })
+  document.body.appendChild(el)
+}

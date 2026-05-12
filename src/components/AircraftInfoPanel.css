@@ -98,12 +98,15 @@
   position: relative;
   overflow: hidden;
   text-decoration: none;
+  /* Reserve space so the skeleton → photo transition doesn't shift layout. */
+  min-height: 118px;
+  background: rgba(255,255,255,0.03);
 }
 
 .ac-info-photo {
   width: 100%;
   display: block;
-  max-height: 118px;
+  height: 118px;
   object-fit: cover;
 }
 
@@ -147,7 +150,7 @@
 
 .ac-info-photo-skeleton {
   width: 100%;
-  height: 90px;
+  height: 118px;  /* match .ac-info-photo height — no layout shift on load */
   background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.4s infinite;
@@ -220,6 +223,11 @@
   }
 
   .ac-info-photo {
-    max-height: 140px;
+    height: 140px;
   }
+  .ac-info-photo-wrap,
+  .ac-info-photo-skeleton {
+    min-height: 140px;
+  }
+  .ac-info-photo-skeleton { height: 140px; }
 }

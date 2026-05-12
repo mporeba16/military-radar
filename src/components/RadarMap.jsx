@@ -308,7 +308,7 @@ function AircraftLayer({ aircraft, selectedHex, onSelect, zoomScale }) {
 }
 
 export default function RadarMap({
-  aircraft, trails, serverTrails, center, gpsCenter, radius,
+  aircraft, hasFetched, trails, serverTrails, center, gpsCenter, radius,
   selectedHex, onSelect, activeTileId,
 }) {
   const initialZoom = 6  // S4: was 5, but icons were too small at default view
@@ -385,13 +385,21 @@ export default function RadarMap({
   // V3: trail weight scales with zoom (thicker at higher zoom)
   const trailWeight = 1.5 + zoomScale * 1.6
 
-  const showEmpty = aircraft.length === 0
+  // Only show "no aircraft" message AFTER the first fetch completes —
+  // before that, the empty array is just "we haven't loaded yet".
+  const showEmpty = hasFetched && aircraft.length === 0
+  const showLoading = !hasFetched
 
   return (
     <div style={{ position: 'absolute', inset: 0 }}>
+      {showLoading && (
+        <div className="map-empty-state" role="status">
+          ◌ Ładowanie samolotów…
+        </div>
+      )}
       {showEmpty && (
         <div className="map-empty-state" role="status">
-          Brak samolotów wojskowych w zasięgu
+          Brak samolotów wojskowych na mapie
         </div>
       )}
       <MapContainer

@@ -39,6 +39,22 @@
   <body>
     <div id="root"><div class="boot-splash">◌ RADAR WOJSKOWY</div></div>
     <script type="module" src="/src/main.jsx"></script>
+    <script>
+      // If React hasn't mounted within 10 s (network failure, JS exception,
+      // browser issue) replace the spinner with an actionable fallback so
+      // the user knows the boot stalled instead of staring at ◌ forever.
+      setTimeout(function () {
+        var root = document.getElementById('root');
+        var splash = root && root.querySelector('.boot-splash');
+        if (splash && splash.textContent.charAt(0) === '◌') {
+          splash.style.color = '#ff7a55';
+          splash.style.fontSize = '14px';
+          splash.style.padding = '0 20px';
+          splash.style.textAlign = 'center';
+          splash.innerHTML = '⚠ Aplikacja nie odpowiada<br><small style="opacity:.8;font-size:11px;display:inline-block;margin-top:6px">Sprawdź połączenie i przeładuj stronę.</small>';
+        }
+      }, 10000);
+    </script>
     <noscript>
       <div style="padding:20px;color:#ccc;text-align:center">Aby korzystać z radaru wojskowego, włącz JavaScript w przeglądarce.</div>
     </noscript>
