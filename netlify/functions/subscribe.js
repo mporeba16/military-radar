@@ -1,12 +1,10 @@
 import { getStore, connectLambda } from '@netlify/blobs'
 import crypto from 'crypto'
+import { corsHeaders, isValidPushEndpoint, rateLimit } from './lib/security.js'
 
 export const handler = async (event) => {
   connectLambda(event)
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Content-Type': 'application/json',
-  }
+  const headers = corsHeaders(event)
 
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers }
   if (event.httpMethod !== 'POST') {
@@ -27,6 +25,12 @@ export const handler = async (event) => {
     return { statusCode: 400, headers, body: JSON.stringify({ error: 'missing-endpoint' }) }
   }
 
+  // Only accept endpoints from real push services. Stops a malicious client
+  // from making us cache an attacker-controlled webhook URL.
+  if (!isValidPushEndpoint(subscription.endpoint)) {
+    return { statusCode: 400, headers, body: JSON.stringify({ error: 'invalid-endpoint-host' }) }
+  }
+
   let key
   try {
     key = crypto.createHash('sha256')
@@ -36,6 +40,16 @@ export const handler = async (event) => {
   } catch (err) {
     console.error('[subscribe] Hash failed:', err.message)
     return { statusCode: 500, headers, body: JSON.stringify({ error: 'hash-failed', detail: err.message }) }
+  }
+
+  // Throttle per-endpoint to 1 subscribe call per 10 s.
+  const rl = await rateLimit({ key: `sub-${key}`, windowMs: 10_000 })
+  if (!rl.allowed) {
+    return {
+      statusCode: 429,
+      headers: { ...headers, 'Retry-After': String(Math.ceil(rl.retryAfterMs / 1000)) },
+      body: JSON.stringify({ error: 'rate-limited', retryAfterMs: rl.retryAfterMs }),
+    }
   }
 
   let store
@@ -51,7 +65,6 @@ export const handler = async (event) => {
     existing = await store.get(key, { type: 'json' })
   } catch (err) {
     console.error('[subscribe] get existing failed:', err.message)
-    // continue — treat as no existing record
   }
 
   const newLat = lat ?? existing?.lat ?? null

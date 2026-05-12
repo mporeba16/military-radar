@@ -34,6 +34,25 @@
 
 .count-version { color: rgba(255,255,255,0.35); font-size: 10px; letter-spacing: 0.5px; }
 
+/* Empty state when no aircraft visible */
+.map-empty-state {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 999;
+  pointer-events: none;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  letter-spacing: 1.5px;
+  color: rgba(255, 255, 255, 0.55);
+  background: rgba(4, 10, 20, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 10px 16px;
+  border-radius: 4px;
+  backdrop-filter: blur(6px);
+}
+
 /* Altitude legend — rendered inline inside the settings panel */
 .alt-legend {
   font-family: 'Courier New', monospace;

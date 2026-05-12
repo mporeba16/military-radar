@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 
 export function useGeolocation() {
   const [location, setLocation] = useState(null)
+  const [accuracy, setAccuracy] = useState(null)
   const [locationError, setLocationError] = useState(null)
   const watchIdRef = useRef(null)
 
@@ -13,7 +14,11 @@ export function useGeolocation() {
     if (watchIdRef.current != null) return
     setLocationError(null)
     watchIdRef.current = navigator.geolocation.watchPosition(
-      pos => setLocation({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+      pos => {
+        setLocation({ lat: pos.coords.latitude, lon: pos.coords.longitude })
+        setAccuracy(pos.coords.accuracy ?? null)
+        setLocationError(null)  // clear any stale error on first success
+      },
       err => {
         switch (err.code) {
           case err.PERMISSION_DENIED:
@@ -35,7 +40,11 @@ export function useGeolocation() {
     if (navigator.permissions) {
       navigator.permissions.query({ name: 'geolocation' }).then(result => {
         if (result.state === 'granted') startWatch()
-        result.onchange = () => { if (result.state === 'granted') startWatch() }
+        if (result.state === 'denied') setLocationError('Brak zgody na lokalizację')
+        result.onchange = () => {
+          if (result.state === 'granted') startWatch()
+          else if (result.state === 'denied') setLocationError('Brak zgody na lokalizację')
+        }
       }).catch(() => {})
     }
     return () => {
@@ -46,5 +55,5 @@ export function useGeolocation() {
     }
   }, [startWatch])
 
-  return { location, locationError, requestLocation: startWatch }
+  return { location, accuracy, locationError, requestLocation: startWatch }
 }

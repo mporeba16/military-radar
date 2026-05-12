@@ -385,8 +385,15 @@ export default function RadarMap({
   // V3: trail weight scales with zoom (thicker at higher zoom)
   const trailWeight = 1.5 + zoomScale * 1.6
 
+  const showEmpty = aircraft.length === 0
+
   return (
     <div style={{ position: 'absolute', inset: 0 }}>
+      {showEmpty && (
+        <div className="map-empty-state" role="status">
+          Brak samolotów wojskowych w zasięgu
+        </div>
+      )}
       <MapContainer
         center={center}
         zoom={initialZoom}

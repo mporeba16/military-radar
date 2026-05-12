@@ -1,6 +1,7 @@
 import { getStore, connectLambda } from '@netlify/blobs'
 import webpush from 'web-push'
 import crypto from 'crypto'
+import { corsHeaders, isValidPushEndpoint, rateLimit } from './lib/security.js'
 
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY
@@ -8,11 +9,7 @@ const VAPID_EMAIL = process.env.VAPID_SUBJECT || process.env.VAPID_EMAIL || 'mai
 
 export const handler = async (event) => {
   connectLambda(event)
-
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Content-Type': 'application/json',
-  }
+  const headers = corsHeaders(event)
 
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers }
   if (event.httpMethod !== 'POST') {
@@ -31,11 +28,22 @@ export const handler = async (event) => {
     return { statusCode: 400, headers, body: JSON.stringify({ error: 'invalid-json', detail: err.message }) }
   }
 
-  if (!endpoint) {
-    return { statusCode: 400, headers, body: JSON.stringify({ error: 'missing-endpoint' }) }
+  if (!endpoint || !isValidPushEndpoint(endpoint)) {
+    return { statusCode: 400, headers, body: JSON.stringify({ error: 'invalid-endpoint' }) }
   }
 
   const key = crypto.createHash('sha256').update(endpoint).digest('hex').slice(0, 32)
+
+  // 1 test push per 5 min per endpoint — stops anyone with a stolen endpoint
+  // URL from spamming notifications to the owner.
+  const rl = await rateLimit({ key: `tp-${key}`, windowMs: 5 * 60_000 })
+  if (!rl.allowed) {
+    return {
+      statusCode: 429,
+      headers: { ...headers, 'Retry-After': String(Math.ceil(rl.retryAfterMs / 1000)) },
+      body: JSON.stringify({ error: 'rate-limited', retryAfterMs: rl.retryAfterMs }),
+    }
+  }
 
   let sub
   try {

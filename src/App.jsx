@@ -37,7 +37,10 @@ export default function App() {
   const firstSeenRef = useRef(new Map())
   const isMountedRef = useRef(false)
   const fetchDataRef = useRef(null)
-  const { location, locationError, requestLocation } = useGeolocation()
+  const fetchAbortRef = useRef(null)
+  const testPushTimerRef = useRef(null)
+  const radiusDebounceRef = useRef(null)
+  const { location, accuracy, locationError, requestLocation } = useGeolocation()
   const {
     isSubscribed, isSubscribing, subscribe, sendTestPush,
     permissionState, subscribeError, syncError, serverStatus,
@@ -46,10 +49,17 @@ export default function App() {
   const center = EUROPE_CENTER
 
   const fetchData = useCallback(async () => {
+    // Abort any in-flight fetch — fixes race where slower request returns
+    // last and overwrites fresher data with stale results.
+    fetchAbortRef.current?.abort()
+    const ctrl = new AbortController()
+    fetchAbortRef.current = ctrl
+
     setIsLoading(true)
     setError(null)
     try {
-      const { aircraft: data, isDemo, source } = await fetchMilitaryAircraft(center, 2800)
+      const { aircraft: data, isDemo, source } = await fetchMilitaryAircraft(center, 2800, ctrl.signal)
+      if (ctrl.signal.aborted) return
       if (source === 'unavailable') {
         setError('API niedostępne')
         return
@@ -160,9 +170,12 @@ export default function App() {
         setInRangeCount(0)
       }
     } catch (err) {
-      setError(err.message)
+      if (err.name !== 'AbortError') setError(err.message)
     } finally {
-      setIsLoading(false)
+      if (fetchAbortRef.current === ctrl) {
+        setIsLoading(false)
+        fetchAbortRef.current = null
+      }
     }
   }, [radius, location])
 
@@ -172,17 +185,38 @@ export default function App() {
   // Auto-start GPS tracking on mount
   useEffect(() => { requestLocation() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Stable interval — never restarts on GPS location updates
+  // Stable interval — pauses while the tab is hidden so we don't keep
+  // hammering the API in the background (saves battery on mobile PWAs).
   useEffect(() => {
-    fetchDataRef.current()
-    const id = setInterval(() => fetchDataRef.current(), POLL_INTERVAL)
-    return () => clearInterval(id)
+    let id = null
+    const start = () => {
+      if (id != null) return
+      fetchDataRef.current()
+      id = setInterval(() => fetchDataRef.current(), POLL_INTERVAL)
+    }
+    const stop = () => {
+      if (id != null) { clearInterval(id); id = null }
+    }
+    const onVis = () => {
+      if (document.visibilityState === 'visible') start()
+      else stop()
+    }
+    onVis()
+    document.addEventListener('visibilitychange', onVis)
+    return () => {
+      document.removeEventListener('visibilitychange', onVis)
+      stop()
+    }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Immediate refetch on radius change
+  // Debounced refetch on radius change — drag of the slider used to fire
+  // a separate fetch for every notch (25 → 50 → 75 → ...). Wait until the
+  // user has settled on a value.
   useEffect(() => {
     if (!isMountedRef.current) { isMountedRef.current = true; return }
-    fetchDataRef.current()
+    if (radiusDebounceRef.current) clearTimeout(radiusDebounceRef.current)
+    radiusDebounceRef.current = setTimeout(() => fetchDataRef.current(), 350)
+    return () => { if (radiusDebounceRef.current) clearTimeout(radiusDebounceRef.current) }
   }, [radius]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ESC closes panel first, then deselects aircraft (B12 — skip when typing)
@@ -207,6 +241,7 @@ export default function App() {
       try {
         const r = await fetch(`/.netlify/functions/aircraft?hex=${selectedHex}`, { signal: ctrl.signal })
         const { trail, sources } = await r.json()
+        if (ctrl.signal.aborted) return
         if (sources) {
           setTrailSources(prev => { const next = new Map(prev); next.set(selectedHex, sources); return next })
         }
@@ -235,12 +270,21 @@ export default function App() {
   const selectedAc = aircraft.find(ac => ac.hex === selectedHex) || null
 
   async function handleTestPush() {
+    if (testPushTimerRef.current) clearTimeout(testPushTimerRef.current)
     setTestPushStatus({ kind: 'loading' })
     const res = await sendTestPush()
     if (res.ok) setTestPushStatus({ kind: 'ok' })
     else setTestPushStatus({ kind: 'err', detail: res.error })
-    setTimeout(() => setTestPushStatus(null), 6000)
+    testPushTimerRef.current = setTimeout(() => {
+      setTestPushStatus(null)
+      testPushTimerRef.current = null
+    }, 6000)
   }
+
+  const handleSelect = useCallback(hex => {
+    setSelectedHex(prev => prev === hex ? null : hex)
+    if (hex) setActivePanel(null)
+  }, [])
 
   return (
     <div className={`app${activePanel ? ' panel-open' : ''}${selectedAc ? ' info-open' : ''}`}>
@@ -252,10 +296,7 @@ export default function App() {
         gpsCenter={gpsCenter}
         radius={location ? radius : null}
         selectedHex={selectedHex}
-        onSelect={hex => {
-          setSelectedHex(prev => prev === hex ? null : hex)
-          if (hex) setActivePanel(null)
-        }}
+        onSelect={handleSelect}
         activeTileId={activeTileId}
       />
 
@@ -308,6 +349,7 @@ export default function App() {
                 <span className="alert-toast-detail">{ac.t || '?'} · {Math.round(dist)} km</span>
               </div>
               <button className="alert-toast-close"
+                aria-label="Odrzuć powiadomienie"
                 onClick={e => {
                   e.stopPropagation()
                   if (!hex.startsWith('__')) {
@@ -337,7 +379,7 @@ export default function App() {
               {activePanel === 'ustawienia' && 'USTAWIENIA'}
               {activePanel === 'mapy' && 'MAPY'}
             </span>
-            <button className="side-panel-close" onClick={() => setActivePanel(null)}>✕</button>
+            <button className="side-panel-close" onClick={() => setActivePanel(null)} aria-label="Zamknij panel">✕</button>
           </div>
 
           {activePanel === 'ustawienia' && (
@@ -346,18 +388,30 @@ export default function App() {
               <section className="cp-section">
                 <div className="cp-label">GPS — wymagany do alertów</div>
                 {location
-                  ? <p className="ok">◉ {location.lat.toFixed(4)}°N {location.lon.toFixed(4)}°E</p>
-                  : locationError
+                  ? <>
+                      <p className="ok">◉ {location.lat.toFixed(4)}°N {location.lon.toFixed(4)}°E</p>
+                      {accuracy != null && (
+                        <p className="info-text" style={{ fontSize: 10, marginTop: 2 }}>
+                          dokładność ±{accuracy < 1000 ? `${Math.round(accuracy)} m` : `${(accuracy / 1000).toFixed(1)} km`}
+                        </p>
+                      )}
+                    </>
+                  : locationError === 'Brak zgody na lokalizację'
                     ? <>
                         <p className="err" style={{ fontSize: 11 }}>✗ {locationError}</p>
                         <p className="info-text" style={{ marginTop: 4 }}>
-                          Bez GPS alerty nie działają. Odblokuj lokalizację w ustawieniach przeglądarki.
+                          Włącz lokalizację w ustawieniach (iOS Safari: Ustawienia → Witryny → Lokalizacja).
                         </p>
                       </>
-                    : <>
-                        <p className="info-text">Oczekiwanie na GPS…</p>
-                        <button className="link-btn" style={{ marginTop: 4 }} onClick={requestLocation}>Pobierz lokalizację</button>
-                      </>}
+                    : locationError
+                      ? <>
+                          <p className="err" style={{ fontSize: 11 }}>✗ {locationError}</p>
+                          <button className="link-btn" style={{ marginTop: 4 }} onClick={requestLocation}>Spróbuj ponownie</button>
+                        </>
+                      : <>
+                          <p className="info-text">Oczekiwanie na GPS…</p>
+                          <button className="link-btn" style={{ marginTop: 4 }} onClick={requestLocation}>Pobierz lokalizację</button>
+                        </>}
               </section>
 
               {/* 2. Zasięg alertów */}
@@ -371,6 +425,11 @@ export default function App() {
                     W zasięgu teraz: <strong style={{ color: inRangeCount > 0 ? '#ff5520' : '#00ff88' }}>
                       {inRangeCount} samolotów
                     </strong>
+                    {inRangeCount > alerts.length && (
+                      <span style={{ color: 'rgba(255,255,255,0.5)' }}>
+                        {' '}(widocznych alertów: {alerts.length})
+                      </span>
+                    )}
                   </p>
                 )}
               </section>
@@ -593,28 +652,24 @@ function bearing(lat1, lon1, lat2, lon2) {
   return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360
 }
 
-let alertAudio = null
+// Singleton AudioContext — browsers limit how many can be open. Reuse one
+// across all alerts; create a new oscillator each ping.
+let alertCtx = null
 function playAlertSound() {
   try {
-    if (!alertAudio) {
-      // Short synthesized ping — generated once, reused
-      const AC = window.AudioContext || window.webkitAudioContext
-      if (!AC) return
-      alertAudio = () => {
-        const ctx = new AC()
-        const osc = ctx.createOscillator()
-        const gain = ctx.createGain()
-        osc.type = 'sine'
-        osc.frequency.value = 880
-        gain.gain.setValueAtTime(0.15, ctx.currentTime)
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35)
-        osc.connect(gain).connect(ctx.destination)
-        osc.start()
-        osc.stop(ctx.currentTime + 0.4)
-        setTimeout(() => ctx.close(), 600)
-      }
-    }
-    alertAudio()
+    const AC = window.AudioContext || window.webkitAudioContext
+    if (!AC) return
+    if (!alertCtx) alertCtx = new AC()
+    if (alertCtx.state === 'suspended') alertCtx.resume().catch(() => {})
+    const osc = alertCtx.createOscillator()
+    const gain = alertCtx.createGain()
+    osc.type = 'sine'
+    osc.frequency.value = 880
+    gain.gain.setValueAtTime(0.15, alertCtx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, alertCtx.currentTime + 0.35)
+    osc.connect(gain).connect(alertCtx.destination)
+    osc.start()
+    osc.stop(alertCtx.currentTime + 0.4)
   } catch {}
 }
 
@@ -629,8 +684,11 @@ function triggerNotification(ac, dist) {
       body: `${ac.flight?.trim() || ac.hex} (${ac.t || 'nieznany typ'}) — ${Math.round(dist)} km`,
       icon: '/pwa-192x192.png',
       badge: '/pwa-192x192.png',
-      tag: ac.hex,
-      renotify: false,
+      // Per-hex tag + renotify=true: if the same aircraft re-enters the
+      // radar, iOS shows a new notification instead of silently replacing
+      // the old (and missed) one.
+      tag: `mil-${ac.hex}`,
+      renotify: true,
       data: { hex: ac.hex },
     })
   })

@@ -1,5 +1,6 @@
 import { getStore, connectLambda } from '@netlify/blobs'
 import crypto from 'crypto'
+import { corsHeaders, isValidPushEndpoint } from './lib/security.js'
 
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY
@@ -7,10 +8,7 @@ const VAPID_SUBJECT = process.env.VAPID_SUBJECT || process.env.VAPID_EMAIL || nu
 
 export const handler = async (event) => {
   connectLambda(event)
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Content-Type': 'application/json',
-  }
+  const headers = corsHeaders(event)
 
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers }
   if (event.httpMethod !== 'POST') {
@@ -30,8 +28,8 @@ export const handler = async (event) => {
     return { statusCode: 400, headers, body: JSON.stringify({ error: 'invalid-json', detail: err.message, server }) }
   }
 
-  if (!endpoint) {
-    return { statusCode: 400, headers, body: JSON.stringify({ error: 'missing-endpoint', server }) }
+  if (!endpoint || !isValidPushEndpoint(endpoint)) {
+    return { statusCode: 400, headers, body: JSON.stringify({ error: 'invalid-endpoint', server }) }
   }
 
   let key
@@ -86,6 +84,9 @@ export const handler = async (event) => {
     }
   }
 
+  // Privacy: do NOT echo back lat/lon. Anyone who knows the endpoint URL
+  // can query this — leaking GPS would let them track the owner.
+  // Only return whether GPS is configured + how old it is.
   const hasGps = sub.lat != null && sub.lon != null
   const ageMs = sub.updatedAt ? Date.now() - sub.updatedAt : null
   const stale = ageMs != null && ageMs > 7 * 24 * 60 * 60 * 1000
@@ -99,8 +100,6 @@ export const handler = async (event) => {
       provider,
       key,
       hasGps,
-      lat: sub.lat,
-      lon: sub.lon,
       radius: sub.radius,
       gpsAgeMs: ageMs,
       createdAt: sub.createdAt,

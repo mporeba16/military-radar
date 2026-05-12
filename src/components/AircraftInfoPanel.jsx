@@ -103,42 +103,51 @@ function formatHhmm(ts) {
   return new Date(ts).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })
 }
 
-// planespotters.net has separate lookup paths for hex vs registration.
-// For many military aircraft (Mi-17, etc.) the hex→photo mapping is empty
-// while the registration→photo mapping returns the photo we expect.
+// planespotters.net has two lookup paths: by registration and by hex.
+//
+// For military aircraft the hex→photo mapping is unreliable — photographers
+// tag photos by tail number (e.g. "605") and planespotters' hex assignments
+// for military airframes are often stale or simply wrong (Mi-17 hex 48DA46
+// returned a completely different aircraft's photo until we switched order).
+//
+// Try reg first whenever it's present; fall back to hex for civil aircraft
+// that broadcast hex but have no public reg.
 function useAircraftPhoto(hex, reg) {
   const [photo, setPhoto] = useState(null)
   const [state, setState] = useState('idle')  // 'idle' | 'loading' | 'ok' | 'not-found'
   useEffect(() => {
-    if (!hex) return
+    if (!hex && !reg) return
     setPhoto(null)
     setState('loading')
     const ctrl = new AbortController()
+    const timeout = setTimeout(() => ctrl.abort(), 6000)
     const fetchJson = async (url) => {
       const r = await fetch(url, { signal: ctrl.signal })
       return r.json()
     }
     ;(async () => {
       try {
-        // 1) hex first — fast path, works for civil aircraft
-        const byHex = await fetchJson(`https://api.planespotters.net/pub/photos/hex/${hex}`)
-        if (byHex?.photos?.length) {
-          setPhoto(byHex.photos[0]); setState('ok'); return
-        }
-        // 2) fallback to registration — catches military aircraft
         if (reg) {
           const byReg = await fetchJson(`https://api.planespotters.net/pub/photos/reg/${encodeURIComponent(reg)}`)
           if (byReg?.photos?.length) {
             setPhoto(byReg.photos[0]); setState('ok'); return
           }
         }
+        if (hex) {
+          const byHex = await fetchJson(`https://api.planespotters.net/pub/photos/hex/${hex}`)
+          if (byHex?.photos?.length) {
+            setPhoto(byHex.photos[0]); setState('ok'); return
+          }
+        }
         setPhoto(null); setState('not-found')
       } catch (err) {
         if (err.name === 'AbortError') return
         setPhoto(null); setState('not-found')
+      } finally {
+        clearTimeout(timeout)
       }
     })()
-    return () => ctrl.abort()
+    return () => { clearTimeout(timeout); ctrl.abort() }
   }, [hex, reg])
   return { photo, state }
 }
@@ -165,15 +174,24 @@ export default function AircraftInfoPanel({ ac, trailSources, firstSeen, userLoc
     ? `${Math.round(ac._dist)} km${ac._bearing != null ? ` · ${bearingLabel(ac._bearing)}` : ''}`
     : null
 
-  // M3: closest approach
+  // M3: closest approach. Cap predictions at 60 min — beyond that the linear
+  // extrapolation is meaningless. For minDist below 2 km, label it as a direct
+  // overflight rather than a misleadingly precise "~0 km".
   const approach = userLocation && ac.lat != null && ac.lon != null
     ? closestApproach(userLocation.lat, userLocation.lon, ac)
     : null
-  const approachRow = approach == null
-    ? null
-    : approach.approaching === false
-      ? 'Oddala się'
-      : `Zbliża się · za ${Math.round(approach.tMinutes)} min (~${Math.round(approach.minDistKm)} km)`
+  let approachRow = null
+  if (approach) {
+    if (approach.approaching === false) {
+      approachRow = 'Oddala się'
+    } else if (approach.tMinutes > 60) {
+      approachRow = 'Zbliża się · ponad 60 min'
+    } else if (approach.minDistKm < 2) {
+      approachRow = `Zbliża się · za ${Math.round(approach.tMinutes)} min · bezpośrednio nad Tobą`
+    } else {
+      approachRow = `Zbliża się · za ${Math.round(approach.tMinutes)} min (~${Math.round(approach.minDistKm)} km)`
+    }
+  }
 
   const rows = [
     ['Typ',       ac.t ? (commonName ? `${ac.t} · ${commonName}` : ac.t) : '—'],
@@ -213,7 +231,7 @@ export default function AircraftInfoPanel({ ac, trailSources, firstSeen, userLoc
         <span className="ac-info-callsign" style={{ color }}>
           {ac.flight?.trim() || ac.hex}
         </span>
-        <button className="ac-info-close" onClick={onClose}>✕</button>
+        <button className="ac-info-close" onClick={onClose} aria-label="Zamknij panel samolotu">✕</button>
       </div>
 
       {specialSquawk && (

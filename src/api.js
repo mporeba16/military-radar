@@ -1,9 +1,9 @@
 const API_BASE = '/.netlify/functions'
 
-export async function fetchMilitaryAircraft(center, radiusKm) {
+export async function fetchMilitaryAircraft(center, radiusKm, signal) {
   const [lat, lon] = center
   const url = `${API_BASE}/aircraft?lat=${lat}&lon=${lon}&radius=${radiusKm}`
-  const res = await fetch(url)
+  const res = await fetch(url, { signal })
   if (!res.ok) {
     const text = await res.text()
     throw new Error(`API error ${res.status}: ${text}`)
