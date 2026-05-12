@@ -78,6 +78,9 @@ export default function App() {
         // Don't record trail for grounded aircraft — keeps the trail a "current
         // flight only" view and lets server-side gap detection do its job.
         if (ac.on_ground) return
+        // MLAT-only positions are noisy (jump around in poor ADS-B coverage)
+        // and cause zigzags. Skip them.
+        if (ac.mlat) return
         const pts = trailsRef.current.get(ac.hex) || []
         let fresh = pts.filter(p => now - p.ts < TRAIL_MAX_AGE_MS)
         const last = fresh[fresh.length - 1]

@@ -27,6 +27,7 @@ function isValidRecord(a) {
 }
 
 function mapRecord(a) {
+  const hasRealPos = a.lat != null && a.lon != null
   const lat = a.lat ?? a.rr_lat
   const lon = a.lon ?? a.rr_lon
   return {
@@ -37,6 +38,7 @@ function mapRecord(a) {
     lon,
     alt_baro: typeof a.alt_baro === 'number' ? a.alt_baro : null,
     on_ground: a.alt_baro === 'ground' || !!a.on_ground,
+    mlat: !hasRealPos && (a.rr_lat != null || a.rr_lon != null),
   }
 }
 

@@ -30,6 +30,33 @@ function currentFlightOnly(sortedPoints) {
   return sortedPoints.slice(cutIndex)
 }
 
+// Filters out points that would require an implausible ground speed to reach
+// from the previous point — these are MLAT/coverage-gap glitches that show
+// up as zigzags over open water. 2000 km/h is faster than any operational
+// military aircraft, so legitimate fast turns / supersonic passes survive.
+const TRAIL_MAX_PLAUSIBLE_KMH = 2000
+
+function filterImplausibleJumps(sortedPoints) {
+  if (sortedPoints.length < 2) return sortedPoints
+  const result = [sortedPoints[0]]
+  for (let i = 1; i < sortedPoints.length; i++) {
+    const last = result[result.length - 1]
+    const curr = sortedPoints[i]
+    const dtHours = (curr.ts - last.ts) / 3600000
+    // Only check when points are within a 30-min window — across larger
+    // gaps the average implied speed is meaningless because the aircraft
+    // may have been outside our sampling.
+    if (dtHours > 0 && dtHours < 0.5) {
+      const dx = (curr.lon - last.lon) * 111 * Math.cos(last.lat * Math.PI / 180)
+      const dy = (curr.lat - last.lat) * 111
+      const distKm = Math.sqrt(dx * dx + dy * dy)
+      if (distKm / dtHours > TRAIL_MAX_PLAUSIBLE_KMH) continue
+    }
+    result.push(curr)
+  }
+  return result
+}
+
 // In-memory cache — survives across warm function invocations (eliminates per-aircraft blob reads)
 const trailCache = new Map() // hex → { points, flight, t }
 
@@ -246,7 +273,11 @@ async function tryOpenSky(lamin, lomin, lamax, lomax) {
 }
 
 function mapADSBfiRecord(a) {
-  // rr_lat/rr_lon = rough receiver position (Mode-S only, less accurate)
+  // rr_lat/rr_lon = rough receiver position (Mode-S only, much less accurate
+  // — jumps around in poor coverage areas like the open Baltic). Use real
+  // ADS-B position when available, fall back to rr_* for display only, and
+  // flag the record so the trail writer can skip noisy estimates.
+  const hasRealPos = a.lat != null && a.lon != null
   const lat = a.lat ?? a.rr_lat
   const lon = a.lon ?? a.rr_lon
   return {
@@ -263,6 +294,7 @@ function mapADSBfiRecord(a) {
     reg: a.r || null,
     country: '',
     on_ground: a.alt_baro === 'ground' || !!a.on_ground,
+    mlat: !hasRealPos && (a.rr_lat != null || a.rr_lon != null),
   }
 }
 
@@ -375,7 +407,7 @@ export const handler = async (event) => {
     }
 
     allPoints.sort((a, b) => a.ts - b.ts)
-    const currentFlight = currentFlightOnly(allPoints)
+    const currentFlight = filterImplausibleJumps(currentFlightOnly(allPoints))
 
     return {
       statusCode: 200,
@@ -440,11 +472,14 @@ export async function saveTrails(aircraft) {
 
   // Determine which aircraft need a new trail point written.
   // Grounded aircraft are skipped — their gap in the trail data is what
-  // lets us detect the boundary between flights server-side.
+  // lets us detect the boundary between flights server-side. MLAT-only
+  // positions (no real ADS-B fix, only receiver-rough estimate) are noisy
+  // and would cause zigzag artifacts — skip them too.
   const toWrite = []
   for (const ac of aircraft) {
     if (ac.lat == null || ac.lon == null) continue
     if (ac.on_ground) continue
+    if (ac.mlat) continue
     const entry = trailCache.get(ac.hex)
     if (!entry) continue
     entry.points = entry.points.filter(p => now - p.ts < TRAIL_MAX_AGE_MS)
