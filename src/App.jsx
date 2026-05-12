@@ -187,12 +187,25 @@ export default function App() {
 
   // Stable interval — pauses while the tab is hidden so we don't keep
   // hammering the API in the background (saves battery on mobile PWAs).
+  // First fetch is deferred via requestIdleCallback / setTimeout so it
+  // doesn't compete with the first paint for CPU.
   useEffect(() => {
     let id = null
+    let booted = false
     const start = () => {
       if (id != null) return
-      fetchDataRef.current()
-      id = setInterval(() => fetchDataRef.current(), POLL_INTERVAL)
+      const kickoff = () => {
+        if (!booted) {
+          booted = true
+          fetchDataRef.current()
+          id = setInterval(() => fetchDataRef.current(), POLL_INTERVAL)
+        }
+      }
+      if (typeof requestIdleCallback === 'function') {
+        requestIdleCallback(kickoff, { timeout: 1500 })
+      } else {
+        setTimeout(kickoff, 0)
+      }
     }
     const stop = () => {
       if (id != null) { clearInterval(id); id = null }

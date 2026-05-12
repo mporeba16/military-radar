@@ -3,6 +3,19 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  build: {
+    rollupOptions: {
+      output: {
+        // Split vendor chunks so React + Leaflet don't all land in the
+        // same hashed file. Browser can cache them across deploys, and
+        // the initial parse-cost is paid in parallel chunks.
+        manualChunks: {
+          react: ['react', 'react-dom'],
+          leaflet: ['leaflet', 'react-leaflet'],
+        },
+      },
+    },
+  },
   plugins: [
     react(),
     VitePWA({
@@ -26,11 +39,13 @@ export default defineConfig({
         importScripts: ['/push-handler.js'],
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/tile\.openstreetmap\.org\/.*/i,
+            // OSM uses subdomains a/b/c — earlier regex didn't include them,
+            // so tiles were never cached.
+            urlPattern: /^https:\/\/[abc]\.tile\.openstreetmap\.org\/.*/i,
             handler: 'CacheFirst',
             options: {
               cacheName: 'osm-tiles',
-              expiration: { maxEntries: 200, maxAgeSeconds: 86400 }
+              expiration: { maxEntries: 400, maxAgeSeconds: 86400 * 7 }
             }
           },
           {
@@ -38,7 +53,7 @@ export default defineConfig({
             handler: 'CacheFirst',
             options: {
               cacheName: 'carto-tiles',
-              expiration: { maxEntries: 200, maxAgeSeconds: 86400 }
+              expiration: { maxEntries: 400, maxAgeSeconds: 86400 * 7 }
             }
           },
           {
@@ -46,9 +61,19 @@ export default defineConfig({
             handler: 'CacheFirst',
             options: {
               cacheName: 'esri-tiles',
-              expiration: { maxEntries: 200, maxAgeSeconds: 86400 }
+              expiration: { maxEntries: 400, maxAgeSeconds: 86400 * 7 }
             }
-          }
+          },
+          {
+            // planespotters photo thumbnails — cache for a day, network-first
+            // so we still get fresh photos when planespotters updates them.
+            urlPattern: /^https:\/\/api\.planespotters\.net\/.*/i,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'planespotters-photos',
+              expiration: { maxEntries: 100, maxAgeSeconds: 86400 },
+            },
+          },
         ]
       }
     })
