@@ -242,20 +242,35 @@ export function getShapeKey(t, gs = null) {
   if (/AH64|H64|APACHE/.test(type)) return 'apache'
   if (/MI24|MI25|MI35|HIND/.test(type)) return 'mil24'
   if (/CH53|S61|S64|S65|S92|MH53|HH53|EH10|EH101|MERLIN/.test(type)) return 's61'
-  if (/UH60|HH60|SH60|MH60|H60|BLACKHAWK/.test(type)) return 'blackhawk'
-  if (/AS365|AS65|EC155|EC55|DAUPHIN/.test(type)) return 'dauphin'
+  // S-70i Black Hawk (PZL Mielec / Polish AF) + standard UH/HH/SH-60 family
+  if (/UH60|HH60|SH60|MH60|H60|^S70[A-Z]?$|BLACKHAWK/.test(type)) return 'blackhawk'
+  if (/AS365|AS65|EC155|EC55|^H155$|DAUPHIN/.test(type)) return 'dauphin'
   if (/SA342|GAZELLE/.test(type)) return 'gazelle'
-  if (/AS332|AS532|EC225|EC25|EC725|PUMA|COUGAR|SUPERPUMA/.test(type)) return 'puma'
+  if (/AS332|AS532|EC225|EC25|EC725|^H215$|^H225$|PUMA|COUGAR|SUPERPUMA/.test(type)) return 'puma'
   if (/GYRO|AUTOGYRO/.test(type)) return 'gyrocopter'
-  if (/A139|AW139|AW149|AW169|AW189|A149|A169|AW109|AW119/.test(type)) return 's61'
+  if (/A139|AW139|AW149|AW169|AW189|A149|A169|H169|H189|AW109|AW119|A109|A119|A129|H119/.test(type)) return 's61'
+
+  // Bell light/medium helicopters (excluded the B-1 bomber via earlier match;
+  // explicit codes here avoid the B7xx airliners and B-2 bomber).
+  if (/^B(06|2(0[26]|22|23|30)|407|412|427|429|505)$|^B47[A-Z]?$/.test(type)) return 'helicopter'
+  // Airbus / Eurocopter civilian + light military (AS, EC, H-series)
+  if (/^AS35[0-5]?$|^AS55[0-9]?$|^AS502$|^EC12[0-5]$|^EC130$|^EC140$|^H1(20|25|30|45|60|75)$/.test(type)) return 'helicopter'
+  // MBB, Robinson, MD, Mi-2 / Mi-4 / Mi-6 / Mi-10 / Mi-14 / Mi-26, Kamov
+  if (/^BO105$|^B105$|^BK11?7$|^R22[A-Z]?$|^R44$|^R66$|^MD5[0-9]$|^MD500$|^MD600$|^MI2$|^MI4$|^MI6$|^MI10$|^MI14$|^MI26$|^KA2[269]$|^KA32$|^KA26$/.test(type)) return 'helicopter'
+
   if (/^UH|^AH|^MH|^HH|^SH|^H6|^H4|^H7|^H9|EC135|EC35|EC145|EC45|EC665|W3A?|MI8|MI17|MI28|KA50|KA52|LYNX|SEAHAWK|WILDCAT|R44|R66|NH90|NH9|MD9|EXPLORER/.test(type)) return 'helicopter'
 
   // Bombers
   if (/^B1$|^B1B$|LANCER/.test(type)) return 'b1b_lancer'
   if (/^B52$|STRATOFORTRESS/.test(type)) return 'b52'
+  if (/^B2[AT]?$|SPIRIT/.test(type)) return 'b52'  // B-2 — no flying-wing shape, b52 is closest in size/role
   if (/^TORN$|TORNADO/.test(type)) return 'tornado'
   if (/^A10$|WARTHOG/.test(type)) return 'a10'
   if (/^U2$|^TR1$/.test(type)) return 'u2'
+
+  // Russian strategic bombers
+  if (/^TU95$|^TU142$|BEAR/.test(type)) return 'heavy_4e'
+  if (/^TU160$|BLACKJACK/.test(type)) return 'b1b_lancer'
 
   // Fighter / attack jets — ICAO 4-letter type codes used by adsb.fi.
   // Order matters: Mirage F1 / Mirage 2000 / older Mirage III/V need
@@ -264,6 +279,20 @@ export function getShapeKey(t, gs = null) {
   if (/^F35[A-Z]?$|LIGHTNINGII/.test(type)) return 'f35'
   if (/^F15[A-Z]?$|EAGLE/.test(type)) return 'md_f15'
   if (/^F18[A-Z]?$|^FA18$|^F\/A18$|HORNET/.test(type)) return 'f18'
+  // AV-8B Harrier II — STOVL like F-35B, closest match is the F-35 shape
+  if (/^AV8[A-Z]?$|^HARR$|HARRIER/.test(type)) return 'f35'
+  // F-4 Phantom II — still in service in some allied air forces
+  if (/^F4[A-G]?$|PHANTOM/.test(type)) return 'hi_perf'
+  // F-14 Tomcat — variable-geometry (Iran still operates)
+  if (/^F14[A-D]?$|TOMCAT/.test(type)) return 'tornado'
+  // F-104 Starfighter — sleek pencil; closest is T-38 shape
+  if (/^F104$|STARFIGHTER/.test(type)) return 't38'
+  // F-111 Aardvark — variable-geometry strike, retired
+  if (/^F111$|AARDVARK/.test(type)) return 'tornado'
+  // Mitsubishi F-2 — Japanese F-16 derivative
+  if (/^F2[AB]?$/.test(type)) return 'hi_perf'
+  // SR-71 Blackbird — sleek delta, t38 is closest match (no dedicated shape)
+  if (/^SR71$|BLACKBIRD/.test(type)) return 't38'
   if (/^EUFI$|^EF2000$|TYPHOON/.test(type)) return 'typhoon'
   if (/^RFAL$|^RAFALE$/.test(type)) return 'rafale'
   if (/^MIRF$|MIRAGEF1/.test(type)) return 'miragef1'
@@ -271,16 +300,22 @@ export function getShapeKey(t, gs = null) {
   if (/^MIRA$|^MIRAGE/.test(type)) return 'mirage'  // Mirage III / V (older delta-wing)
   if (/^JS39$|JAS39|GRIPEN|SB39/.test(type)) return 'sb39'
   if (/ALPHAJET|ALPHAJ/.test(type)) return 'alpha_jet'
-  if (/^HAWK|BAEHAWK/.test(type)) return 'bae_hawk'
+  // BAe Hawk + T-45 Goshawk (navalised Hawk)
+  if (/^HAWK|BAEHAWK|^T45[A-Z]?$|GOSHAWK/.test(type)) return 'bae_hawk'
   if (/L159|ALCA/.test(type)) return 'l159'
   if (/MB326|M326|M346/.test(type)) return 'm326'
-  if (/^L39|ALBATROS/.test(type)) return 'jet_nonswept'
+  // L-39 + Yak-130 + T-7A Red Hawk — straight-wing trainer jets
+  if (/^L39|ALBATROS|^YK130$|^YAK130$|YAK130|^T7A?$|REDHAWK/.test(type)) return 'jet_nonswept'
   if (/^T38|TALON/.test(type)) return 't38'
   if (/^F5[A-Z]?$|^F5E$/.test(type)) return 'f5_tiger'
   if (/^A4$|TA4|SKYHAWK/.test(type)) return 'md_a4'
   if (/^HUNTER/.test(type)) return 'hunter'
+  // Su-22 / Su-17 Fitter — Polish AF still operates, variable-geometry
+  if (/^SU(17|22)[A-Z]?$|FITTER/.test(type)) return 'tornado'
   if (/^MG21$|^MG23$|MIG21|MIG23|FISHBED|FLOGGER/.test(type)) return 'mirage'
   if (/^SU25$|FROGFOOT/.test(type)) return 'a10'
+  // Legacy MiGs (MiG-15 Fagot / MiG-17 Fresco / MiG-19 Farmer)
+  if (/^MG1[5-9]$|^MIG1[5-9]$|FAGOT|FRESCO|FARMER/.test(type)) return 'hi_perf'
   // Catch-all for high-performance fighters without dedicated shapes.
   // Includes ICAO codes (MG29, MG31, SU30, ...) and human names.
   if (/^F22[A-Z]?$|RAPTOR|^F16[A-Z]?$|^MG25$|^MG27$|^MG29$|^MG31$|MIG25|MIG27|MIG29|MIG31|^SU24$|^SU34$|^SU27$|^SU30$|^SU35$|^SU57$|FENCER|FULLBACK|FLANKER|FULCRUM|FOXHOUND|FOXBAT|FLOGGERD|^TU22[A-Z]?$|TU22M|BACKFIRE|VIPER/.test(type)) return 'hi_perf'
@@ -292,13 +327,19 @@ export function getShapeKey(t, gs = null) {
   if (/^E3$|^E3[A-Z]|AWACS|SENTRY/.test(type)) return 'e3awacs'
   if (/E737|WEDGETAIL/.test(type)) return 'e737'
   if (/^P8|POSEIDON/.test(type)) return 'p8'
-  if (/^P3|^EP3|ORION/.test(type)) return 'p3_orion'
+  if (/^P3|^EP3|ORION|^L188$|^L88$|ELECTRA/.test(type)) return 'p3_orion'
   if (/^C2$|^E2$|HAWKEYE|GREYHOUND/.test(type)) return 'c2'
   if (/RC135|JSTARS|SENTINEL/.test(type)) return 'b707'
   if (/^KC135|^K35[RT]/.test(type)) return 'b707'
   if (/^KC46|^KC10|^MRTT|A330MRT/.test(type)) return 'heavy_2e'
+  // C-32A = B-757 USAF VIP, B-757 civil/mil
+  if (/^C32[A-Z]?$|^B75[27]/.test(type)) return 'heavy_2e'
+  // A310 military (Bundeswehr MRTT, RCAF Polaris)
+  if (/^A310$|^A30B$/.test(type)) return 'heavy_2e'
   if (/C130|C13J|C30J|C160|AN12|HERCULES/.test(type)) return 'c130'
   if (/IL76|IL78|CANDID/.test(type)) return 'heavy_4e'
+  // Antonov heavy / medium transports
+  if (/^AN22$|COCK/.test(type)) return 'heavy_4e'
   if (/A400|A400M/.test(type)) return 'a400'
 
   // Business jets (swept-wing twin-engine)
@@ -327,11 +368,17 @@ export function getShapeKey(t, gs = null) {
   if (/B73[0-9]|B38M|B39M/.test(type)) return 'a319'
   if (/^E121|XINGU/.test(type)) return 'twin_small'
   if (/E39[0-9]|E29[0-9]|E17[0-9]|E19[0-9]|E13[0-9]|E14[0-9]|RJ[0-9]|B46[123]/.test(type)) return 'e390'
-  if (/C295|CN235|C235|C212|AN26|AN32|DHC6|DHC5|CASA|C27J|C27/.test(type)) return 'twin_large'
+  // Twin-engine military transports — extend with An-30/72/74 + C-9 / DC-9 / MD-80/90
+  if (/C295|CN235|C235|C212|AN26|AN30|AN32|^AN7[24]$|COALER|CLANK|DHC6|DHC5|CASA|C27J|C27/.test(type)) return 'twin_large'
   if (/M28|SKYTRUCK|BRYZA/.test(type)) return 'twin_large'
+  if (/^C9[A-Z]?$|^DC9$|^MD8[0-9]$|^MD9[0-9]$/.test(type)) return 'e390'  // C-9 Nightingale, DC-9, MD-80/90
   if (/ATR|PC6|CARAVAN|C208/.test(type)) return 'single_turbo'
   if (/^TBM/.test(type)) return 'single_turbo'
+  if (/^T6[A-Z]?$|TEXANII/.test(type)) return 'single_turbo'    // T-6 Texan II (turboprop trainer)
+  if (/^TUCA$|TUCANO/.test(type)) return 'single_turbo'         // EMB-312 Tucano
   if (/KINGAIR|PC12|PC21|PC9|PC7|DHC8|DASH8|BE20|BE9|C12/.test(type)) return 'twin_small'
+  if (/^SF34$|^SB20$|^C70$/.test(type)) return 'twin_small'     // Saab 340 / C-70
+  if (/^D328$|^DO328|^C146$|WOLFHOUND/.test(type)) return 'twin_small'  // Dornier 328 / C-146 Wolfhound
   if (/^DA62|^DA42|^BN2|ISLANDER/.test(type)) return 'twin_small'
   if (/CESSNA|C172|C182|C152|G115|G120|G140|SF260|SF50|PZL130|TB[0-9]|TB20|TB21/.test(type)) return 'cessna'
   if (/^Z42$|^Z142$|^Z242$|^ZLIN|^DR4|^ROBIN|^EXTRA[23456]?$|^M20/.test(type)) return 'cessna'
@@ -369,8 +416,24 @@ export function getCommonName(t) {
     [/MIG31/, 'Foxhound'],
     [/SU57/, 'Felon'],
     [/SU27|SU30|SU35|FLANKER/, 'Flanker'],
+    [/^SU(17|22)[A-Z]?$|FITTER/, 'Fitter'],
+    [/^SU24$|FENCER/, 'Fencer'],
+    [/^SU34$|FULLBACK/, 'Fullback'],
+    [/^F22[A-Z]?$|RAPTOR/, 'Raptor'],
+    [/^F4[A-G]?$|PHANTOM/, 'Phantom II'],
+    [/^F14[A-D]?$|TOMCAT/, 'Tomcat'],
+    [/^F104$|STARFIGHTER/, 'Starfighter'],
+    [/^F111$|AARDVARK/, 'Aardvark'],
+    [/^F2[AB]?$/, 'Mitsubishi F-2'],
+    [/^AV8[A-Z]?$|^HARR$|HARRIER/, 'Harrier II'],
+    [/^SR71$|BLACKBIRD/, 'Blackbird'],
+    [/^MG1[5-9]$|^MIG1[5-9]$/, 'MiG-15/17/19'],
     [/B1B|LANCER/, 'Lancer'],
+    [/^B2[AT]?$|SPIRIT/, 'Spirit'],
     [/B52|STRATOFORTRESS/, 'Stratofortress'],
+    [/^TU95$|^TU142$|BEAR/, 'Bear'],
+    [/^TU160$|BLACKJACK/, 'Blackjack'],
+    [/^TU22M$|BACKFIRE/, 'Backfire'],
     [/TORNADO/, 'Tornado'],
     [/^A10|WARTHOG/, 'Warthog'],
     [/^U2$|^TR1$/, 'Dragon Lady'],
@@ -391,12 +454,39 @@ export function getCommonName(t) {
     [/C130|HERCULES/, 'Hercules'],
     [/C160/, 'Transall'],
     [/AN12/, 'Cub'],
+    [/^AN22$|COCK/, 'Cock'],
+    [/^AN26$|CURL/, 'Curl'],
+    [/^AN30$|CLANK/, 'Clank'],
+    [/^AN7[24]$|COALER/, 'Coaler'],
     [/A400M?/, 'Atlas'],
+    [/^A310$/, 'A310 MRTT'],
+    [/^C32[A-Z]?$/, 'C-32A'],
+    [/^C9[A-Z]?$/, 'Nightingale'],
+    [/^C70$/, 'C-70'],
+    [/^C146$|WOLFHOUND/, 'Wolfhound'],
+    [/^L188$|ELECTRA/, 'Electra'],
+    [/^T6[A-Z]?$|TEXANII/, 'Texan II'],
+    [/^T7A?$|REDHAWK/, 'Red Hawk'],
+    [/^T45[A-Z]?$|GOSHAWK/, 'Goshawk'],
+    [/^YK130$|^YAK130$|YAK130/, 'Yak-130'],
+    [/^TUCA$|TUCANO/, 'Tucano'],
     [/AH64|APACHE/, 'Apache'],
     [/CH47|CHINOOK/, 'Chinook'],
     [/CH53E?|STALLION/, 'Super Stallion'],
-    [/UH60|HH60|BLACKHAWK/, 'Black Hawk'],
+    [/UH60|HH60|^S70[A-Z]?$|BLACKHAWK/, 'Black Hawk'],
     [/MI24|HIND/, 'Hind'],
+    [/^MI2$/, 'Hoplite'],
+    [/^B412$/, 'Bell 412'],
+    [/^B407$/, 'Bell 407'],
+    [/^B(06|206)$/, 'JetRanger'],
+    [/^B(427|429)$/, 'Bell 427/429'],
+    [/^B505$/, 'Bell 505'],
+    [/^BO105$|^B105$/, 'Bo 105'],
+    [/^H145$/, 'H145'],
+    [/^H160$/, 'H160'],
+    [/^H175$/, 'H175'],
+    [/^AS35[0-5]?$/, 'AS350 Écureuil'],
+    [/^AS55[0-9]?$/, 'AS555 Fennec'],
     [/EC725/, 'Caracal'],
     [/AS332|AS532|SUPERPUMA/, 'Super Puma'],
     [/PUMA/, 'Puma'],
