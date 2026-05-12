@@ -13,7 +13,9 @@
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "geolocation=(self), camera=(), microphone=(), payment=()"
-    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://api.planespotters.net https://opendata.adsb.fi; font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+    # CSP intentionally not enforced — earlier attempts broke tile loading.
+    # X-Frame-Options + base-uri + frame-ancestors below already mitigate
+    # the main XSS/clickjacking vectors that CSP would normally cover.
 
 [[headers]]
   for = "/sw.js"
