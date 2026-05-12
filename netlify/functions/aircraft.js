@@ -202,80 +202,6 @@ function stateToAircraft(s) {
   }
 }
 
-// Pobiera trasę historyczną z OpenSky `/tracks/all` (od ostatniego startu).
-// path: [[time_s, lat, lon, alt_m, heading, on_ground], ...]
-//
-// OpenSky bywa wolny (3-8s), więc:
-// - cache w blobie z TTL 20 min (kolejne klikniecia tego samego samolotu = instant)
-// - timeout 9s (Netlify ma 10s limit na funkcję synchroniczną)
-const OPENSKY_CACHE_TTL_MS = 20 * 60 * 1000
-const OPENSKY_TIMEOUT_MS = 9000
-
-async function fetchOpenSkyTrack(hex) {
-  const meta = { status: 0, points: 0, error: null, cached: false, ageMs: null }
-
-  let cache = null
-  try { cache = getStore('opensky-tracks-cache') } catch {}
-
-  // 1) cache first
-  if (cache) {
-    try {
-      const entry = await cache.get(hex, { type: 'json' })
-      if (entry?.ts) {
-        const age = Date.now() - entry.ts
-        if (age < OPENSKY_CACHE_TTL_MS) {
-          meta.cached = true
-          meta.ageMs = age
-          meta.points = entry.points?.length || 0
-          return { points: entry.points || [], meta }
-        }
-      }
-    } catch {}
-  }
-
-  // 2) fetch fresh
-  try {
-    const url = `https://opensky-network.org/api/tracks/all?icao24=${hex}&time=0`
-    const fetchOpts = {
-      signal: AbortSignal.timeout(OPENSKY_TIMEOUT_MS),
-      headers: {
-        'User-Agent': 'MilitaryRadarPL/1.0',
-        'Accept': 'application/json',
-      },
-    }
-    if (OPENSKY_USER && OPENSKY_PASS) {
-      fetchOpts.headers['Authorization'] =
-        'Basic ' + Buffer.from(`${OPENSKY_USER}:${OPENSKY_PASS}`).toString('base64')
-    }
-    const res = await fetch(url, fetchOpts)
-    meta.status = res.status
-    if (!res.ok) {
-      meta.error = `http-${res.status}`
-      return { points: [], meta }
-    }
-    const data = await res.json()
-    const points = (data.path || [])
-      .filter(p => p[1] != null && p[2] != null)
-      .map(p => ({
-        lat: p[1],
-        lon: p[2],
-        alt: p[3] != null ? Math.round(p[3] * 3.28084) : null, // m → ft
-        ts: p[0] * 1000,
-      }))
-    meta.points = points.length
-
-    // 3) write to cache only on success with data (don't poison cache with empty/error)
-    if (cache && points.length > 0) {
-      try { await cache.set(hex, JSON.stringify({ points, ts: Date.now() })) } catch {}
-    }
-
-    return { points, meta }
-  } catch (err) {
-    meta.error = err.message || 'exception'
-    return { points: [], meta }
-  }
-}
-
 async function tryOpenSky(lamin, lomin, lamax, lomax) {
   try {
     const url = `https://opensky-network.org/api/states/all?lamin=${lamin}&lomin=${lomin}&lamax=${lamax}&lomax=${lomax}`
@@ -412,51 +338,27 @@ export const handler = async (event) => {
   const params = event.queryStringParameters || {}
   const { lat, lon, radius, hex } = params
 
-  // Tryb pobierania trasy konkretnego samolotu — łączymy nasz lokalny blob
-  // (gromadzony podczas pollingu) z historyczną trasą z OpenSky /tracks/all
-  // (od ostatniego startu samolotu — to samo źródło co pokazuje ADSB Exchange).
+  // Tryb pobierania trasy konkretnego samolotu — czytamy z naszego bloba.
+  // Trasa rośnie podczas:
+  //   - aktywnego pollingu klienta (co 5 s, próbka 15 s)
+  //   - scheduled `collect` cron (co 2 min, w tle)
   if (hex) {
     const lowerHex = hex.toLowerCase()
-    const blobMeta = { error: null }
-    const [blobPoints, openskyResult] = await Promise.all([
-      getStore('aircraft-trails')
-        .get(lowerHex, { type: 'json' })
-        .then(data => data?.points || [])
-        .catch(err => { blobMeta.error = err.message; return [] }),
-      fetchOpenSkyTrack(lowerHex),
-    ])
-
-    const openskyTrack = openskyResult.points
-
-    // Merge with dedup: OpenSky timestamps are seconds, blob's are ms.
-    // Drop OpenSky points within 5s of a blob point (blob is more accurate when present).
-    const blobTsList = blobPoints.map(p => p.ts).sort((a, b) => a - b)
-    const closeToBlob = (ts) => {
-      for (const bts of blobTsList) {
-        if (Math.abs(bts - ts) < 5000) return true
-        if (bts > ts + 5000) break
-      }
-      return false
+    let blobError = null
+    let blobPoints = []
+    try {
+      const data = await getStore('aircraft-trails').get(lowerHex, { type: 'json' })
+      blobPoints = data?.points || []
+    } catch (err) {
+      blobError = err.message
     }
-    const merged = [
-      ...openskyTrack.filter(p => !closeToBlob(p.ts)),
-      ...blobPoints,
-    ].sort((a, b) => a.ts - b.ts)
 
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({
-        trail: merged,
-        sources: {
-          blob: blobPoints.length,
-          opensky: openskyTrack.length,
-          openskyStatus: openskyResult.meta.status,
-          openskyError: openskyResult.meta.error,
-          openskyCached: openskyResult.meta.cached,
-          openskyAgeMs: openskyResult.meta.ageMs,
-          blobError: blobMeta.error,
-        },
+        trail: blobPoints,
+        sources: { blob: blobPoints.length, blobError },
       }),
     }
   }
@@ -489,7 +391,7 @@ export const handler = async (event) => {
   }
 }
 
-async function saveTrails(aircraft) {
+export async function saveTrails(aircraft) {
   if (!aircraft?.length) return
   const store = getStore('aircraft-trails')
   const now = Date.now()

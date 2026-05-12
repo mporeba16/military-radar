@@ -22,6 +22,9 @@
 [functions."notify"]
   schedule = "*/5 * * * *"
 
+[functions."collect"]
+  schedule = "*/2 * * * *"
+
 [dev]
   command = "npm run dev"
   port = 8080

@@ -84,13 +84,9 @@ export default function AircraftInfoPanel({ ac, trailSources, onClose }) {
 
       {trailSources && (
         <div className="ac-info-trail-info">
-          Trasa: <span style={{ color: '#fff' }}>{(trailSources.blob || 0) + (trailSources.opensky || 0)}</span> pkt
-          {' '}(serwer: {trailSources.blob || 0}, OpenSky: {trailSources.opensky || 0}
-          {trailSources.openskyCached ? ' · cache' : ''})
-          {trailSources.openskyError && (
-            <div className="ac-info-trail-warn">
-              OpenSky: {trailSources.openskyError}
-            </div>
+          Trasa: <span style={{ color: '#fff' }}>{trailSources.blob || 0}</span> pkt
+          {trailSources.blobError && (
+            <div className="ac-info-trail-warn">{trailSources.blobError}</div>
           )}
         </div>
       )}
