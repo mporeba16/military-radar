@@ -53,21 +53,29 @@
   backdrop-filter: blur(6px);
 }
 
-/* Altitude legend — rendered inline inside the settings panel */
-.alt-legend {
-  font-family: 'Courier New', monospace;
+/* Altitude legend — compact overlay above the version badge in the
+   bottom-left corner of the map. */
+.alt-legend-overlay {
+  position: absolute;
+  bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+  left: 8px;
+  z-index: 999;
+  pointer-events: none;
+  background: rgba(4, 10, 20, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  padding: 4px 6px 3px;
+  backdrop-filter: blur(4px);
 }
 
-.alt-legend-title {
-  font-size: 9px;
-  color: rgba(255,255,255,0.7);
-  letter-spacing: 1px;
-  margin-bottom: 4px;
+.alt-legend {
+  font-family: 'Courier New', monospace;
+  width: min(180px, 38vw);
 }
 
 .alt-legend-bar {
   width: 100%;
-  height: 8px;
+  height: 6px;
   border-radius: 2px;
   border: 1px solid rgba(255,255,255,0.12);
 }
@@ -75,14 +83,14 @@
 .alt-legend-labels {
   position: relative;
   width: 100%;
-  height: 14px;
-  margin-top: 2px;
+  height: 12px;
+  margin-top: 1px;
 }
 
 .alt-legend-labels span {
   position: absolute;
-  font-size: 9px;
-  color: rgba(255,255,255,0.9);
+  font-size: 8px;
+  color: rgba(255,255,255,0.7);
   transform: translateX(-50%);
 }
 

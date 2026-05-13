@@ -443,6 +443,11 @@ export default function RadarMap({
           zoomScale={zoomScale}
         />
       </MapContainer>
+
+      {/* Altitude legend — small overlay above the version badge */}
+      <div className="alt-legend-overlay">
+        <AltitudeLegend />
+      </div>
     </div>
   )
 }
@@ -471,11 +476,10 @@ export function AltitudeLegend() {
         {ticks.map((m, i) => (
           <span key={m} style={{ left: `${(m / maxM * 100).toFixed(1)}%` }}>
             {m === 0 ? 'GND' : m >= 1000 ? `${m / 1000}k` : m}
-            {i === ticks.length - 1 ? '+' : ''}
+            {i === ticks.length - 1 ? 'm+' : ''}
           </span>
         ))}
       </div>
-      <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>w metrach (m)</div>
     </div>
   )
 }

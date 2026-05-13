@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import RadarMap, { TILE_LAYERS, AltitudeLegend } from './components/RadarMap'
+import RadarMap, { TILE_LAYERS } from './components/RadarMap'
 import AircraftInfoPanel from './components/AircraftInfoPanel'
 import { useGeolocation } from './hooks/useGeolocation'
 import { usePushNotifications } from './hooks/usePushNotifications'
@@ -31,6 +31,10 @@ export default function App() {
   const [alerts, setAlerts] = useState([])
   const [inRangeCount, setInRangeCount] = useState(0)
   const [testPushStatus, setTestPushStatus] = useState(null)
+  const [debugUnlocked, setDebugUnlocked] = useState(() => {
+    try { return new URLSearchParams(window.location.search).has('debug') } catch { return false }
+  })
+  const versionTapsRef = useRef({ count: 0, timer: null })
   const currentLang = useLang()
 
   const alertedHexRef = useRef(new Set())
@@ -357,6 +361,21 @@ export default function App() {
     if (hex) setActivePanel(null)
   }, [])
 
+  // 3× tap on the version footer reveals debug sections (test push, server
+  // position, server diagnostics). Resets after 1.5 s of inactivity.
+  function bumpVersionTap() {
+    if (debugUnlocked) return
+    const ref = versionTapsRef.current
+    ref.count++
+    if (ref.timer) clearTimeout(ref.timer)
+    if (ref.count >= 3) {
+      ref.count = 0
+      setDebugUnlocked(true)
+      return
+    }
+    ref.timer = setTimeout(() => { ref.count = 0 }, 1500)
+  }
+
   return (
     <div className={`app${activePanel ? ' panel-open' : ''}${selectedAc ? ' info-open' : ''}`}>
       <RadarMap
@@ -527,127 +546,7 @@ export default function App() {
                 </p>
               </section>
 
-              {/* 4. Test push (gdy zasubskrybowane) */}
-              {isSubscribed && (
-                <section className="cp-section">
-                  <div className="cp-label">{t('TEST_PUSH_LABEL')}</div>
-                  <button
-                    className="btn-refresh"
-                    onClick={handleTestPush}
-                    disabled={testPushStatus?.kind === 'loading'}>
-                    {testPushStatus?.kind === 'loading' ? t('TEST_PUSH_SENDING') : t('TEST_PUSH_BTN')}
-                  </button>
-                  {testPushStatus?.kind === 'ok' && (
-                    <p className="ok" style={{ fontSize: 11, marginTop: 6 }}>
-                      {t('TEST_PUSH_OK')}
-                    </p>
-                  )}
-                  {testPushStatus?.kind === 'err' && (
-                    <p className="err" style={{ fontSize: 11, marginTop: 6, wordBreak: 'break-all' }}>
-                      ✗ {testPushStatus.detail}
-                    </p>
-                  )}
-                </section>
-              )}
-
-              {/* 5. Pozycja na serwerze (gdy zasubskrybowane) */}
-              {isSubscribed && (
-                <section className="cp-section">
-                  <div className="cp-label">{t('SERVER_POSITION_LABEL')}</div>
-                  {location
-                    ? <p className="ok" style={{ fontSize: 11 }}>◉ {location.lat.toFixed(4)}°N {location.lon.toFixed(4)}°E · {radius} km</p>
-                    : <p className="err" style={{ fontSize: 11 }}>{t('SERVER_NO_GPS')}<br/>
-                        <button className="link-btn" style={{ marginTop: 4 }} onClick={requestLocation}>{t('GPS_FETCH')}</button>
-                      </p>
-                  }
-                  {syncError && (
-                    <p className="err" style={{ fontSize: 11, marginTop: 6 }}>
-                      {t('SERVER_SYNC_ERROR')} {syncError}
-                    </p>
-                  )}
-                </section>
-              )}
-
-              {/* 6. Diagnostyka push (gdy zasubskrybowane) */}
-              {isSubscribed && (
-                <section className="cp-section">
-                  <div className="cp-label">{t('SERVER_DIAG_LABEL')}</div>
-                  {!serverStatus
-                    ? <p className="info-text" style={{ fontSize: 11 }}>{t('DIAG_FETCHING')}</p>
-                    : <div style={{ fontSize: 11, fontFamily: "'Courier New', monospace", lineHeight: 1.7 }}>
-                        <div className={serverStatus.ok ? 'ok' : 'err'}>
-                          {serverStatus.ok ? '◉' : '✗'} {' '}
-                          {serverStatus.reason === 'ready' && t('DIAG_READY')}
-                          {serverStatus.reason === 'no-gps' && t('DIAG_NO_GPS')}
-                          {serverStatus.reason === 'stale-gps' && t('DIAG_STALE')}
-                          {serverStatus.reason === 'not-registered' && t('DIAG_NOT_REGISTERED')}
-                        </div>
-                        <div style={{ color: 'rgba(255,255,255,0.55)' }}>
-                          Provider: <span style={{ color: '#fff' }}>{serverStatus.provider}</span>
-                          {serverStatus.provider === 'apple' && ' (iOS APNS)'}
-                        </div>
-                        {serverStatus.gpsAgeMs != null && (
-                          <div style={{ color: 'rgba(255,255,255,0.55)' }}>
-                            Wiek GPS: <span style={{ color: '#fff' }}>{formatAge(serverStatus.gpsAgeMs)}</span>
-                          </div>
-                        )}
-                        {serverStatus.server && (
-                          <>
-                            <div style={{ color: 'rgba(255,255,255,0.55)' }}>
-                              VAPID skonfig.: <span className={serverStatus.server.vapidConfigured ? 'ok' : 'err'}>
-                                {serverStatus.server.vapidConfigured ? 'tak' : 'NIE'}
-                              </span>
-                            </div>
-                            <div style={{ color: 'rgba(255,255,255,0.55)', wordBreak: 'break-all' }}>
-                              VAPID subject: <span style={{ color: '#fff' }}>{serverStatus.server.vapidSubject}</span>
-                            </div>
-                          </>
-                        )}
-                        {serverStatus.storeErrors && serverStatus.storeErrors.length > 0 && (
-                          <div style={{ marginTop: 6 }}>
-                            <div className="err">Błędy blob store:</div>
-                            {serverStatus.storeErrors.map((e, i) => (
-                              <div key={i} className="err" style={{ fontSize: 10, wordBreak: 'break-all' }}>· {e}</div>
-                            ))}
-                          </div>
-                        )}
-                        {serverStatus.latestRun && (
-                          <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-                            <div style={{ color: 'rgba(255,255,255,0.55)' }}>Ostatni cron:</div>
-                            <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 10 }}>
-                              {new Date(serverStatus.latestRun.startedAt).toLocaleString('pl-PL')}
-                            </div>
-                            <div style={{ color: 'rgba(255,255,255,0.55)' }}>
-                              Subskrypcji: <span style={{ color: '#fff' }}>{serverStatus.latestRun.totalSubs}</span>
-                              {' · '}
-                              Wysłano: <span style={{ color: '#fff' }}>{serverStatus.latestRun.notificationsSent}</span>
-                              {' · '}
-                              Błędów: <span className={serverStatus.latestRun.pushErrors > 0 ? 'err' : ''}>{serverStatus.latestRun.pushErrors}</span>
-                            </div>
-                            {serverStatus.latestRun.skippedNoGps > 0 && (
-                              <div className="err">
-                                Pominięto (brak GPS): {serverStatus.latestRun.skippedNoGps}
-                              </div>
-                            )}
-                            {serverStatus.latestRun.skippedStaleGps > 0 && (
-                              <div className="err">
-                                Pominięto (stary GPS): {serverStatus.latestRun.skippedStaleGps}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                  }
-                </section>
-              )}
-
-              {/* 7. Legenda wysokości (referencja kolorów) */}
-              <section className="cp-section">
-                <div className="cp-label">{t('ALTITUDE_LABEL')}</div>
-                <AltitudeLegend />
-              </section>
-
-              {/* 8. Język */}
+              {/* 4. Język */}
               <section className="cp-section">
                 <div className="cp-label">{t('LANGUAGE_LABEL')}</div>
                 <div className="btn-group" style={{ marginTop: 4 }}>
@@ -662,13 +561,131 @@ export default function App() {
                 </div>
               </section>
 
-              {/* 9. Akcje + info */}
-              <section className="cp-section cp-refresh">
-                <button className="btn-refresh" onClick={fetchData}>{t('REFRESH_BTN')}</button>
-              </section>
               {error && <p className="err" style={{ fontSize: 11, marginTop: 8 }}>✗ {error}</p>}
-              <p className="info-text" style={{ marginTop: 12, borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 10 }}>
-                v{version} · {t('SETTINGS_FOOTER')}
+
+              {/* Debug sections — gated behind 3× tap on the version footer or
+                  ?debug=1 in the URL. Hidden by default to keep the panel
+                  clean for normal users. */}
+              {debugUnlocked && (
+                <>
+                  <div className="cp-label" style={{ marginTop: 18, color: '#ffb74d' }}>🔧 DEBUG</div>
+
+                  <section className="cp-section cp-refresh">
+                    <button className="btn-refresh" onClick={fetchData}>{t('REFRESH_BTN')}</button>
+                  </section>
+
+                  {isSubscribed && (
+                    <section className="cp-section">
+                      <div className="cp-label">{t('TEST_PUSH_LABEL')}</div>
+                      <button
+                        className="btn-refresh"
+                        onClick={handleTestPush}
+                        disabled={testPushStatus?.kind === 'loading'}>
+                        {testPushStatus?.kind === 'loading' ? t('TEST_PUSH_SENDING') : t('TEST_PUSH_BTN')}
+                      </button>
+                      {testPushStatus?.kind === 'ok' && (
+                        <p className="ok" style={{ fontSize: 11, marginTop: 6 }}>{t('TEST_PUSH_OK')}</p>
+                      )}
+                      {testPushStatus?.kind === 'err' && (
+                        <p className="err" style={{ fontSize: 11, marginTop: 6, wordBreak: 'break-all' }}>
+                          ✗ {testPushStatus.detail}
+                        </p>
+                      )}
+                    </section>
+                  )}
+
+                  {isSubscribed && (
+                    <section className="cp-section">
+                      <div className="cp-label">{t('SERVER_POSITION_LABEL')}</div>
+                      {location
+                        ? <p className="ok" style={{ fontSize: 11 }}>◉ {location.lat.toFixed(4)}°N {location.lon.toFixed(4)}°E · {radius} km</p>
+                        : <p className="err" style={{ fontSize: 11 }}>{t('SERVER_NO_GPS')}</p>
+                      }
+                      {syncError && (
+                        <p className="err" style={{ fontSize: 11, marginTop: 6 }}>
+                          {t('SERVER_SYNC_ERROR')} {syncError}
+                        </p>
+                      )}
+                    </section>
+                  )}
+
+                  {isSubscribed && (
+                    <section className="cp-section">
+                      <div className="cp-label">{t('SERVER_DIAG_LABEL')}</div>
+                      {!serverStatus
+                        ? <p className="info-text" style={{ fontSize: 11 }}>{t('DIAG_FETCHING')}</p>
+                        : <div style={{ fontSize: 11, fontFamily: "'Courier New', monospace", lineHeight: 1.7 }}>
+                            <div className={serverStatus.ok ? 'ok' : 'err'}>
+                              {serverStatus.ok ? '◉' : '✗'} {' '}
+                              {serverStatus.reason === 'ready' && t('DIAG_READY')}
+                              {serverStatus.reason === 'no-gps' && t('DIAG_NO_GPS')}
+                              {serverStatus.reason === 'stale-gps' && t('DIAG_STALE')}
+                              {serverStatus.reason === 'not-registered' && t('DIAG_NOT_REGISTERED')}
+                            </div>
+                            <div style={{ color: 'rgba(255,255,255,0.55)' }}>
+                              Provider: <span style={{ color: '#fff' }}>{serverStatus.provider}</span>
+                              {serverStatus.provider === 'apple' && ' (iOS APNS)'}
+                            </div>
+                            {serverStatus.gpsAgeMs != null && (
+                              <div style={{ color: 'rgba(255,255,255,0.55)' }}>
+                                Wiek GPS: <span style={{ color: '#fff' }}>{formatAge(serverStatus.gpsAgeMs)}</span>
+                              </div>
+                            )}
+                            {serverStatus.server && (
+                              <>
+                                <div style={{ color: 'rgba(255,255,255,0.55)' }}>
+                                  VAPID skonfig.: <span className={serverStatus.server.vapidConfigured ? 'ok' : 'err'}>
+                                    {serverStatus.server.vapidConfigured ? 'tak' : 'NIE'}
+                                  </span>
+                                </div>
+                                <div style={{ color: 'rgba(255,255,255,0.55)', wordBreak: 'break-all' }}>
+                                  VAPID subject: <span style={{ color: '#fff' }}>{serverStatus.server.vapidSubject}</span>
+                                </div>
+                              </>
+                            )}
+                            {serverStatus.storeErrors && serverStatus.storeErrors.length > 0 && (
+                              <div style={{ marginTop: 6 }}>
+                                <div className="err">Błędy blob store:</div>
+                                {serverStatus.storeErrors.map((e, i) => (
+                                  <div key={i} className="err" style={{ fontSize: 10, wordBreak: 'break-all' }}>· {e}</div>
+                                ))}
+                              </div>
+                            )}
+                            {serverStatus.latestRun && (
+                              <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                                <div style={{ color: 'rgba(255,255,255,0.55)' }}>Ostatni cron:</div>
+                                <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 10 }}>
+                                  {new Date(serverStatus.latestRun.startedAt).toLocaleString('pl-PL')}
+                                </div>
+                                <div style={{ color: 'rgba(255,255,255,0.55)' }}>
+                                  Subskrypcji: <span style={{ color: '#fff' }}>{serverStatus.latestRun.totalSubs}</span>
+                                  {' · '}
+                                  Wysłano: <span style={{ color: '#fff' }}>{serverStatus.latestRun.notificationsSent}</span>
+                                  {' · '}
+                                  Błędów: <span className={serverStatus.latestRun.pushErrors > 0 ? 'err' : ''}>{serverStatus.latestRun.pushErrors}</span>
+                                </div>
+                                {serverStatus.latestRun.skippedNoGps > 0 && (
+                                  <div className="err">Pominięto (brak GPS): {serverStatus.latestRun.skippedNoGps}</div>
+                                )}
+                                {serverStatus.latestRun.skippedStaleGps > 0 && (
+                                  <div className="err">Pominięto (stary GPS): {serverStatus.latestRun.skippedStaleGps}</div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                      }
+                    </section>
+                  )}
+                </>
+              )}
+
+              {/* Footer — 3× tap on the version unlocks debug sections above */}
+              <p
+                className="info-text"
+                style={{ marginTop: 12, borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 10, cursor: 'pointer', userSelect: 'none' }}
+                onClick={bumpVersionTap}
+                title={debugUnlocked ? 'Debug aktywny' : ''}>
+                v{version}{debugUnlocked && ' · 🔧'}
               </p>
             </div>
           )}
