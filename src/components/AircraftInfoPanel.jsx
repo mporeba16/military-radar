@@ -103,16 +103,70 @@ function formatHhmm(ts) {
   return new Date(ts).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })
 }
 
-// planespotters.net has two lookup paths: by registration and by hex.
+// planespotters.net lookup is tricky for military:
+//   - hex→photo: incomplete (Mi-17 hex 48DA46 returns nothing or stale link)
+//   - reg→photo: registrations like "018" or "605" are NOT unique globally
+//     (PLF038 / Polish C-295 reg 018 collides with Hellenic AF F-16 reg 018)
 //
-// For military aircraft the hex→photo mapping is unreliable — photographers
-// tag photos by tail number (e.g. "605") and planespotters' hex assignments
-// for military airframes are often stale or simply wrong (Mi-17 hex 48DA46
-// returned a completely different aircraft's photo until we switched order).
-//
-// Try reg first whenever it's present; fall back to hex for civil aircraft
-// that broadcast hex but have no public reg.
-function useAircraftPhoto(hex, reg) {
+// Strategy: fetch BOTH endpoints in parallel, dedup by photo id, then pick
+// the candidate whose slug URL best matches the aircraft type and operator
+// inferred from the callsign. Planespotters URLs have the form
+//   https://www.planespotters.net/photo/{id}/{reg}-{operator}-{model}
+// so we can score reliably without an extra metadata fetch.
+
+const OPERATOR_HINT_BY_CALLSIGN = [
+  [/^(PLF|RCF)/, 'polish'],
+  [/^(GAF|LIFT)/, 'luftwaffe'],
+  [/^(RCH|REACH|DUKE|JAKE|POLO|GORDO|PEARL|FORTE|RAZER|KNIFE|IRON|SWORD|VALOR|HEAVY|EAGLE\d|VIPER|KING\d)/, 'air-force'],  // USAF — slug usually has "united-states-air-force"
+  [/^(MAGMA|ASCOT|COMET)/, 'royal-air-force'],
+  [/^(NATO|NAOC|NATOQ)/, 'nato'],
+  [/^FRAF/, 'french'],
+  [/^BAF\d/, 'belgian'],
+  [/^DAMP/, 'danish'],
+  [/^CZAF/, 'czech'],
+  [/^SLAF/, 'slovak'],
+  [/^HUNAF/, 'hungarian'],
+  [/^(BUAF|BAH)/, 'bulgarian'],
+  [/^ROTAF/, 'romanian'],
+  [/^(FNY|FINAF)/, 'finnish'],
+  [/^(NRAF|SAVER)/, 'norwegian'],
+  [/^SWAF/, 'swedish'],
+  [/^LTAF/, 'lithuanian'],
+  [/^LVAF/, 'latvian'],
+  [/^EEAF/, 'estonian'],
+  [/^RIMC/, 'italian'],
+  [/^SRA/, 'saudi'],
+  [/^HAF/, 'hellenic'],
+]
+
+function scorePhotoMatch(photo, ac) {
+  const link = (photo.link || '').toLowerCase()
+  if (!link) return 0
+  let score = 0
+
+  // Type match — ac.t like "C295", "F16", "MI17", "B738"
+  // planespotters slug has "c-295", "f-16c", "mi-17", "boeing-737"
+  const acType = (ac.t || '').toLowerCase()
+  if (acType) {
+    const compact = acType.replace(/[^a-z0-9]/g, '')                  // "c295"
+    const dashed = compact.replace(/^([a-z]+)(\d.*)$/, '$1-$2')       // "c-295"
+    if (compact && (link.includes(compact) || link.includes(dashed))) score += 100
+    else if (compact) score -= 30   // type explicitly mismatches — penalise
+  }
+
+  // Operator hint from callsign prefix
+  const callsign = (ac.flight || '').toUpperCase()
+  for (const [re, hint] of OPERATOR_HINT_BY_CALLSIGN) {
+    if (re.test(callsign)) {
+      if (link.includes(hint)) score += 50
+      break
+    }
+  }
+
+  return score
+}
+
+function useAircraftPhoto(hex, reg, ac) {
   const [photo, setPhoto] = useState(null)
   const [state, setState] = useState('idle')  // 'idle' | 'loading' | 'ok' | 'not-found'
   useEffect(() => {
@@ -121,25 +175,37 @@ function useAircraftPhoto(hex, reg) {
     setState('loading')
     const ctrl = new AbortController()
     const timeout = setTimeout(() => ctrl.abort(), 6000)
-    const fetchJson = async (url) => {
-      const r = await fetch(url, { signal: ctrl.signal })
-      return r.json()
+
+    const fetchList = async (url) => {
+      try {
+        const r = await fetch(url, { signal: ctrl.signal })
+        const data = await r.json()
+        return data?.photos || []
+      } catch (err) {
+        if (err.name === 'AbortError') throw err
+        return []
+      }
     }
+
     ;(async () => {
       try {
-        if (reg) {
-          const byReg = await fetchJson(`https://api.planespotters.net/pub/photos/reg/${encodeURIComponent(reg)}`)
-          if (byReg?.photos?.length) {
-            setPhoto(byReg.photos[0]); setState('ok'); return
-          }
-        }
-        if (hex) {
-          const byHex = await fetchJson(`https://api.planespotters.net/pub/photos/hex/${hex}`)
-          if (byHex?.photos?.length) {
-            setPhoto(byHex.photos[0]); setState('ok'); return
-          }
-        }
-        setPhoto(null); setState('not-found')
+        const urls = []
+        if (hex) urls.push(`https://api.planespotters.net/pub/photos/hex/${hex}`)
+        if (reg) urls.push(`https://api.planespotters.net/pub/photos/reg/${encodeURIComponent(reg)}`)
+        const results = (await Promise.all(urls.map(fetchList))).flat()
+
+        // Deduplicate by photo id (the same photo can appear in both responses)
+        const seen = new Set()
+        const unique = results.filter(p => {
+          if (!p?.id || seen.has(p.id)) return false
+          seen.add(p.id)
+          return true
+        })
+        if (!unique.length) { setPhoto(null); setState('not-found'); return }
+
+        unique.sort((a, b) => scorePhotoMatch(b, ac) - scorePhotoMatch(a, ac))
+        setPhoto(unique[0])
+        setState('ok')
       } catch (err) {
         if (err.name === 'AbortError') return
         setPhoto(null); setState('not-found')
@@ -148,12 +214,12 @@ function useAircraftPhoto(hex, reg) {
       }
     })()
     return () => { clearTimeout(timeout); ctrl.abort() }
-  }, [hex, reg])
+  }, [hex, reg, ac.t, ac.flight])
   return { photo, state }
 }
 
 export default function AircraftInfoPanel({ ac, trailSources, firstSeen, userLocation, onClose }) {
-  const { photo, state: photoState } = useAircraftPhoto(ac.hex, ac.reg)
+  const { photo, state: photoState } = useAircraftPhoto(ac.hex, ac.reg, ac)
   const [imgError, setImgError] = useState(false)
   const altM = ftToM(ac.alt_baro)
   const kmh = knToKmh(ac.gs)

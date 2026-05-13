@@ -187,26 +187,35 @@ export default function App() {
   // Auto-start GPS tracking on mount
   useEffect(() => { requestLocation() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Stable interval — pauses while the tab is hidden so we don't keep
-  // hammering the API in the background (saves battery on mobile PWAs).
-  // First fetch is deferred via requestIdleCallback / setTimeout so it
-  // doesn't compete with the first paint for CPU.
+  // Polling that pauses with the tab and resumes cleanly.
+  //
+  // Earlier version had a `booted` flag that protected the deferred first
+  // fetch from running twice — but it ALSO blocked the immediate refresh
+  // when the tab became visible again. Result: iOS PWA users returning to
+  // the app after a minute saw stale aircraft positions forever.
+  //
+  // Now: only the very first kickoff is deferred via requestIdleCallback.
+  // Subsequent resumes call tick() immediately so the map refreshes the
+  // moment the user comes back.
   useEffect(() => {
     let id = null
-    let booted = false
+    let firstBoot = true
+    const tick = () => fetchDataRef.current()
     const start = () => {
       if (id != null) return
-      const kickoff = () => {
-        if (!booted) {
-          booted = true
-          fetchDataRef.current()
-          id = setInterval(() => fetchDataRef.current(), POLL_INTERVAL)
-        }
+      const begin = () => {
+        tick()
+        id = setInterval(tick, POLL_INTERVAL)
       }
-      if (typeof requestIdleCallback === 'function') {
-        requestIdleCallback(kickoff, { timeout: 1500 })
+      if (firstBoot) {
+        firstBoot = false
+        if (typeof requestIdleCallback === 'function') {
+          requestIdleCallback(begin, { timeout: 1500 })
+        } else {
+          setTimeout(begin, 0)
+        }
       } else {
-        setTimeout(kickoff, 0)
+        begin()
       }
     }
     const stop = () => {
@@ -218,8 +227,14 @@ export default function App() {
     }
     onVis()
     document.addEventListener('visibilitychange', onVis)
+    // iOS Safari sometimes only fires `pageshow` on PWA resume (without
+    // a fresh visibilitychange) — listen for both.
+    window.addEventListener('pageshow', onVis)
+    window.addEventListener('focus', onVis)
     return () => {
       document.removeEventListener('visibilitychange', onVis)
+      window.removeEventListener('pageshow', onVis)
+      window.removeEventListener('focus', onVis)
       stop()
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
