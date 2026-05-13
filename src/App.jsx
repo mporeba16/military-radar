@@ -5,6 +5,7 @@ import { useGeolocation } from './hooks/useGeolocation'
 import { usePushNotifications } from './hooks/usePushNotifications'
 import { useLocalStorage } from './hooks/useLocalStorage'
 import { fetchMilitaryAircraft } from './api'
+import { t, useLang, setLang, availableLangs } from './i18n'
 import { version } from '../package.json'
 import './App.css'
 
@@ -30,6 +31,7 @@ export default function App() {
   const [alerts, setAlerts] = useState([])
   const [inRangeCount, setInRangeCount] = useState(0)
   const [testPushStatus, setTestPushStatus] = useState(null)
+  const currentLang = useLang()
 
   const alertedHexRef = useRef(new Set())
   const dismissedAlertsRef = useRef(new Set(loadDismissed()))
@@ -249,6 +251,25 @@ export default function App() {
     return () => { if (radiusDebounceRef.current) clearTimeout(radiusDebounceRef.current) }
   }, [radius]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // U4: deep link via URL hash — #hex=48da46 selects the aircraft on load
+  // and the hash updates as the user selects/deselects so the page can be
+  // shared or bookmarked.
+  useEffect(() => {
+    const m = window.location.hash.match(/[#?&]hex=([a-f0-9]{6})/i)
+    if (m) setSelectedHex(m[1].toLowerCase())
+  }, [])
+
+  useEffect(() => {
+    if (selectedHex && !selectedHex.startsWith('__')) {
+      const desired = `#hex=${selectedHex}`
+      if (window.location.hash !== desired) {
+        try { window.history.replaceState(null, '', desired) } catch {}
+      }
+    } else if (window.location.hash.includes('hex=')) {
+      try { window.history.replaceState(null, '', window.location.pathname + window.location.search) } catch {}
+    }
+  }, [selectedHex])
+
   // ESC closes panel first, then deselects aircraft (B12 — skip when typing)
   useEffect(() => {
     const handler = e => {
@@ -300,7 +321,24 @@ export default function App() {
     [location?.lat, location?.lon]
   )
 
-  const selectedAc = aircraft.find(ac => ac.hex === selectedHex) || null
+  const selectedAc = useMemo(
+    () => selectedHex ? (aircraft.find(ac => ac.hex === selectedHex) || null) : null,
+    [aircraft, selectedHex]
+  )
+
+  // U12: meta theme-color flips red when an emergency squawk is currently
+  // visible — gives the iOS Safari status bar / Android Chrome chrome a
+  // visceral "something is wrong" cue without forcing a notification.
+  const EMERGENCY_SQUAWKS = useMemo(() => new Set(['7500', '7600', '7700', '7400']), [])
+  const hasEmergency = useMemo(() => alerts.some(a => {
+    const sq = a.ac.squawk ? String(a.ac.squawk).padStart(4, '0') : null
+    return sq && EMERGENCY_SQUAWKS.has(sq)
+  }), [alerts, EMERGENCY_SQUAWKS])
+  useEffect(() => {
+    const meta = document.querySelector('meta[name="theme-color"]')
+    if (!meta) return
+    meta.setAttribute('content', hasEmergency ? '#a01818' : '#0a1628')
+  }, [hasEmergency])
 
   async function handleTestPush() {
     if (testPushTimerRef.current) clearTimeout(testPushTimerRef.current)
@@ -342,7 +380,7 @@ export default function App() {
       {/* Logo — top left */}
       <div className="map-logo">
         <span className="map-logo-icon">◎</span>
-        <span className="map-logo-name">RADAR WOJSKOWY</span>
+        <span className="map-logo-name">{t('APP_TITLE')}</span>
         {isLoading && <span className="map-logo-spinner">◌</span>}
         {error && !isLoading && <span className="map-logo-error" title={error}>!</span>}
         {lastUpdated && !isLoading && !error && <span className="map-logo-ts">{lastUpdated}</span>}
@@ -362,9 +400,9 @@ export default function App() {
       {/* Control buttons — top right */}
       <div className="map-ctrl-btns">
         <button className={`map-ctrl-btn ${activePanel === 'ustawienia' ? 'active' : ''}`}
-          onClick={() => togglePanel('ustawienia')}>USTAW</button>
+          onClick={() => togglePanel('ustawienia')}>{t('NAV_SETTINGS')}</button>
         <button className={`map-ctrl-btn ${activePanel === 'mapy' ? 'active' : ''}`}
-          onClick={() => togglePanel('mapy')}>MAPY</button>
+          onClick={() => togglePanel('mapy')}>{t('NAV_MAPS')}</button>
       </div>
 
       {/* Alert toasts — persistent until aircraft leaves range or user dismisses */}
@@ -378,12 +416,12 @@ export default function App() {
                 setActivePanel(null)
               }}>
               <div className="alert-toast-body">
-                <span className="alert-toast-tag">⚠ W ZASIĘGU</span>
+                <span className="alert-toast-tag">{t('ALERT_TAG')}</span>
                 <span className="alert-toast-call">{ac.flight?.trim() || ac.hex}</span>
                 <span className="alert-toast-detail">{ac.t || '?'} · {Math.round(dist)} km</span>
               </div>
               <button className="alert-toast-close"
-                aria-label="Odrzuć powiadomienie"
+                aria-label={t('DISMISS_NOTIFICATION')}
                 onClick={e => {
                   e.stopPropagation()
                   if (!hex.startsWith('__')) {
@@ -395,7 +433,7 @@ export default function App() {
             </div>
           ))}
           {alerts.length > 3 && (
-            <div className="alert-toast-overflow">+{alerts.length - 3} więcej w zasięgu</div>
+            <div className="alert-toast-overflow">+{alerts.length - 3} {t('ALERT_OVERFLOW')}</div>
           )}
         </div>
       )}
@@ -410,23 +448,23 @@ export default function App() {
         <div className="side-panel">
           <div className="side-panel-header">
             <span className="side-panel-title">
-              {activePanel === 'ustawienia' && 'USTAWIENIA'}
-              {activePanel === 'mapy' && 'MAPY'}
+              {activePanel === 'ustawienia' && t('PANEL_SETTINGS')}
+              {activePanel === 'mapy' && t('PANEL_MAPS')}
             </span>
-            <button className="side-panel-close" onClick={() => setActivePanel(null)} aria-label="Zamknij panel">✕</button>
+            <button className="side-panel-close" onClick={() => setActivePanel(null)} aria-label={t('CLOSE_PANEL')}>✕</button>
           </div>
 
           {activePanel === 'ustawienia' && (
             <div className="panel-body">
               {/* 1. GPS — fundament wszystkiego */}
               <section className="cp-section">
-                <div className="cp-label">GPS — wymagany do alertów</div>
+                <div className="cp-label">{t('GPS_LABEL')}</div>
                 {location
                   ? <>
                       <p className="ok">◉ {location.lat.toFixed(4)}°N {location.lon.toFixed(4)}°E</p>
                       {accuracy != null && (
                         <p className="info-text" style={{ fontSize: 10, marginTop: 2 }}>
-                          dokładność ±{accuracy < 1000 ? `${Math.round(accuracy)} m` : `${(accuracy / 1000).toFixed(1)} km`}
+                          {t('GPS_ACCURACY')} ±{accuracy < 1000 ? `${Math.round(accuracy)} m` : `${(accuracy / 1000).toFixed(1)} km`}
                         </p>
                       )}
                     </>
@@ -434,34 +472,34 @@ export default function App() {
                     ? <>
                         <p className="err" style={{ fontSize: 11 }}>✗ {locationError}</p>
                         <p className="info-text" style={{ marginTop: 4 }}>
-                          Włącz lokalizację w ustawieniach (iOS Safari: Ustawienia → Witryny → Lokalizacja).
+                          {t('GPS_DENIED_HINT')}
                         </p>
                       </>
                     : locationError
                       ? <>
                           <p className="err" style={{ fontSize: 11 }}>✗ {locationError}</p>
-                          <button className="link-btn" style={{ marginTop: 4 }} onClick={requestLocation}>Spróbuj ponownie</button>
+                          <button className="link-btn" style={{ marginTop: 4 }} onClick={requestLocation}>{t('GPS_RETRY')}</button>
                         </>
                       : <>
-                          <p className="info-text">Oczekiwanie na GPS…</p>
-                          <button className="link-btn" style={{ marginTop: 4 }} onClick={requestLocation}>Pobierz lokalizację</button>
+                          <p className="info-text">{t('GPS_WAITING')}</p>
+                          <button className="link-btn" style={{ marginTop: 4 }} onClick={requestLocation}>{t('GPS_FETCH')}</button>
                         </>}
               </section>
 
               {/* 2. Zasięg alertów */}
               <section className="cp-section">
-                <div className="cp-label">ZASIĘG ALERTÓW: {radius} km</div>
+                <div className="cp-label">{t('RANGE_LABEL')}: {radius} km</div>
                 <input type="range" min="25" max="500" step="25" value={radius}
                   onChange={e => setRadius(Number(e.target.value))} className="range-slider" />
                 <div className="range-marks"><span>25</span><span>100</span><span>250</span><span>500</span></div>
                 {location && (
                   <p className="info-text" style={{ marginTop: 6 }}>
-                    W zasięgu teraz: <strong style={{ color: inRangeCount > 0 ? '#ff5520' : '#00ff88' }}>
-                      {inRangeCount} samolotów
+                    {t('IN_RANGE_NOW')} <strong style={{ color: inRangeCount > 0 ? '#ff5520' : '#00ff88' }}>
+                      {inRangeCount} {t('PLANES')}
                     </strong>
                     {inRangeCount > alerts.length && (
                       <span style={{ color: 'rgba(255,255,255,0.5)' }}>
-                        {' '}(widocznych alertów: {alerts.length})
+                        {' '}({t('VISIBLE_ALERTS')} {alerts.length})
                       </span>
                     )}
                   </p>
@@ -470,38 +508,38 @@ export default function App() {
 
               {/* 3. Powiadomienia push */}
               <section className="cp-section">
-                <div className="cp-label">POWIADOMIENIA PUSH</div>
+                <div className="cp-label">{t('PUSH_LABEL')}</div>
                 {permissionState === 'unsupported'
-                  ? <p className="info-text">Przeglądarka nie obsługuje push notifications.</p>
+                  ? <p className="info-text">{t('PUSH_UNSUPPORTED')}</p>
                   : permissionState === 'denied'
-                    ? <p className="err" style={{ fontSize: 11 }}>✗ Zablokowane — odblokuj w ustawieniach przeglądarki</p>
+                    ? <p className="err" style={{ fontSize: 11 }}>{t('PUSH_DENIED')}</p>
                     : isSubscribed
-                      ? <p className="ok">◉ Powiadomienia aktywne</p>
+                      ? <p className="ok">{t('PUSH_ACTIVE')}</p>
                       : <>
                           <button className="btn-subscribe" onClick={subscribe} disabled={isSubscribing}>
-                            {isSubscribing ? '◌ Łączenie…' : 'Włącz powiadomienia'}
+                            {isSubscribing ? t('PUSH_CONNECTING') : t('PUSH_ENABLE')}
                           </button>
                           {subscribeError && <p className="err" style={{ fontSize: 11, marginTop: 6 }}>✗ {subscribeError}</p>}
                         </>
                 }
                 <p className="info-text" style={{ marginTop: 6 }}>
-                  Alert gdy wojskowy samolot pojawi się w zasięgu GPS — nawet gdy aplikacja jest zamknięta. Sprawdzane co 5 minut przez serwer.
+                  {t('PUSH_DESCRIPTION')}
                 </p>
               </section>
 
               {/* 4. Test push (gdy zasubskrybowane) */}
               {isSubscribed && (
                 <section className="cp-section">
-                  <div className="cp-label">TESTOWY PUSH</div>
+                  <div className="cp-label">{t('TEST_PUSH_LABEL')}</div>
                   <button
                     className="btn-refresh"
                     onClick={handleTestPush}
                     disabled={testPushStatus?.kind === 'loading'}>
-                    {testPushStatus?.kind === 'loading' ? '◌ Wysyłanie…' : '⚠ Wyślij testowy push z serwera'}
+                    {testPushStatus?.kind === 'loading' ? t('TEST_PUSH_SENDING') : t('TEST_PUSH_BTN')}
                   </button>
                   {testPushStatus?.kind === 'ok' && (
                     <p className="ok" style={{ fontSize: 11, marginTop: 6 }}>
-                      ◉ Wysłane. Jeśli nie dostałeś powiadomienia — problem z APNS/iOS.
+                      {t('TEST_PUSH_OK')}
                     </p>
                   )}
                   {testPushStatus?.kind === 'err' && (
@@ -515,16 +553,16 @@ export default function App() {
               {/* 5. Pozycja na serwerze (gdy zasubskrybowane) */}
               {isSubscribed && (
                 <section className="cp-section">
-                  <div className="cp-label">POZYCJA NA SERWERZE</div>
+                  <div className="cp-label">{t('SERVER_POSITION_LABEL')}</div>
                   {location
-                    ? <p className="ok" style={{ fontSize: 11 }}>◉ {location.lat.toFixed(4)}°N {location.lon.toFixed(4)}°E · zasięg {radius} km</p>
-                    : <p className="err" style={{ fontSize: 11 }}>✗ Brak GPS — serwer nie wyśle alertów bez pozycji.<br/>
-                        <button className="link-btn" style={{ marginTop: 4 }} onClick={requestLocation}>Pobierz lokalizację</button>
+                    ? <p className="ok" style={{ fontSize: 11 }}>◉ {location.lat.toFixed(4)}°N {location.lon.toFixed(4)}°E · {radius} km</p>
+                    : <p className="err" style={{ fontSize: 11 }}>{t('SERVER_NO_GPS')}<br/>
+                        <button className="link-btn" style={{ marginTop: 4 }} onClick={requestLocation}>{t('GPS_FETCH')}</button>
                       </p>
                   }
                   {syncError && (
                     <p className="err" style={{ fontSize: 11, marginTop: 6 }}>
-                      ✗ Błąd synchronizacji z serwerem: {syncError}
+                      {t('SERVER_SYNC_ERROR')} {syncError}
                     </p>
                   )}
                 </section>
@@ -533,16 +571,16 @@ export default function App() {
               {/* 6. Diagnostyka push (gdy zasubskrybowane) */}
               {isSubscribed && (
                 <section className="cp-section">
-                  <div className="cp-label">DIAGNOSTYKA SERWERA</div>
+                  <div className="cp-label">{t('SERVER_DIAG_LABEL')}</div>
                   {!serverStatus
-                    ? <p className="info-text" style={{ fontSize: 11 }}>◌ Pobieranie statusu…</p>
+                    ? <p className="info-text" style={{ fontSize: 11 }}>{t('DIAG_FETCHING')}</p>
                     : <div style={{ fontSize: 11, fontFamily: "'Courier New', monospace", lineHeight: 1.7 }}>
                         <div className={serverStatus.ok ? 'ok' : 'err'}>
                           {serverStatus.ok ? '◉' : '✗'} {' '}
-                          {serverStatus.reason === 'ready' && 'Gotowe do wysyłki'}
-                          {serverStatus.reason === 'no-gps' && 'Brak GPS na serwerze'}
-                          {serverStatus.reason === 'stale-gps' && 'Pozycja >7 dni (przeterminowana)'}
-                          {serverStatus.reason === 'not-registered' && 'Subskrypcja nie zapisana!'}
+                          {serverStatus.reason === 'ready' && t('DIAG_READY')}
+                          {serverStatus.reason === 'no-gps' && t('DIAG_NO_GPS')}
+                          {serverStatus.reason === 'stale-gps' && t('DIAG_STALE')}
+                          {serverStatus.reason === 'not-registered' && t('DIAG_NOT_REGISTERED')}
                         </div>
                         <div style={{ color: 'rgba(255,255,255,0.55)' }}>
                           Provider: <span style={{ color: '#fff' }}>{serverStatus.provider}</span>
@@ -605,24 +643,39 @@ export default function App() {
 
               {/* 7. Legenda wysokości (referencja kolorów) */}
               <section className="cp-section">
-                <div className="cp-label">SKALA WYSOKOŚCI</div>
+                <div className="cp-label">{t('ALTITUDE_LABEL')}</div>
                 <AltitudeLegend />
               </section>
 
-              {/* 8. Akcje + info */}
+              {/* 8. Język */}
+              <section className="cp-section">
+                <div className="cp-label">{t('LANGUAGE_LABEL')}</div>
+                <div className="btn-group" style={{ marginTop: 4 }}>
+                  {availableLangs().map(l => (
+                    <button key={l}
+                      className="btn-refresh"
+                      style={{ flex: 1, opacity: currentLang === l ? 1 : 0.55 }}
+                      onClick={() => setLang(l)}>
+                      {t(l === 'pl' ? 'LANG_PL' : 'LANG_EN')}
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              {/* 9. Akcje + info */}
               <section className="cp-section cp-refresh">
-                <button className="btn-refresh" onClick={fetchData}>↻ Odśwież</button>
+                <button className="btn-refresh" onClick={fetchData}>{t('REFRESH_BTN')}</button>
               </section>
               {error && <p className="err" style={{ fontSize: 11, marginTop: 8 }}>✗ {error}</p>}
               <p className="info-text" style={{ marginTop: 12, borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 10 }}>
-                v{version} · Jeśli alerty nie działają: zamknij i otwórz app ponownie (wymuś odświeżenie).
+                v{version} · {t('SETTINGS_FOOTER')}
               </p>
             </div>
           )}
 
           {activePanel === 'mapy' && (
             <div className="panel-body">
-              <div className="cp-label">WYBIERZ MAPĘ</div>
+              <div className="cp-label">{t('SELECT_MAP')}</div>
               <div className="map-layer-list">
                 {TILE_LAYERS.map(layer => (
                   <button key={layer.id}
@@ -693,13 +746,14 @@ function bearing(lat1, lon1, lat2, lon2) {
 }
 
 // Singleton AudioContext — browsers limit how many can be open. Reuse one
-// across all alerts; create a new oscillator each ping.
+// across all alerts; create a new oscillator each ping. After long suspends
+// some browsers move the ctx to `closed`, in which case we lazily replace it.
 let alertCtx = null
 function playAlertSound() {
   try {
     const AC = window.AudioContext || window.webkitAudioContext
     if (!AC) return
-    if (!alertCtx) alertCtx = new AC()
+    if (!alertCtx || alertCtx.state === 'closed') alertCtx = new AC()
     if (alertCtx.state === 'suspended') alertCtx.resume().catch(() => {})
     const osc = alertCtx.createOscillator()
     const gain = alertCtx.createGain()
@@ -720,8 +774,8 @@ function triggerNotification(ac, dist) {
     return
   }
   navigator.serviceWorker.ready.then(reg => {
-    reg.showNotification('Wojskowy samolot w zasięgu!', {
-      body: `${ac.flight?.trim() || ac.hex} (${ac.t || 'nieznany typ'}) — ${Math.round(dist)} km`,
+    reg.showNotification(t('NOTIF_TITLE'), {
+      body: `${ac.flight?.trim() || ac.hex} (${ac.t || t('NOTIF_UNKNOWN_TYPE')}) — ${Math.round(dist)} km`,
       icon: '/pwa-192x192.png',
       badge: '/pwa-192x192.png',
       // Per-hex tag + renotify=true: if the same aircraft re-enters the

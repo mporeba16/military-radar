@@ -1,6 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
+import { t } from './i18n'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
@@ -28,7 +29,7 @@ function showUpdateToast() {
   const el = document.createElement('div')
   el.id = 'sw-update-toast'
   el.setAttribute('role', 'status')
-  el.innerHTML = '<span>◉ Nowa wersja dostępna</span><button type="button" aria-label="Przeładuj">Przeładuj</button>'
+  el.innerHTML = `<span>${t('UPDATE_AVAILABLE')}</span><button type="button" aria-label="${t('UPDATE_RELOAD')}">${t('UPDATE_RELOAD')}</button>`
   Object.assign(el.style, {
     position: 'fixed',
     bottom: '12px',

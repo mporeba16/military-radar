@@ -37,26 +37,31 @@
     </style>
   </head>
   <body>
-    <div id="root"><div class="boot-splash">◌ RADAR WOJSKOWY</div></div>
+    <div id="root"><div class="boot-splash">◌ RADAR · MILITARY RADAR</div></div>
     <script type="module" src="/src/main.jsx"></script>
     <script>
       // If React hasn't mounted within 10 s (network failure, JS exception,
       // browser issue) replace the spinner with an actionable fallback so
       // the user knows the boot stalled instead of staring at ◌ forever.
+      // Bilingual error message — i18n module hasn't loaded yet at this
+      // point so we hard-code both languages.
       setTimeout(function () {
         var root = document.getElementById('root');
         var splash = root && root.querySelector('.boot-splash');
         if (splash && splash.textContent.charAt(0) === '◌') {
+          var lang = (navigator.language || 'en').slice(0, 2).toLowerCase();
+          var title = lang === 'pl' ? '⚠ Aplikacja nie odpowiada' : '⚠ Application is not responding';
+          var hint  = lang === 'pl' ? 'Sprawdź połączenie i przeładuj stronę.' : 'Check your connection and reload the page.';
           splash.style.color = '#ff7a55';
           splash.style.fontSize = '14px';
           splash.style.padding = '0 20px';
           splash.style.textAlign = 'center';
-          splash.innerHTML = '⚠ Aplikacja nie odpowiada<br><small style="opacity:.8;font-size:11px;display:inline-block;margin-top:6px">Sprawdź połączenie i przeładuj stronę.</small>';
+          splash.innerHTML = title + '<br><small style="opacity:.8;font-size:11px;display:inline-block;margin-top:6px">' + hint + '</small>';
         }
       }, 10000);
     </script>
     <noscript>
-      <div style="padding:20px;color:#ccc;text-align:center">Aby korzystać z radaru wojskowego, włącz JavaScript w przeglądarce.</div>
+      <div style="padding:20px;color:#ccc;text-align:center">Włącz JavaScript / Enable JavaScript</div>
     </noscript>
   </body>
 </html>

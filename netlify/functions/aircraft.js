@@ -405,7 +405,12 @@ export const handler = async (event) => {
     }
 
     allPoints.sort((a, b) => a.ts - b.ts)
+    // Cap to most-recent N points so a 4-hour flight doesn't return 50 KB
+    // of JSON on every refresh — visual fidelity from 500 polyline vertices
+    // is plenty for any realistic flight.
+    const TRAIL_RESPONSE_MAX_POINTS = 500
     const currentFlight = filterImplausibleJumps(currentFlightOnly(allPoints))
+      .slice(-TRAIL_RESPONSE_MAX_POINTS)
 
     return {
       statusCode: 200,

@@ -4,6 +4,7 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import './RadarMap.css'
 import { SHAPES, getShapeKey, altToColor, ftToM } from './aircraftShapes'
+import { t } from '../i18n'
 
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({
@@ -237,6 +238,7 @@ function AircraftLayer({ aircraft, selectedHex, onSelect, zoomScale }) {
 
     for (const ac of aircraft) {
       if (ac.lat == null || ac.lon == null) continue
+      if (!Number.isFinite(ac.lat) || !Number.isFinite(ac.lon)) continue
       next.add(ac.hex)
       const isSelected = ac.hex === selectedHex
       // T1: split keys — position changes are cheap (setLatLng), icon changes
@@ -394,12 +396,12 @@ export default function RadarMap({
     <div style={{ position: 'absolute', inset: 0 }}>
       {showLoading && (
         <div className="map-empty-state" role="status">
-          ◌ Ładowanie samolotów…
+          {t('LOADING_AIRCRAFT')}
         </div>
       )}
       {showEmpty && (
         <div className="map-empty-state" role="status">
-          Brak samolotów wojskowych na mapie
+          {t('NO_AIRCRAFT')}
         </div>
       )}
       <MapContainer
