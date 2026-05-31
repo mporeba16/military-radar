@@ -24,7 +24,7 @@
     Service-Worker-Allowed = "/"
 
 [functions."notify"]
-  schedule = "*/5 * * * *"
+  schedule = "* * * * *"
 
 [functions."collect"]
   schedule = "*/2 * * * *"
