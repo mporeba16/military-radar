@@ -1,6 +1,6 @@
 import { getStore, connectLambda } from '@netlify/blobs'
 import crypto from 'crypto'
-import { corsHeaders, isValidPushEndpoint } from './lib/security.js'
+import { corsHeaders, isValidPushEndpoint, rateLimit } from './lib/security.js'
 
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY
@@ -37,6 +37,17 @@ export const handler = async (event) => {
     key = crypto.createHash('sha256').update(endpoint).digest('hex').slice(0, 32)
   } catch (err) {
     return { statusCode: 500, headers, body: JSON.stringify({ error: 'hash-failed', detail: err.message, server }) }
+  }
+
+  // The client polls status once a minute; a 5 s window stops anyone with a
+  // stolen endpoint URL from hammering it without affecting normal use.
+  const rl = await rateLimit({ key: `st-${key}`, windowMs: 5_000 })
+  if (!rl.allowed) {
+    return {
+      statusCode: 429,
+      headers: { ...headers, 'Retry-After': String(Math.ceil(rl.retryAfterMs / 1000)) },
+      body: JSON.stringify({ error: 'rate-limited', retryAfterMs: rl.retryAfterMs, server }),
+    }
   }
 
   const provider = endpoint.includes('apple.com') ? 'apple'

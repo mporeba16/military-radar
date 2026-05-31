@@ -94,7 +94,9 @@ const STRINGS = {
     BOOT_ERROR_TITLE: '⚠ Aplikacja nie odpowiada',
     BOOT_ERROR_HINT: 'Sprawdź połączenie i przeładuj stronę.',
     NOTIF_TITLE: 'Wojskowy samolot w zasięgu!',
+    NOTIF_TITLE_NEAR: 'Wojskowy samolot blisko Ciebie!',
     NOTIF_UNKNOWN_TYPE: 'nieznany typ',
+    NOTIF_SHOW: 'Pokaż na mapie',
   },
   en: {
     APP_TITLE: 'MILITARY RADAR',
@@ -187,7 +189,9 @@ const STRINGS = {
     BOOT_ERROR_TITLE: '⚠ Application is not responding',
     BOOT_ERROR_HINT: 'Check your connection and reload the page.',
     NOTIF_TITLE: 'Military aircraft in range!',
+    NOTIF_TITLE_NEAR: 'Military aircraft close to you!',
     NOTIF_UNKNOWN_TYPE: 'unknown type',
+    NOTIF_SHOW: 'Show on map',
   },
 }
 

@@ -76,7 +76,10 @@ export const handler = async (event) => {
     lat: newLat,
     lon: newLon,
     radius: radius ?? existing?.radius ?? 100,
-    updatedAt: lat != null ? Date.now() : (existing?.updatedAt ?? Date.now()),
+    // Refresh freshness whenever we hold a usable position (new or carried
+    // over), not only when a new fix arrives — an active client re-syncing
+    // without GPS shouldn't drift into "stale" and get dropped by notify.
+    updatedAt: hasGps ? Date.now() : (existing?.updatedAt ?? Date.now()),
     createdAt: existing?.createdAt ?? Date.now(),
   }
 

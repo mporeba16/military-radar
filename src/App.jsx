@@ -263,6 +263,22 @@ export default function App() {
     if (m) setSelectedHex(m[1].toLowerCase())
   }, [])
 
+  // Tapping a push notification while the app is already open: the service
+  // worker posts the hex here (a hash change alone wouldn't re-fire the
+  // on-load effect above).
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return
+    const onMsg = e => {
+      const d = e.data
+      if (d?.type === 'select-hex' && /^[a-f0-9]{6}$/i.test(d.hex || '')) {
+        setSelectedHex(d.hex.toLowerCase())
+        setActivePanel(null)
+      }
+    }
+    navigator.serviceWorker.addEventListener('message', onMsg)
+    return () => navigator.serviceWorker.removeEventListener('message', onMsg)
+  }, [])
+
   useEffect(() => {
     if (selectedHex && !selectedHex.startsWith('__')) {
       const desired = `#hex=${selectedHex}`
@@ -784,15 +800,31 @@ function playAlertSound() {
   } catch {}
 }
 
+const NOTIF_CLOSE_RANGE_KM = 10
+const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+function compassDir(track) {
+  if (track == null) return null
+  return COMPASS[Math.round(track / 45) % 8]
+}
+
 function triggerNotification(ac, dist) {
   if (!('serviceWorker' in navigator)) return
   if (Notification.permission !== 'granted') {
     console.debug('[notify] skipped: permission =', Notification.permission)
     return
   }
+  // Match the server-side wording: a closer plane gets the urgent title and
+  // a richer line (distance, flight level, heading).
+  const near = dist <= NOTIF_CLOSE_RANGE_KM
+  const parts = [`${Math.round(dist)} km`]
+  if (ac.alt_baro != null) parts.push(`FL${Math.round(ac.alt_baro / 100)}`)
+  const c = compassDir(ac.track)
+  if (c) parts.push(`kurs ${c}`)
+  const label = `${ac.flight?.trim() || ac.hex} (${ac.t || t('NOTIF_UNKNOWN_TYPE')})`
+
   navigator.serviceWorker.ready.then(reg => {
-    reg.showNotification(t('NOTIF_TITLE'), {
-      body: `${ac.flight?.trim() || ac.hex} (${ac.t || t('NOTIF_UNKNOWN_TYPE')}) — ${Math.round(dist)} km`,
+    reg.showNotification(near ? t('NOTIF_TITLE_NEAR') : t('NOTIF_TITLE'), {
+      body: `${label} — ${parts.join(', ')}`,
       icon: '/pwa-192x192.png',
       badge: '/pwa-192x192.png',
       // Per-hex tag + renotify=true: if the same aircraft re-enters the
@@ -801,6 +833,7 @@ function triggerNotification(ac, dist) {
       tag: `mil-${ac.hex}`,
       renotify: true,
       data: { hex: ac.hex },
+      actions: [{ action: 'show', title: t('NOTIF_SHOW') }],
     })
   })
 }

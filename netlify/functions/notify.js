@@ -12,7 +12,8 @@ const CLOSE_RANGE_KM = 10
 // refreshed every run while the plane stays in range, so the cooldown is
 // effectively measured from when it LEAVES — a brief drop-out won't re-alert.
 const ALERT_COOLDOWN_MS = 45 * 60 * 1000
-const FAR_LIST_MAX = 5            // max names listed in the grouped far push
+const NEAR_GROUP_THRESHOLD = 3    // above this many close planes, group them too
+const FAR_LIST_MAX = 5            // max names listed in a grouped push
 const MAX_COVERAGE_KM = 1500      // clamp for the shared fetch bounding circle
 
 // Polish numeral agreement for "samolot"
@@ -21,6 +22,32 @@ function planeWord(n) {
   const t = n % 10, h = n % 100
   if (t >= 2 && t <= 4 && !(h >= 12 && h <= 14)) return 'wojskowe samoloty'
   return 'wojskowych samolotów'
+}
+
+const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+function compass(track) {
+  if (track == null) return null
+  return COMPASS[Math.round(track / 45) % 8]
+}
+
+function planeLabel(ac) {
+  return `${ac.flight?.trim() || ac.hex}${ac.t ? ` (${ac.t})` : ''}`
+}
+
+// "F16 (F16) — 8 km, FL300, kurs N"
+function planeDetail(ac) {
+  const parts = [`${ac._dist} km`]
+  if (ac.alt_baro != null) parts.push(`FL${Math.round(ac.alt_baro / 100)}`)
+  const c = compass(ac.track)
+  if (c) parts.push(`kurs ${c}`)
+  return parts.join(', ')
+}
+
+// Body for a grouped push: lists up to FAR_LIST_MAX names + overflow count.
+function groupBody(sorted) {
+  const names = sorted.slice(0, FAR_LIST_MAX).map(a => a.flight?.trim() || a.hex)
+  const extra = sorted.length - names.length
+  return `${names.join(', ')}${extra > 0 ? ` +${extra}` : ''} — od ${sorted[0]._dist} km`
 }
 
 export const handler = async (event) => {
@@ -103,10 +130,10 @@ export const handler = async (event) => {
   // supplement is capped at ~250nm from the centroid, so subs far from the
   // centroid may miss callsign-only matches — fine for a Poland-focused app.
   let snapshot = []
+  let cLat = 0, cLon = 0, coverage = 0
   if (valid.length) {
-    const cLat = valid.reduce((s, v) => s + v.raw.lat, 0) / valid.length
-    const cLon = valid.reduce((s, v) => s + v.raw.lon, 0) / valid.length
-    let coverage = 0
+    cLat = valid.reduce((s, v) => s + v.raw.lat, 0) / valid.length
+    cLon = valid.reduce((s, v) => s + v.raw.lon, 0) / valid.length
     for (const v of valid) {
       coverage = Math.max(coverage, haversine(cLat, cLon, v.raw.lat, v.raw.lon) + (v.raw.radius ?? 100))
     }
@@ -116,10 +143,20 @@ export const handler = async (event) => {
     stats.coverageKm = coverage
   }
 
-  // Pass 2 — filter the shared snapshot to each sub's own bubble and process.
-  const results = await Promise.allSettled(valid.map((v) => {
+  // A sub is fully covered by the shared snapshot only if its whole bubble fits
+  // inside the fetched circle. If the coverage clamp kicked in (subs spread very
+  // far apart), the outliers fall outside it — fetch those individually so they
+  // don't silently miss alerts. The common case (everyone clustered) hits zero
+  // extra fetches.
+  const covered = (v) =>
+    haversine(cLat, cLon, v.raw.lat, v.raw.lon) + (v.raw.radius ?? 100) <= coverage + 0.5
+
+  // Pass 2 — resolve each sub's aircraft (shared snapshot, or own fetch) and process.
+  const results = await Promise.allSettled(valid.map(async (v) => {
     const radius = v.raw.radius ?? 100
-    const aircraft = snapshot.filter(a => haversine(v.raw.lat, v.raw.lon, a.lat, a.lon) <= radius)
+    const aircraft = covered(v)
+      ? snapshot.filter(a => haversine(v.raw.lat, v.raw.lon, a.lat, a.lon) <= radius)
+      : await fetchMilitaryNear(v.raw.lat, v.raw.lon, radius)
     return processSubscription(v, aircraft, subsStore, alertedStore, stats)
   }))
 
@@ -223,15 +260,30 @@ async function processSubscription({ key, raw, ageMs }, aircraft, subsStore, ale
       stats.perSub.push(subDiag)
     }
 
-    // Close-range alerts: individual and uncapped — they're the urgent ones.
-    for (const ac of newNear) {
-      const { expired } = await send({
-        title: 'Wojskowy samolot blisko Ciebie!',
-        body: `${ac.flight?.trim() || ac.hex}${ac.t ? ` (${ac.t})` : ''} — ${ac._dist} km od Ciebie`,
-        tag: ac.hex,
-        hex: ac.hex,
-      }, `near hex=${ac.hex} dist=${ac._dist}km`)
-      if (expired) { await cleanupExpired(); return result }
+    // Close-range alerts (≤10 km): the urgent ones. Sent individually with
+    // full detail, but collapsed into one grouped push if the sky is busy.
+    if (newNear.length) {
+      const sorted = [...newNear].sort((a, b) => a._dist - b._dist)
+      const n = sorted.length
+      if (n <= NEAR_GROUP_THRESHOLD) {
+        for (const ac of sorted) {
+          const { expired } = await send({
+            title: 'Wojskowy samolot blisko Ciebie!',
+            body: `${planeLabel(ac)} — ${planeDetail(ac)}`,
+            tag: ac.hex,
+            hex: ac.hex,
+          }, `near hex=${ac.hex} dist=${ac._dist}km`)
+          if (expired) { await cleanupExpired(); return result }
+        }
+      } else {
+        const { expired } = await send({
+          title: `${n} ${planeWord(n)} blisko Ciebie!`,
+          body: groupBody(sorted),
+          tag: 'mil-near-group',
+          hex: sorted[0].hex,
+        }, `near group n=${n}`)
+        if (expired) { await cleanupExpired(); return result }
+      }
     }
 
     // Far-range alerts: collapsed into a single grouped push so a busy sky
@@ -243,13 +295,11 @@ async function processSubscription({ key, raw, ageMs }, aircraft, subsStore, ale
       if (n === 1) {
         const ac = sorted[0]
         title = 'Wojskowy samolot w zasięgu!'
-        body = `${ac.flight?.trim() || ac.hex}${ac.t ? ` (${ac.t})` : ''} — ${ac._dist} km od Ciebie`
+        body = `${planeLabel(ac)} — ${planeDetail(ac)}`
         tag = ac.hex
       } else {
-        const names = sorted.slice(0, FAR_LIST_MAX).map(a => a.flight?.trim() || a.hex)
-        const extra = n - names.length
         title = `${n} ${planeWord(n)} w zasięgu!`
-        body = `${names.join(', ')}${extra > 0 ? ` +${extra}` : ''} — od ${sorted[0]._dist} km`
+        body = groupBody(sorted)
         tag = 'mil-far-group'
       }
       const { expired } = await send({ title, body, tag, hex: sorted[0].hex }, `far group n=${n}`)
