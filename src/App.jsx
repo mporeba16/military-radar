@@ -545,7 +545,7 @@ export default function App() {
               <section className="cp-section">
                 <div className="cp-label">{t('PUSH_LABEL')}</div>
                 {permissionState === 'unsupported'
-                  ? <p className="info-text">{t('PUSH_UNSUPPORTED')}</p>
+                  ? <p className="info-text">{IS_IOS && !isStandalonePWA() ? t('PUSH_IOS_INSTALL') : t('PUSH_UNSUPPORTED')}</p>
                   : permissionState === 'denied'
                     ? <p className="err" style={{ fontSize: 11 }}>{t('PUSH_DENIED')}</p>
                     : isSubscribed
@@ -798,6 +798,16 @@ function playAlertSound() {
     osc.start()
     osc.stop(alertCtx.currentTime + 0.4)
   } catch {}
+}
+
+// iPadOS 13+ reports as "MacIntel" but has a touch screen — catch it too.
+const IS_IOS = typeof navigator !== 'undefined' && (
+  /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+)
+function isStandalonePWA() {
+  return window.matchMedia?.('(display-mode: standalone)').matches ||
+    window.navigator.standalone === true
 }
 
 const NOTIF_CLOSE_RANGE_KM = 10

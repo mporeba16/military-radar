@@ -21,6 +21,9 @@ html, body, #root {
   height: 100%;
   height: -webkit-fill-available;
   overflow: hidden;
+  /* Kill pull-to-refresh and rubber-band overscroll — this is an app, not a
+     scrollable document, and an accidental swipe shouldn't reload the PWA. */
+  overscroll-behavior: none;
 }
 
 body {
@@ -28,6 +31,13 @@ body {
   background: var(--bg-deep);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
+}
+
+/* App-like touch behaviour: no grey tap flash, no long-press text callout on
+   chrome/controls (selectable content keeps its own rules). */
+button, a, [role="button"], .alert-toast {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
 }
 
 /* Leaflet overrides */

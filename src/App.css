@@ -211,6 +211,8 @@
 .panel-body {
   padding: 14px;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   flex: 1;
 }
 

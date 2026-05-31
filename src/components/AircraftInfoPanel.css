@@ -6,6 +6,8 @@
   width: 230px;
   max-height: calc(100dvh - 80px);
   overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   background: rgba(4, 10, 20, 0.96);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 5px;
