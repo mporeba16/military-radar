@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import RadarMap, { TILE_LAYERS } from './components/RadarMap'
+import RadarMap, { TILE_LAYERS, AltitudeLegend } from './components/RadarMap'
 import AircraftInfoPanel from './components/AircraftInfoPanel'
 import { useGeolocation } from './hooks/useGeolocation'
 import { usePushNotifications } from './hooks/usePushNotifications'
@@ -719,6 +719,11 @@ export default function App() {
                   </button>
                 ))}
               </div>
+
+              <section className="cp-section" style={{ marginTop: 16 }}>
+                <div className="cp-label">{t('ALT_LEGEND_LABEL')}</div>
+                <div style={{ marginTop: 6 }}><AltitudeLegend /></div>
+              </section>
             </div>
           )}
 

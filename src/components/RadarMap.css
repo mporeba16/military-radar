@@ -53,24 +53,11 @@
   backdrop-filter: blur(6px);
 }
 
-/* Altitude legend — compact overlay above the version badge in the
-   bottom-left corner of the map. */
-.alt-legend-overlay {
-  position: absolute;
-  bottom: calc(28px + env(safe-area-inset-bottom, 0px));
-  left: 8px;
-  z-index: 999;
-  pointer-events: none;
-  background: rgba(4, 10, 20, 0.78);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 3px;
-  padding: 4px 6px 3px;
-  backdrop-filter: blur(4px);
-}
-
+/* Altitude legend — colour key for aircraft markers. Lives in the "Maps"
+   settings panel (it used to float over the map's bottom-left corner). */
 .alt-legend {
   font-family: 'Courier New', monospace;
-  width: min(180px, 38vw);
+  width: 100%;
 }
 
 .alt-legend-bar {

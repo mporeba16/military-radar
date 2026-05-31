@@ -443,11 +443,6 @@ export default function RadarMap({
           zoomScale={zoomScale}
         />
       </MapContainer>
-
-      {/* Altitude legend — small overlay above the version badge */}
-      <div className="alt-legend-overlay">
-        <AltitudeLegend />
-      </div>
     </div>
   )
 }
