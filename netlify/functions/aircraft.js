@@ -112,35 +112,14 @@ function filterImplausibleJumps(sortedPoints) {
 // In-memory cache — survives across warm function invocations (eliminates per-aircraft blob reads)
 const trailCache = new Map() // hex → { points, flight, t }
 
-// Bloki ICAO hex przydzielone WYŁĄCZNIE wojsku (nie cywilnemu)
-// Polska 489xxx obejmuje też cywilne SP- rejestracje — nie używamy go jako hex filtra
+// Bloki ICAO hex używane do wykrywania wojska po SAMYM heksie. Tylko 'ae'
+// (USAF/USN/USMC) jest blokiem WYŁĄCZNIE wojskowym i bezpiecznym. Europejskie
+// "podbloki wojskowe" (43c, 49d, 48f, 47a…) okazały się błędne/mieszane —
+// zawierają cywilne maszyny (np. czeski 737 OK-TVR w 49Dxxx pokazywał się jako
+// wojskowy). Wojsko z tych krajów łapiemy przez /mil (adsb.fi taguje) oraz
+// callsigny (PLF, GAF, FRAF, REACH…), więc heksowych podbloków nie używamy.
 const MILITARY_HEX_PREFIXES = [
-  // USA wojskowe (AE prefix — wyłącznie USAF/USN/USMC)
-  'ae',
-  // Niemcy Bundeswehr
-  '43c', '43d', '43e', '43f',
-  // Francja wojsko
-  '3b0', '3b1', '3b2', '3b3',
-  // Dania wojsko
-  '43a',
-  // Wielka Brytania RAF/RN
-  '43b',
-  // Belgia wojsko
-  '44e',
-  // Holandia wojsko
-  '48f',
-  // Czechy wojsko
-  '49d',
-  // Słowacja wojsko
-  '51d',
-  // Rumunia wojsko
-  '4a0',
-  // Węgry wojsko
-  '47a', '47b',
-  // Norwegia wojsko (478xxx)
-  '478',
-  // Jordania wojsko (74x)
-  '743', '744',
+  'ae',  // USA — USAF / US Navy / USMC (blok wyłącznie wojskowy)
 ]
 
 // Callsigny wojskowe — prefiksy używane przez polskie i NATO lotnictwo

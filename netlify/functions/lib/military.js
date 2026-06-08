@@ -3,14 +3,10 @@
 const OPENSKY_USER = process.env.OPENSKY_USER || ''
 const OPENSKY_PASS = process.env.OPENSKY_PASS || ''
 
+// Tylko 'ae' (US military) jest blokiem wyłącznie wojskowym. Europejskie
+// "podbloki" były błędne/mieszane (cywilne false-positivy) — patrz aircraft.js.
 const MILITARY_HEX_PREFIXES = [
-  'ae',
-  '43c', '43d', '43e', '43f',
-  '3b0', '3b1', '3b2', '3b3',
-  '43a', '43b', '44e', '48f',
-  '49d', '51d', '4a0', '47a', '47b',
-  '478',
-  '743', '744',
+  'ae',  // USA — USAF / US Navy / USMC
 ]
 
 const MILITARY_CALLSIGN_PATTERNS = [
