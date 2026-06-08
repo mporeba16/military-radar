@@ -9,13 +9,26 @@ function urlBase64ToUint8Array(base64String) {
   return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)))
 }
 
+// Stabilny identyfikator urządzenia — pozwala serwerowi usunąć stary endpoint
+// po rotacji push (inaczej to samo urządzenie dostaje zdublowane powiadomienia).
+function getDeviceId() {
+  try {
+    let id = localStorage.getItem('radar.deviceId')
+    if (!id) {
+      id = (crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`)
+      localStorage.setItem('radar.deviceId', id)
+    }
+    return id
+  } catch { return null }
+}
+
 async function syncToServer(sub, lat, lon, radius) {
   if (!sub) return { ok: false, error: 'no-subscription' }
   try {
     const res = await fetch('/.netlify/functions/subscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ subscription: sub.toJSON(), lat, lon, radius }),
+      body: JSON.stringify({ subscription: sub.toJSON(), lat, lon, radius, deviceId: getDeviceId() }),
     })
     let payload = null
     try { payload = await res.json() } catch {}

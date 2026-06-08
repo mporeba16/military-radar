@@ -389,6 +389,16 @@ export default function AircraftInfoPanel({ ac, trailSources, firstSeen, onClose
         </div>
       )}
 
+      {ac.posApprox && (
+        <div style={{
+          margin: '8px 12px 0', padding: '6px 9px', borderRadius: 6, fontSize: 11.5,
+          color: 'rgba(255,255,255,0.75)', background: 'rgba(255,255,255,0.05)',
+          border: '1px dashed rgba(255,255,255,0.3)',
+        }}>
+          {t('INFO_POS_APPROX')}
+        </div>
+      )}
+
       {landing && (
         <div className={`ac-info-landing${landing.onApproach ? ' approach' : ''}`}>
           <span className="ac-info-landing-ico">🛬</span>

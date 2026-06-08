@@ -58,6 +58,12 @@ export default function App() {
     permissionState, subscribeError, syncError, serverStatus,
   } = usePushNotifications(location, radius)
 
+  // Gdy aktywny jest push serwerowy, NIE strzelamy też lokalnym powiadomieniem
+  // systemowym — inaczej (w foreground) ten sam samolot daje dwa komunikaty.
+  // W aplikacji i tak zostają toast + dźwięk + wibracja.
+  const isSubscribedRef = useRef(false)
+  isSubscribedRef.current = isSubscribed
+
   const center = EUROPE_CENTER
 
   const fetchData = useCallback(async () => {
@@ -160,7 +166,9 @@ export default function App() {
             persistDismissed(dismissedAlertsRef.current)
             navigator.vibrate?.([200, 100, 200])
             playAlertSound()
-            triggerNotification(ac, ac._dist)
+            // Push serwerowy obsłuży powiadomienie systemowe — lokalne tylko
+            // gdy użytkownik NIE jest zasubskrybowany (fallback).
+            if (!isSubscribedRef.current) triggerNotification(ac, ac._dist)
           }
         })
         // Persistent alerts = all in-range aircraft not manually dismissed

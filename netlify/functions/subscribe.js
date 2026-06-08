@@ -19,7 +19,7 @@ export const handler = async (event) => {
     return { statusCode: 400, headers, body: JSON.stringify({ error: 'invalid-json', detail: err.message }) }
   }
 
-  const { subscription, lat, lon, radius } = body
+  const { subscription, lat, lon, radius, deviceId } = body
 
   if (!subscription?.endpoint) {
     return { statusCode: 400, headers, body: JSON.stringify({ error: 'missing-endpoint' }) }
@@ -81,6 +81,9 @@ export const handler = async (event) => {
     // without GPS shouldn't drift into "stale" and get dropped by notify.
     updatedAt: hasGps ? Date.now() : (existing?.updatedAt ?? Date.now()),
     createdAt: existing?.createdAt ?? Date.now(),
+    // Stabilny identyfikator urządzenia (z localStorage klienta) — pozwala
+    // sprzątać stare endpointy po rotacji push (patrz niżej).
+    deviceId: deviceId ?? existing?.deviceId ?? null,
   }
 
   let serialized
@@ -103,6 +106,26 @@ export const handler = async (event) => {
         detail: err.message,
         bytes: serialized.length,
       }),
+    }
+  }
+
+  // Rotacja endpointu (iOS/APNS potrafi nadać nowy URL push) tworzy NOWY rekord,
+  // a stary zostaje ze swoją (inną) pozycją GPS → to samo urządzenie dostaje
+  // DWA powiadomienia o jednym samolocie, z różnym dystansem. Gdy to świeży
+  // endpoint (brak `existing`), usuwamy pozostałe rekordy z tym samym deviceId.
+  if (!existing && deviceId) {
+    try {
+      const { blobs } = await store.list()
+      await Promise.allSettled((blobs || []).map(async b => {
+        if (b.key === key) return
+        const other = await store.get(b.key, { type: 'json' }).catch(() => null)
+        if (other?.deviceId && other.deviceId === deviceId) {
+          await store.delete(b.key).catch(() => {})
+          console.log(`[subscribe] pruned stale endpoint key=${b.key} device=${deviceId}`)
+        }
+      }))
+    } catch (err) {
+      console.error('[subscribe] device-prune failed:', err.message)
     }
   }
 

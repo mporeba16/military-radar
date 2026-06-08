@@ -62,6 +62,7 @@ const STRINGS = {
     SETTINGS_FOOTER: 'Jeśli alerty nie działają: zamknij i otwórz app ponownie (wymuś odświeżenie).',
     SELECT_MAP: 'WYBIERZ MAPĘ',
     ALT_LEGEND_LABEL: 'WYSOKOŚĆ (KOLOR SAMOLOTU)',
+    INFO_POS_APPROX: '≈ Pozycja przybliżona (brak dokładnego ADS-B)',
     INFO_LANDING: 'Prawdopodobnie ląduje',
     INFO_LANDING_APPROACH: 'Na podejściu do',
     ALERT_TAG: '⚠ W ZASIĘGU',

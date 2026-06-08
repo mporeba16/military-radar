@@ -167,8 +167,13 @@ function buildIconSvg(ac, isSelected, zoomScale) {
   const hitR = half + tapPad
   const hitArea = `<circle r="${hitR}" fill="rgba(0,0,0,0)"/>`
 
-  // V1: subtle desaturation when track is unknown (icon faces north by default)
-  const groupOpacity = hasTrack ? 1 : 0.55
+  // V1: subtle desaturation when track is unknown (icon faces north by default).
+  // Pozycja tylko zgrubna (rr / rough receiver) → mocniej wyblakła + przerywane
+  // kółko niepewności, żeby było jasne, że to przybliżenie, nie dokładny fix.
+  const groupOpacity = ac.posApprox ? 0.4 : (hasTrack ? 1 : 0.55)
+  const approxRing = ac.posApprox
+    ? `<circle r="${ringR}" fill="none" stroke="#ffffff" stroke-width="1.3" stroke-dasharray="3 3" opacity="0.55"/>`
+    : ''
 
   // Wykrzyknik dla maszyn z alarmowym squawkiem (7500/7600/7700/7400) — w prawym
   // górnym rogu ikony, NIE obraca się z dziobem (to oznaczenie UI, nie część maszyny).
@@ -193,6 +198,7 @@ function buildIconSvg(ac, isSelected, zoomScale) {
         </g>
       </g>
       ${kindRing}
+      ${approxRing}
       ${selectionRing}
       ${alertBadge}
     </svg>`
@@ -280,7 +286,7 @@ function AircraftLayer({ aircraft, selectedHex, onSelect, zoomScale }) {
       const trackQ = ac.track != null ? Math.round(ac.track / 5) : 'na'
       const altQ = ac.alt_baro != null ? Math.round(ac.alt_baro / 200) : 'na'
       const v22Slow = /V22|MV22|CV22|OSPREY/i.test(ac.t || '') && ac.gs != null && ac.gs < 100 ? 1 : 0
-      const iconKey = `${trackQ}|${altQ}|${v22Slow}|${ac.t || ''}|${ac.kind || ''}|${squawkAlertColor(ac.squawk) || ''}|${isSelected ? 1 : 0}|${ac.on_ground ? 1 : 0}|${zoomScale}`
+      const iconKey = `${trackQ}|${altQ}|${v22Slow}|${ac.t || ''}|${ac.kind || ''}|${squawkAlertColor(ac.squawk) || ''}|${ac.posApprox ? 1 : 0}|${isSelected ? 1 : 0}|${ac.on_ground ? 1 : 0}|${zoomScale}`
 
       const existing = markersRef.current.get(ac.hex)
       if (existing) {
