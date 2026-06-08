@@ -42,7 +42,8 @@ const MILITARY_SQUAWKS = new Set(['7777', '7400'])
 // ── Dodatkowe kategorie poza wojskiem (patrz aircraft.js — trzymane w synchronie) ──
 //   'heli'  — śmigłowiec służbowy (LPR / policja / Straż Graniczna / SAR)
 //   'heavy' — duży/rzadki samolot (B747, An-124/225)
-const SERVICE_HELI_CALLSIGNS = /^(RATOWNIK|RESCUE|MEDIC|HEMS|LIFEGUARD|POLICE|POLICJA|STRAZ|SAR|REGA)/i
+// LPR = Lotnicze Pogotowie Ratunkowe (polskie pogotowie lotnicze, callsign LPRxx)
+const SERVICE_HELI_CALLSIGNS = /^(LPR|RATOWNIK|RESCUE|MEDIC|HEMS|LIFEGUARD|POLICE|POLICJA|STRAZ|SAR|REGA)/i
 const HELI_TYPE_RE = /^(EC|AS3|AS5|AS6|AW|A109|A119|A129|A139|A149|A169|A189|B0[0-9]|B4(07|12|27|29)|B505|B47|S6[14]|S70|S76|S92|H1(2[05]|3[05]|4[05]|55|60|75)|H47|H53|H60|UH|HH|MH|CH|AH|EH10|MD5|MD6|MI[0-9]|KA[0-9]|R22|R44|R66|BK11|BO10|W3|PZL|NH90|SA3|SH60)/
 
 function normReg(r) { return (r || '').toUpperCase().replace(/[^A-Z0-9]/g, '') }
@@ -91,6 +92,25 @@ function isMilitaryCallsign(callsign) {
   if (GROUND_STATION_PATTERNS.some(re => re.test(callsign))) return false
   if (CIVILIAN_CALLSIGN_PATTERNS.some(re => re.test(callsign))) return false
   return MILITARY_CALLSIGN_PATTERNS.some(re => re.test(callsign))
+}
+
+function isMilitaryADSBfiRecord(a) {
+  const hex = (a.hex || '').toLowerCase()
+  const callsign = (a.flight || '').trim()
+  const squawk = a.squawk || ''
+  if (GROUND_STATION_PATTERNS.some(re => re.test(callsign))) return false
+  if (CIVILIAN_CALLSIGN_PATTERNS.some(re => re.test(callsign))) return false
+  if (MILITARY_HEX_PREFIXES.some(p => hex.startsWith(p))) return true
+  if (MILITARY_CALLSIGN_PATTERNS.some(re => re.test(callsign))) return true
+  if (MILITARY_SQUAWKS.has(squawk)) return true
+  return false
+}
+
+// Klasyfikacja rekordu adsb.fi do kategorii pokazywanych w aplikacji
+// (te same reguły co w aircraft.js). Zwraca 'mil' | 'heli' | 'heavy' | null.
+export function classifyADSBfi(a) {
+  if (isMilitaryADSBfiRecord(a)) return 'mil'
+  return classifyExtra(a)
 }
 
 function isMilitary(ac) {

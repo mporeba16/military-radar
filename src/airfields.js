@@ -75,10 +75,16 @@ export function findLikelyLanding(ac) {
   const lowFinal = alt != null && alt < 4000
   if (!descending && !lowFinal) return null
 
+  // Gdy maszyna realnie schodzi, dopuszczamy lotnisko na całym profilu zniżania
+  // (do 130 km). Gdy jest tylko nisko, ale NIE schodzi (przelot na małej
+  // wysokości, śmigłowiec), to słaba przesłanka — akceptujemy tylko bliskie
+  // lotnisko (final/krąg), żeby nie wskazywać celu 100 km dalej.
+  const maxDist = descending ? 130 : 30
+
   let best = null
   for (const ap of AIRFIELDS) {
     const dist = haversine(ac.lat, ac.lon, ap.lat, ap.lon)
-    if (dist > 130) continue
+    if (dist > maxDist) continue
     const brgTo = bearing(ac.lat, ac.lon, ap.lat, ap.lon)
     const off = Math.abs(((brgTo - ac.track + 540) % 360) - 180)  // 0..180°
     // Stożek: blisko (turn na finał) luźniej, daleko ciaśniej.

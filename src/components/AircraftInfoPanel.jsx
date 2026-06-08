@@ -92,7 +92,7 @@ const OPERATOR_HINT_BY_CALLSIGN = [
   [/^(RCH|REACH|DUKE|JAKE|POLO|GORDO|PEARL|FORTE|RAZER|KNIFE|IRON|SWORD|VALOR|HEAVY|EAGLE\d|VIPER|KING\d)/, 'air-force'],  // USAF — slug usually has "united-states-air-force"
   [/^(MAGMA|ASCOT|COMET)/, 'royal-air-force'],
   [/^(NATO|NAOC|NATOQ)/, 'nato'],
-  [/^FRAF/, 'french'],
+  [/^(FRAF|CTM|COTAM|FNAV|FMRN)/, 'french'],  // CTM/COTAM = francuski transport wojskowy, FNAV/FMRN = lotnictwo MW
   [/^BAF\d/, 'belgian'],
   [/^DAMP/, 'danish'],
   [/^CZAF/, 'czech'],
@@ -173,6 +173,11 @@ const TYPE_SLUG_ALIASES = {
   AS332: ['as332', 'super-puma'], AS532: ['as532', 'cougar'],
   // UAVs
   MQ9: ['mq-9', 'reaper'], MQ1: ['mq-1'], RQ4: ['rq-4'],
+  // Dassault Falcon / business jets (ICAO code != planespotters slug)
+  F900: ['falcon-900', 'falcon'], F2TH: ['falcon-2000', 'falcon'],
+  FA7X: ['falcon-7x', 'falcon'], FA8X: ['falcon-8x', 'falcon'], F50: ['falcon-50', 'falcon'],
+  F406: ['f406', 'caravan-ii'], E55P: ['phenom-300'], E50P: ['phenom-100'],
+  GLF5: ['gulfstream-v'], GLF6: ['gulfstream'], C56X: ['citation'], C68A: ['citation'],
 }
 
 function typeSlugCandidates(t) {
@@ -207,6 +212,13 @@ function scorePhotoMatch(photo, ac) {
     }
   }
 
+  // Registration-sourced photo wins ties over a hex-sourced one — the reg is
+  // the current airframe's identity, while a hex can be stale/reassigned in
+  // planespotters (e.g. a French mil hex resolving to a retired Fouga). Bonus
+  // is below the type-match weight (100), so a hex photo that truly matches the
+  // type still wins over a reg photo that doesn't.
+  if (photo._src === 'reg') score += 60
+
   return score
 }
 
@@ -239,12 +251,19 @@ function useAircraftPhoto(hex, reg, ac) {
 
     ;(async () => {
       try {
-        const urls = []
-        if (hex) urls.push(`https://api.planespotters.net/pub/photos/hex/${hex}`)
-        if (reg) urls.push(`https://api.planespotters.net/pub/photos/reg/${encodeURIComponent(reg)}`)
-        const responses = await Promise.all(urls.map(fetchList))
-        const anyOk = responses.some(r => r.ok)
-        const results = responses.flatMap(r => r.photos)
+        // Fetch hex + reg in parallel. The REGISTRATION is the authoritative
+        // identity of the current airframe; a hex can be stale in planespotters
+        // (military hexes get reassigned), so we tag the source and put reg
+        // photos first — scorePhotoMatch then gives them a tie-breaking bonus.
+        const [hexRes, regRes] = await Promise.all([
+          hex ? fetchList(`https://api.planespotters.net/pub/photos/hex/${hex}`) : Promise.resolve({ ok: true, photos: [] }),
+          reg ? fetchList(`https://api.planespotters.net/pub/photos/reg/${encodeURIComponent(reg)}`) : Promise.resolve({ ok: true, photos: [] }),
+        ])
+        const anyOk = hexRes.ok || regRes.ok
+        const results = [
+          ...regRes.photos.map(p => ({ ...p, _src: 'reg' })),
+          ...hexRes.photos.map(p => ({ ...p, _src: 'hex' })),
+        ]
 
         const seen = new Set()
         const unique = results.filter(p => {
@@ -274,7 +293,7 @@ function useAircraftPhoto(hex, reg, ac) {
   return { photo, state }
 }
 
-export default function AircraftInfoPanel({ ac, trailSources, firstSeen, userLocation, onClose }) {
+export default function AircraftInfoPanel({ ac, trailSources, firstSeen, onClose }) {
   useLang()  // re-render on language switch
   const { photo, state: photoState } = useAircraftPhoto(ac.hex, ac.reg, ac)
   const [imgError, setImgError] = useState(false)

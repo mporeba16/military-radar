@@ -441,7 +441,6 @@ export default function App() {
           ac={selectedAc}
           trailSources={trailSources.get(selectedHex)}
           firstSeen={firstSeenRef.current.get(selectedHex)}
-          userLocation={location}
           onClose={() => setSelectedHex(null)}
         />
       )}

@@ -16,13 +16,40 @@ const OPENSKY_PASS = process.env.OPENSKY_PASS || ''
 // geograficzne adsb.fi pokrywa cały kraj wraz z pograniczem.
 const POLAND_CENTER = { lat: '52.0', lon: '19.4' }
 
-// Bounding box Polski (z lekkim zapasem na pogranicze/podejścia).
-const POLAND_BBOX = { lamin: 48.9, lomin: 14.0, lamax: 55.0, lomax: 24.2 }
+// Przybliżony obrys granic Polski (z niewielkim zapasem ~10–20 km na
+// pogranicze/podejścia), [lat, lon] zgodnie z ruchem wskazówek zegara.
+// Prostokąt nie wystarczał — łapał Kaliningrad i okolice Pragi/Lwowa, bo leżą
+// w zakresie szer./dł. geogr. Polski. Wielokąt + test punktu to eliminuje.
+const POLAND_POLY = [
+  [54.6, 14.2],  // NW, wybrzeże (Świnoujście)
+  [54.9, 16.3],  // wybrzeże środkowe
+  [54.9, 18.9],  // Zatoka Gdańska
+  [54.45, 20.6], // granica z Kaliningradem (poniżej miasta 54.7)
+  [54.45, 22.9], // Suwałki / NE (granica z Litwą)
+  [52.7, 23.9],  // wschód (granica z Białorusią, Białystok/Brześć)
+  [50.8, 24.2],  // SE (granica z Ukrainą, Hrubieszów)
+  [49.0, 22.9],  // SE róg (Bieszczady)
+  [49.3, 19.8],  // południe (Tatry, granica ze Słowacją)
+  [49.5, 18.5],  // południe (Cieszyn, granica z Czechami)
+  [50.0, 17.0],  // SW (Opole/Nysa, Czechy)
+  [50.6, 15.0],  // SW róg (Jelenia Góra)
+  [51.0, 14.7],  // zachód (Zgorzelec/Görlitz)
+  [52.8, 14.1],  // zachód (Odra, Słubice)
+  [53.9, 14.1],  // NW (Szczecin)
+]
 
-function isInPolandBox(lat, lon) {
-  return lat != null && lon != null &&
-    lat >= POLAND_BBOX.lamin && lat <= POLAND_BBOX.lamax &&
-    lon >= POLAND_BBOX.lomin && lon <= POLAND_BBOX.lomax
+// Test punktu w wielokącie (ray casting); lon = x, lat = y.
+function isInPoland(lat, lon) {
+  if (lat == null || lon == null) return false
+  let inside = false
+  for (let i = 0, j = POLAND_POLY.length - 1; i < POLAND_POLY.length; j = i++) {
+    const yi = POLAND_POLY[i][0], xi = POLAND_POLY[i][1]
+    const yj = POLAND_POLY[j][0], xj = POLAND_POLY[j][1]
+    if (((yi > lat) !== (yj > lat)) && (lon < (xj - xi) * (lat - yi) / (yj - yi) + xi)) {
+      inside = !inside
+    }
+  }
+  return inside
 }
 
 // Redukcja szumu: poza Polską pokazujemy tylko maszyny ze znanym kodem typu.
@@ -30,7 +57,7 @@ function isInPolandBox(lat, lon) {
 // W Polsce pokazujemy wszystko (także bez typu), żeby nic lokalnie nie umknęło.
 function passesTypeNoise(a) {
   if ((a.t || '').trim()) return true
-  return isInPolandBox(a.lat ?? a.rr_lat, a.lon ?? a.rr_lon)
+  return isInPoland(a.lat, a.lon)
 }
 
 const TRAIL_MAX_AGE_MS = 4 * 60 * 60 * 1000  // 4 godziny historii
@@ -223,7 +250,8 @@ const MILITARY_SQUAWKS = new Set(['7777', '7400'])
 //   'heavy' — duży/rzadki samolot (B747, An-124/225)
 
 // Międzynarodowe callsigny służb ratowniczych/porządkowych
-const SERVICE_HELI_CALLSIGNS = /^(RATOWNIK|RESCUE|MEDIC|HEMS|LIFEGUARD|POLICE|POLICJA|STRAZ|SAR|REGA)/i
+// LPR = Lotnicze Pogotowie Ratunkowe (polskie pogotowie lotnicze, callsign LPRxx)
+const SERVICE_HELI_CALLSIGNS = /^(LPR|RATOWNIK|RESCUE|MEDIC|HEMS|LIFEGUARD|POLICE|POLICJA|STRAZ|SAR|REGA)/i
 // Kody typów ICAO śmigłowców (uzupełnienie kategorii ADS-B A7)
 const HELI_TYPE_RE = /^(EC|AS3|AS5|AS6|AW|A109|A119|A129|A139|A149|A169|A189|B0[0-9]|B4(07|12|27|29)|B505|B47|S6[14]|S70|S76|S92|H1(2[05]|3[05]|4[05]|55|60|75)|H47|H53|H60|UH|HH|MH|CH|AH|EH10|MD5|MD6|MI[0-9]|KA[0-9]|R22|R44|R66|BK11|BO10|W3|PZL|NH90|SA3|SH60)/
 
@@ -346,19 +374,17 @@ async function tryOpenSky(lamin, lomin, lamax, lomax) {
 }
 
 function mapADSBfiRecord(a) {
-  // rr_lat/rr_lon = rough receiver position (Mode-S only, much less accurate
-  // — jumps around in poor coverage areas like the open Baltic). Use real
-  // ADS-B position when available, fall back to rr_* for display only, and
-  // flag the record so the trail writer can skip noisy estimates.
-  const hasRealPos = a.lat != null && a.lon != null
-  const lat = a.lat ?? a.rr_lat
-  const lon = a.lon ?? a.rr_lon
+  // Używamy WYŁĄCZNIE realnej pozycji (a.lat/a.lon) — pokrywa to ADS-B oraz
+  // wyliczony MLAT. NIE schodzimy do rr_lat/rr_lon (rough receiver) — to tylko
+  // lokalizacja odbiornika, potrafiąca być oddalona o dziesiątki km od maszyny
+  // (powodowała „odskok" ikony od trasy). Rekordy bez realnej pozycji są
+  // odsiewane już w isADSBfiRecordInBox.
   return {
     hex: (a.hex || '').toLowerCase(),
     flight: (a.flight || a.hex || '').trim(),
     t: a.t || '',
-    lat,
-    lon,
+    lat: a.lat,
+    lon: a.lon,
     alt_baro: (a.alt_baro != null && a.alt_baro !== 'ground') ? a.alt_baro : null,
     gs: a.gs != null ? Math.round(a.gs) : null,
     track: a.track != null ? Math.round(a.track) : null,
@@ -367,7 +393,9 @@ function mapADSBfiRecord(a) {
     reg: a.r || null,
     country: '',
     on_ground: a.alt_baro === 'ground' || !!a.on_ground,
-    mlat: !hasRealPos && (a.rr_lat != null || a.rr_lon != null),
+    // MLAT-derived position (adsb.fi oznacza pola wyliczone w tablicy `mlat`) —
+    // bywa skokowy, więc pomijamy go przy zapisie trasy (saveTrails), ale rysujemy.
+    mlat: Array.isArray(a.mlat) && a.mlat.length > 0,
     kind: a._kind || 'mil',
   }
 }
@@ -375,8 +403,11 @@ function mapADSBfiRecord(a) {
 const GROUND_STATION_TYPES = new Set(['TWR', 'GND', 'MLAT', 'RADAR'])
 
 function isADSBfiRecordInBox(a, lamin, lomin, lamax, lomax) {
-  const lat = a.lat ?? a.rr_lat
-  const lon = a.lon ?? a.rr_lon
+  // Wymagamy REALNEJ pozycji (ADS-B lub wyliczony MLAT). Rekordy mające tylko
+  // rr_lat/rr_lon (rough receiver) odrzucamy — to lokalizacja odbiornika, nie
+  // maszyny, i powodowała odskoki ikony.
+  const lat = a.lat
+  const lon = a.lon
   const alt = typeof a.alt_baro === 'number' ? a.alt_baro : null
   if (GROUND_STATION_TYPES.has((a.t || '').toUpperCase())) return false
   if (GROUND_STATION_TYPES.has((a.r || '').toUpperCase())) return false
@@ -401,10 +432,11 @@ function isMilitaryADSBfi(a) {
   return false
 }
 
-// adsb.fi — publiczne API, działa z serverless, pokrywa Europę
-// radiusKm: dla małych obszarów (Polska/GPS) robimy też zapytanie geograficzne
-// żeby złapać samoloty nieoznaczone jako military w bazie adsb.fi
-async function tryADSBfi(lamin, lomin, lamax, lomax, radiusKm) {
+// adsb.fi — publiczne API, działa z serverless, pokrywa Europę.
+// Oprócz globalnego /mil robimy zapytanie geograficzne wycentrowane na Polsce,
+// żeby złapać maszyny nieoznaczone w bazie /mil (wojsko po callsignie/hex,
+// służbowe śmigłowce, duże samoloty).
+async function tryADSBfi(lamin, lomin, lamax, lomax) {
   try {
     const headers = { 'User-Agent': 'MilitaryRadarPL/1.0', 'Accept': 'application/json' }
 
@@ -521,7 +553,7 @@ export const handler = async (event) => {
   const lomin = lonN - degLon
   const lomax = lonN + degLon
 
-  const result = await tryADSBfi(lamin, lomin, lamax, lomax, radiusKm)
+  const result = await tryADSBfi(lamin, lomin, lamax, lomax)
     || await tryOpenSky(lamin, lomin, lamax, lomax)
     || { aircraft: [], _source: 'unavailable' }
 

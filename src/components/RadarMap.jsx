@@ -117,6 +117,16 @@ function dedupTrailPoints(sortedPoints) {
   return out
 }
 
+// Specjalne kody transpondera = „coś jest nie tak" — sygnalizujemy je
+// wykrzyknikiem przy ikonie, żeby było widać bez klikania w kartę.
+//   7500 porwanie, 7700 emergency  → czerwony
+//   7600 brak łączności, 7400 utrata UAV → bursztynowy
+const SQUAWK_ALERT_COLOR = { '7500': '#ff1e1e', '7700': '#ff1e1e', '7600': '#ffae00', '7400': '#ffae00' }
+function squawkAlertColor(squawk) {
+  if (squawk == null) return null
+  return SQUAWK_ALERT_COLOR[String(squawk).padStart(4, '0')] || null
+}
+
 function buildIconSvg(ac, isSelected, zoomScale) {
   const onGround = !!ac.on_ground
   const hasTrack = ac.track != null
@@ -160,6 +170,17 @@ function buildIconSvg(ac, isSelected, zoomScale) {
   // V1: subtle desaturation when track is unknown (icon faces north by default)
   const groupOpacity = hasTrack ? 1 : 0.55
 
+  // Wykrzyknik dla maszyn z alarmowym squawkiem (7500/7600/7700/7400) — w prawym
+  // górnym rogu ikony, NIE obraca się z dziobem (to oznaczenie UI, nie część maszyny).
+  const alertColor = squawkAlertColor(ac.squawk)
+  const badgeR = Math.max(5.5, 6.5 * zoomScale)
+  const alertBadge = alertColor
+    ? `<g transform="translate(${ringR},${-ringR})">
+         <circle r="${badgeR}" fill="${alertColor}" stroke="#ffffff" stroke-width="1.3"/>
+         <text x="0" y="0" font-size="${badgeR * 1.5}" font-weight="bold" fill="#ffffff" text-anchor="middle" dominant-baseline="central" font-family="Arial, sans-serif">!</text>
+       </g>`
+    : ''
+
   return `
     <svg xmlns="http://www.w3.org/2000/svg" width="${effectiveSz + tapPad * 2}" height="${effectiveSz + tapPad * 2}" viewBox="-${hitR} -${hitR} ${hitR * 2} ${hitR * 2}" overflow="visible">
       ${hitArea}
@@ -173,6 +194,7 @@ function buildIconSvg(ac, isSelected, zoomScale) {
       </g>
       ${kindRing}
       ${selectionRing}
+      ${alertBadge}
     </svg>`
 }
 
@@ -258,7 +280,7 @@ function AircraftLayer({ aircraft, selectedHex, onSelect, zoomScale }) {
       const trackQ = ac.track != null ? Math.round(ac.track / 5) : 'na'
       const altQ = ac.alt_baro != null ? Math.round(ac.alt_baro / 200) : 'na'
       const v22Slow = /V22|MV22|CV22|OSPREY/i.test(ac.t || '') && ac.gs != null && ac.gs < 100 ? 1 : 0
-      const iconKey = `${trackQ}|${altQ}|${v22Slow}|${ac.t || ''}|${ac.kind || ''}|${isSelected ? 1 : 0}|${ac.on_ground ? 1 : 0}|${zoomScale}`
+      const iconKey = `${trackQ}|${altQ}|${v22Slow}|${ac.t || ''}|${ac.kind || ''}|${squawkAlertColor(ac.squawk) || ''}|${isSelected ? 1 : 0}|${ac.on_ground ? 1 : 0}|${zoomScale}`
 
       const existing = markersRef.current.get(ac.hex)
       if (existing) {
