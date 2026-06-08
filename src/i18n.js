@@ -30,6 +30,7 @@ const STRINGS = {
     PUSH_IOS_INSTALL: 'Na iPhonie powiadomienia działają tylko po dodaniu aplikacji do ekranu głównego: otwórz w Safari menu Udostępnij → „Dodaj do ekranu początkowego".',
     PUSH_DENIED: '✗ Zablokowane — odblokuj w ustawieniach przeglądarki',
     PUSH_ACTIVE: '◉ Powiadomienia aktywne',
+    PUSH_DISABLE: 'Wyłącz powiadomienia',
     PUSH_ENABLE: 'Włącz powiadomienia',
     PUSH_CONNECTING: '◌ Łączenie…',
     PUSH_DESCRIPTION: 'Alert gdy wojskowy samolot pojawi się w zasięgu GPS — nawet gdy aplikacja jest zamknięta. Sprawdzane co 5 minut przez serwer.',

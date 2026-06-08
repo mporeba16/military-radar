@@ -146,6 +146,27 @@ export function usePushNotifications(location, radius) {
     }
   }, [location, radius])
 
+  const unsubscribe = useCallback(async () => {
+    const sub = subRef.current
+    try {
+      if (sub) {
+        // Poproś serwer o natychmiastowe skasowanie rekordu (inaczej znika dopiero
+        // po 410 z APNS), a potem wypisz się po stronie przeglądarki.
+        await fetch('/.netlify/functions/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'unsubscribe', endpoint: sub.endpoint }),
+        }).catch(() => {})
+        await sub.unsubscribe().catch(() => {})
+      }
+    } finally {
+      subRef.current = null
+      setIsSubscribed(false)
+      setSyncError(null)
+      setServerStatus(null)
+    }
+  }, [])
+
   const sendTestPush = useCallback(async () => {
     if (!subRef.current) return { ok: false, error: 'no-subscription' }
     try {
@@ -171,6 +192,7 @@ export function usePushNotifications(location, radius) {
     isSubscribed,
     isSubscribing,
     subscribe,
+    unsubscribe,
     sendTestPush,
     permissionState,
     subscribeError,

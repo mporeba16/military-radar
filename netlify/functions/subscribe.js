@@ -19,6 +19,22 @@ export const handler = async (event) => {
     return { statusCode: 400, headers, body: JSON.stringify({ error: 'invalid-json', detail: err.message }) }
   }
 
+  // Wypisanie się z powiadomień — kasujemy rekord od razu (bez czekania, aż
+  // APNS zwróci 410). Klient woła to przy wyłączaniu powiadomień w aplikacji.
+  if (body.action === 'unsubscribe') {
+    const ep = body.endpoint || body.subscription?.endpoint
+    if (!ep) return { statusCode: 400, headers, body: JSON.stringify({ error: 'missing-endpoint' }) }
+    try {
+      const delKey = crypto.createHash('sha256').update(ep).digest('hex').slice(0, 32)
+      await getStore('push-subscriptions').delete(delKey)
+      console.log(`[subscribe] unsubscribed key=${delKey}`)
+      return { statusCode: 200, headers, body: JSON.stringify({ ok: true, removed: true }) }
+    } catch (err) {
+      console.error('[subscribe] unsubscribe failed:', err.message)
+      return { statusCode: 500, headers, body: JSON.stringify({ error: 'unsub-failed', detail: err.message }) }
+    }
+  }
+
   const { subscription, lat, lon, radius, deviceId } = body
 
   if (!subscription?.endpoint) {

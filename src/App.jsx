@@ -54,7 +54,7 @@ export default function App() {
   const radiusDebounceRef = useRef(null)
   const { location, accuracy, locationError, requestLocation } = useGeolocation()
   const {
-    isSubscribed, isSubscribing, subscribe, sendTestPush,
+    isSubscribed, isSubscribing, subscribe, unsubscribe, sendTestPush,
     permissionState, subscribeError, syncError, serverStatus,
   } = usePushNotifications(location, radius)
 
@@ -612,7 +612,12 @@ export default function App() {
                   : permissionState === 'denied'
                     ? <p className="err" style={{ fontSize: 11 }}>{t('PUSH_DENIED')}</p>
                     : isSubscribed
-                      ? <p className="ok">{t('PUSH_ACTIVE')}</p>
+                      ? <>
+                          <p className="ok">{t('PUSH_ACTIVE')}</p>
+                          <button className="link-btn" style={{ marginTop: 4 }} onClick={unsubscribe}>
+                            {t('PUSH_DISABLE')}
+                          </button>
+                        </>
                       : <>
                           <button className="btn-subscribe" onClick={subscribe} disabled={isSubscribing}>
                             {isSubscribing ? t('PUSH_CONNECTING') : t('PUSH_ENABLE')}
