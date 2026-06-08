@@ -5,7 +5,7 @@ import { useGeolocation } from './hooks/useGeolocation'
 import { usePushNotifications } from './hooks/usePushNotifications'
 import { useLocalStorage } from './hooks/useLocalStorage'
 import { fetchMilitaryAircraft } from './api'
-import { t, useLang, setLang, availableLangs } from './i18n'
+import { t } from './i18n'
 import { version } from '../package.json'
 import './App.css'
 
@@ -22,6 +22,7 @@ export default function App() {
   const [hasFetched, setHasFetched] = useState(false)
   const [error, setError] = useState(null)
   const [radius, setRadius] = useLocalStorage('radar.radius', 100)
+  const [kinds, setKinds] = useLocalStorage('radar.kinds', { mil: true, heli: true, heavy: true })
   const [selectedHex, setSelectedHex] = useState(null)
   const [serverTrails, setServerTrails] = useState(new Map())
   const [trailSources, setTrailSources] = useState(new Map())
@@ -35,7 +36,11 @@ export default function App() {
     try { return new URLSearchParams(window.location.search).has('debug') } catch { return false }
   })
   const versionTapsRef = useRef({ count: 0, timer: null })
-  const currentLang = useLang()
+
+  // Ref tak, aby fetchData (zależne tylko od radius/location) widziało aktualne
+  // filtry bez przepinania interwału przy każdym przełączeniu kategorii.
+  const kindsRef = useRef(kinds)
+  kindsRef.current = kinds
 
   const alertedHexRef = useRef(new Set())
   const dismissedAlertsRef = useRef(new Set(loadDismissed()))
@@ -144,7 +149,8 @@ export default function App() {
         return next.size === prev.size ? prev : next
       })
       if (location && !isDemo) {
-        const inRange = enriched.filter(ac => ac._dist != null && ac._dist <= radius)
+        const inRange = enriched.filter(ac =>
+          ac._dist != null && ac._dist <= radius && kindsRef.current[ac.kind || 'mil'])
         setInRangeCount(inRange.length)
         // Fire one-time effects (vibration + OS notification) for newly entered aircraft
         inRange.forEach(ac => {
@@ -346,6 +352,14 @@ export default function App() {
     [aircraft, selectedHex]
   )
 
+  // Filtr kategorii — mapa pokazuje tylko włączone typy. Zaznaczony samolot
+  // zostaje widoczny, nawet gdy jego kategoria jest wyłączona (żeby nie znikał
+  // panel informacyjny po przełączeniu filtra).
+  const visibleAircraft = useMemo(
+    () => aircraft.filter(ac => kinds[ac.kind || 'mil'] || ac.hex === selectedHex),
+    [aircraft, kinds, selectedHex]
+  )
+
   // U12: meta theme-color flips red when an emergency squawk is currently
   // visible — gives the iOS Safari status bar / Android Chrome chrome a
   // visceral "something is wrong" cue without forcing a notification.
@@ -395,7 +409,7 @@ export default function App() {
   return (
     <div className={`app${activePanel ? ' panel-open' : ''}${selectedAc ? ' info-open' : ''}`}>
       <RadarMap
-        aircraft={aircraft}
+        aircraft={visibleAircraft}
         hasFetched={hasFetched}
         trails={trailsRef}
         serverTrails={serverTrails}
@@ -451,7 +465,14 @@ export default function App() {
                 setActivePanel(null)
               }}>
               <div className="alert-toast-body">
-                <span className="alert-toast-tag">{t('ALERT_TAG')}</span>
+                <span className="alert-toast-tag">
+                  <span style={{
+                    display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
+                    marginRight: 5, verticalAlign: 'middle',
+                    background: ac.kind === 'heli' ? '#00d9ff' : ac.kind === 'heavy' ? '#ffb300' : '#00ff88',
+                  }} />
+                  {ac.kind === 'heli' ? t('FILTER_HELI') : ac.kind === 'heavy' ? t('FILTER_HEAVY') : t('ALERT_TAG')}
+                </span>
                 <span className="alert-toast-call">{ac.flight?.trim() || ac.hex}</span>
                 <span className="alert-toast-detail">{ac.t || '?'} · {Math.round(dist)} km</span>
               </div>
@@ -541,7 +562,42 @@ export default function App() {
                 )}
               </section>
 
-              {/* 3. Powiadomienia push */}
+              {/* 3. Filtr kategorii — co pokazywać na mapie */}
+              <section className="cp-section">
+                <div className="cp-label">{t('FILTER_LABEL')}</div>
+                <div className="kind-filter-list" style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {[
+                    { key: 'mil', label: t('FILTER_MIL'), color: '#00ff88' },
+                    { key: 'heli', label: t('FILTER_HELI'), color: '#00d9ff' },
+                    { key: 'heavy', label: t('FILTER_HEAVY'), color: '#ffb300' },
+                  ].map(({ key, label, color }) => (
+                    <button
+                      key={key}
+                      className="kind-filter-item"
+                      onClick={() => setKinds(prev => ({ ...prev, [key]: !prev[key] }))}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        padding: '8px 10px', borderRadius: 6, cursor: 'pointer',
+                        border: '1px solid rgba(255,255,255,0.12)',
+                        background: kinds[key] ? 'rgba(255,255,255,0.08)' : 'transparent',
+                        color: '#fff', font: 'inherit', textAlign: 'left',
+                        opacity: kinds[key] ? 1 : 0.5,
+                      }}>
+                      <span style={{
+                        width: 12, height: 12, borderRadius: '50%', flexShrink: 0,
+                        background: kinds[key] ? color : 'transparent',
+                        border: `2px solid ${color}`,
+                      }} />
+                      <span style={{ flex: 1 }}>{label}</span>
+                      <span style={{ fontSize: 12, color: kinds[key] ? color : 'rgba(255,255,255,0.4)' }}>
+                        {kinds[key] ? '◉' : '○'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              {/* 4. Powiadomienia push */}
               <section className="cp-section">
                 <div className="cp-label">{t('PUSH_LABEL')}</div>
                 {permissionState === 'unsupported'
@@ -560,21 +616,6 @@ export default function App() {
                 <p className="info-text" style={{ marginTop: 6 }}>
                   {t('PUSH_DESCRIPTION')}
                 </p>
-              </section>
-
-              {/* 4. Język */}
-              <section className="cp-section">
-                <div className="cp-label">{t('LANGUAGE_LABEL')}</div>
-                <div className="btn-group" style={{ marginTop: 4 }}>
-                  {availableLangs().map(l => (
-                    <button key={l}
-                      className="btn-refresh"
-                      style={{ flex: 1, opacity: currentLang === l ? 1 : 0.55 }}
-                      onClick={() => setLang(l)}>
-                      {t(l === 'pl' ? 'LANG_PL' : 'LANG_EN')}
-                    </button>
-                  ))}
-                </div>
               </section>
 
               {error && <p className="err" style={{ fontSize: 11, marginTop: 8 }}>✗ {error}</p>}
@@ -837,8 +878,14 @@ function triggerNotification(ac, dist) {
   if (c) parts.push(`kurs ${c}`)
   const label = `${ac.flight?.trim() || ac.hex} (${ac.t || t('NOTIF_UNKNOWN_TYPE')})`
 
+  // Tytuł zależny od kategorii (wojsko rozróżnia dodatkowo „blisko").
+  const title =
+    ac.kind === 'heavy' ? t('NOTIF_TITLE_HEAVY')
+    : ac.kind === 'heli' ? t('NOTIF_TITLE_HELI')
+    : near ? t('NOTIF_TITLE_NEAR') : t('NOTIF_TITLE')
+
   navigator.serviceWorker.ready.then(reg => {
-    reg.showNotification(near ? t('NOTIF_TITLE_NEAR') : t('NOTIF_TITLE'), {
+    reg.showNotification(title, {
       body: `${label} — ${parts.join(', ')}`,
       icon: '/pwa-192x192.png',
       badge: '/pwa-192x192.png',

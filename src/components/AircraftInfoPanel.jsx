@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { altToColor, ftToM, knToKmh, getCommonName, countryFromHex, countryFlag } from './aircraftShapes'
+import { findLikelyLanding } from '../airfields'
 import { t, useLang, getLang } from '../i18n'
 import './AircraftInfoPanel.css'
 
@@ -58,42 +59,6 @@ function bearingLabel(deg) {
   const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
   const idx = Math.round(((deg % 360) / 45)) % 8
   return `${dirs[idx]} · ${Math.round(deg)}°`
-}
-
-// M3: closest approach prediction (great-circle approximation on a local plane)
-function closestApproach(userLat, userLon, ac) {
-  if (ac.track == null || ac.gs == null || ac.gs < 30) return null
-  const cosLat = Math.cos(userLat * Math.PI / 180)
-  const rx = (ac.lon - userLon) * 111 * cosLat // km east
-  const ry = (ac.lat - userLat) * 111           // km north
-  const speedKmh = ac.gs * 1.852
-  const vx = speedKmh * Math.sin(ac.track * Math.PI / 180)
-  const vy = speedKmh * Math.cos(ac.track * Math.PI / 180)
-  const v2 = vx * vx + vy * vy
-  if (v2 < 0.1) return null
-  const tHours = -(rx * vx + ry * vy) / v2
-  if (tHours < 0) return { approaching: false }
-  const minDistKm = Math.sqrt(Math.max(0, rx * rx + ry * ry - Math.pow(rx * vx + ry * vy, 2) / v2))
-  return { approaching: true, tMinutes: tHours * 60, minDistKm }
-}
-
-// M5: rough flight phase from V/S and altitude (feet)
-function flightPhase(ac) {
-  if (ac.on_ground) return t('PHASE_GROUND')
-  if (ac.alt_baro == null) return null
-  const altFt = ac.alt_baro
-  const vs = ac.baro_rate || 0
-  if (altFt < 1500 && vs > 300) return t('PHASE_TAKEOFF')
-  if (altFt < 5000 && vs < -300) return t('PHASE_APPROACH')
-  if (vs > 500) return t('PHASE_CLIMB')
-  if (vs < -500) return t('PHASE_DESCEND')
-  return t('PHASE_CRUISE')
-}
-
-function approachVerb(tMinutes) {
-  // "Zbliża się · za 4 min" / "Approaching · in 4 min"
-  const en = getLang() === 'en'
-  return `${en ? 'Approaching' : 'Zbliża się'} · ${en ? 'in' : 'za'} ${Math.round(tMinutes)} min`
 }
 
 function formatDuration(ms) {
@@ -318,8 +283,9 @@ export default function AircraftInfoPanel({ ac, trailSources, firstSeen, userLoc
   const color = altToColor(altM)
   const commonName = getCommonName(ac.t)
   const country = ac.country || countryFromHex(ac.hex)
+  const flag = country ? countryFlag(country) : ''
   const operator = operatorFrom(ac.flight)
-  const phase = flightPhase(ac)
+  const landing = findLikelyLanding(ac)
 
   useEffect(() => { setImgError(false) }, [photo])
 
@@ -332,35 +298,14 @@ export default function AircraftInfoPanel({ ac, trailSources, firstSeen, userLoc
     ? `${Math.round(ac._dist)} km${ac._bearing != null ? ` · ${bearingLabel(ac._bearing)}` : ''}`
     : null
 
-  // M3: closest approach. Cap predictions at 60 min — beyond that the linear
-  // extrapolation is meaningless. For minDist below 2 km, label it as a direct
-  // overflight rather than a misleadingly precise "~0 km".
-  const approach = userLocation && ac.lat != null && ac.lon != null
-    ? closestApproach(userLocation.lat, userLocation.lon, ac)
-    : null
-  let approachRow = null
-  if (approach) {
-    if (approach.approaching === false) {
-      approachRow = t('APPROACH_LEAVING')
-    } else if (approach.tMinutes > 60) {
-      approachRow = t('APPROACH_FAR')
-    } else if (approach.minDistKm < 2) {
-      approachRow = `${approachVerb(approach.tMinutes)} · ${t('APPROACH_OVERHEAD')}`
-    } else {
-      approachRow = `${approachVerb(approach.tMinutes)} (~${Math.round(approach.minDistKm)} km)`
-    }
-  }
-
   const rows = [
     [t('INFO_TYPE'),       ac.t ? (commonName ? `${ac.t} · ${commonName}` : ac.t) : '—'],
     operator ? [t('INFO_OPERATOR'),  operator] : null,
     distRow ? [t('INFO_DISTANCE'), distRow] : null,
-    approachRow ? [t('INFO_PROGRESS'), approachRow] : null,
     [t('INFO_ALTITUDE'), altM != null ? `${altM.toLocaleString()} m` : '—'],
-    phase ? [t('INFO_PHASE'),     phase] : null,
     vsLabel ? [t('INFO_VS'), `${vsLabel} ft/min`] : null,
     [t('INFO_SPEED'), kmh != null ? `${kmh} km/h` : '—'],
-    country ? [t('INFO_COUNTRY'),  `${countryFlag(country)} ${country}`.trim()] : null,
+    country ? [t('INFO_COUNTRY'),  country] : null,
     firstSeen ? [t('INFO_ON_RADAR'), `${formatDuration(Date.now() - firstSeen)} · od ${formatHhmm(firstSeen)}`] : null,
   ].filter(Boolean)
 
@@ -386,8 +331,11 @@ export default function AircraftInfoPanel({ ac, trailSources, firstSeen, userLoc
   return (
     <div className="ac-info-panel">
       <div className="ac-info-header">
-        <span className="ac-info-callsign" style={{ color }}>
-          {ac.flight?.trim() || ac.hex}
+        <span className="ac-info-title">
+          {flag && <span className="ac-info-flag">{flag}</span>}
+          <span className="ac-info-callsign" style={{ color }}>
+            {ac.flight?.trim() || ac.hex}
+          </span>
         </span>
         <button className="ac-info-close" onClick={onClose} aria-label={t('CLOSE_AIRCRAFT_PANEL')}>✕</button>
       </div>
@@ -419,6 +367,17 @@ export default function AircraftInfoPanel({ ac, trailSources, firstSeen, userLoc
       {photoState === 'error' && (
         <div className="ac-info-photo-empty" style={{ color: '#ffb74d', borderColor: 'rgba(255,183,77,0.3)' }}>
           {t('PHOTO_ERROR')}
+        </div>
+      )}
+
+      {landing && (
+        <div className={`ac-info-landing${landing.onApproach ? ' approach' : ''}`}>
+          <span className="ac-info-landing-ico">🛬</span>
+          <span>
+            {landing.onApproach ? t('INFO_LANDING_APPROACH') : t('INFO_LANDING')}:{' '}
+            <strong>{landing.icao} {landing.name}</strong>
+            <span className="ac-info-landing-dist"> · {landing.distKm} km</span>
+          </span>
         </div>
       )}
 

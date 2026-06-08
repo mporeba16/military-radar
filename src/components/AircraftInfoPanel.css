@@ -30,6 +30,43 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+.ac-info-landing {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 8px 12px 0;
+  padding: 7px 9px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(0, 217, 255, 0.08);
+  border: 1px solid rgba(0, 217, 255, 0.25);
+}
+
+.ac-info-landing.approach {
+  color: #fff;
+  background: rgba(0, 255, 136, 0.12);
+  border-color: rgba(0, 255, 136, 0.4);
+}
+
+.ac-info-landing strong { font-weight: 700; }
+.ac-info-landing-ico { font-size: 15px; flex-shrink: 0; }
+.ac-info-landing-dist { color: rgba(255, 255, 255, 0.55); }
+
+.ac-info-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.ac-info-flag {
+  font-size: 18px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
 .ac-info-callsign {
   font-size: 14.5px;
   font-weight: bold;

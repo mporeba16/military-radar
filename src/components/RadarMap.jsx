@@ -144,6 +144,13 @@ function buildIconSvg(ac, isSelected, zoomScale) {
   const selectionRing = isSelected
     ? `<circle r="${ringR}" fill="none" stroke="#ffffff" stroke-width="2" opacity="0.9"/>`
     : ''
+  // Kategorie poza wojskiem dostają kolorową obwódkę, by wyróżniały się na mapie
+  // (wojsko = bazowy wygląd bez obwódki). Pomijamy gdy ikona jest zaznaczona.
+  const KIND_RING = { heli: '#00d9ff', heavy: '#ffb300' }
+  const kindRingColor = !isSelected ? KIND_RING[ac.kind] : null
+  const kindRing = kindRingColor
+    ? `<circle r="${ringR}" fill="none" stroke="${kindRingColor}" stroke-width="2" opacity="0.85"/>`
+    : ''
 
   // S3: clamp tap padding so total target is always >= MIN_TAP_TARGET
   const tapPad = Math.max(6, Math.ceil((MIN_TAP_TARGET - effectiveSz) / 2))
@@ -164,6 +171,7 @@ function buildIconSvg(ac, isSelected, zoomScale) {
           <g transform="${tx}">${mainPaths}</g>
         </g>
       </g>
+      ${kindRing}
       ${selectionRing}
     </svg>`
 }
@@ -250,7 +258,7 @@ function AircraftLayer({ aircraft, selectedHex, onSelect, zoomScale }) {
       const trackQ = ac.track != null ? Math.round(ac.track / 5) : 'na'
       const altQ = ac.alt_baro != null ? Math.round(ac.alt_baro / 200) : 'na'
       const v22Slow = /V22|MV22|CV22|OSPREY/i.test(ac.t || '') && ac.gs != null && ac.gs < 100 ? 1 : 0
-      const iconKey = `${trackQ}|${altQ}|${v22Slow}|${ac.t || ''}|${isSelected ? 1 : 0}|${ac.on_ground ? 1 : 0}|${zoomScale}`
+      const iconKey = `${trackQ}|${altQ}|${v22Slow}|${ac.t || ''}|${ac.kind || ''}|${isSelected ? 1 : 0}|${ac.on_ground ? 1 : 0}|${zoomScale}`
 
       const existing = markersRef.current.get(ac.hex)
       if (existing) {

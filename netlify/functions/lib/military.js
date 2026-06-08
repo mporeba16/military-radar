@@ -39,6 +39,42 @@ const GROUND_STATION_PATTERNS = [/XCAM/i, /XCAT/i, /XBAT/i]
 const GROUND_STATION_TYPES = new Set(['TWR', 'GND', 'MLAT', 'RADAR'])
 const MILITARY_SQUAWKS = new Set(['7777', '7400'])
 
+// ── Dodatkowe kategorie poza wojskiem (patrz aircraft.js — trzymane w synchronie) ──
+//   'heli'  — śmigłowiec służbowy (LPR / policja / Straż Graniczna / SAR)
+//   'heavy' — duży/rzadki samolot (B747, An-124/225)
+const SERVICE_HELI_CALLSIGNS = /^(RATOWNIK|RESCUE|MEDIC|HEMS|LIFEGUARD|POLICE|POLICJA|STRAZ|SAR|REGA)/i
+const HELI_TYPE_RE = /^(EC|AS3|AS5|AS6|AW|A109|A119|A129|A139|A149|A169|A189|B0[0-9]|B4(07|12|27|29)|B505|B47|S6[14]|S70|S76|S92|H1(2[05]|3[05]|4[05]|55|60|75)|H47|H53|H60|UH|HH|MH|CH|AH|EH10|MD5|MD6|MI[0-9]|KA[0-9]|R22|R44|R66|BK11|BO10|W3|PZL|NH90|SA3|SH60)/
+
+function normReg(r) { return (r || '').toUpperCase().replace(/[^A-Z0-9]/g, '') }
+function normType(t) { return (t || '').toUpperCase().replace(/[^A-Z0-9]/g, '') }
+
+function isRotorcraft(type, category) {
+  if ((category || '').toUpperCase() === 'A7') return true
+  return HELI_TYPE_RE.test(type)
+}
+
+function isServiceHeli(reg, callsign, type, category) {
+  if (!isRotorcraft(type, category)) return false
+  if (/^SN/.test(reg)) return true
+  if (/^SP(HX|DX)/.test(reg)) return true
+  if (SERVICE_HELI_CALLSIGNS.test(callsign)) return true
+  return false
+}
+
+function isNotableHeavy(type) {
+  if (/^B74/.test(type)) return true
+  if (/^A124$|^A225$/.test(type)) return true
+  return false
+}
+
+// Zwraca dodatkową kategorię ('heavy' | 'heli') lub null (wojsko ma priorytet).
+function classifyExtra(a) {
+  const type = normType(a.t)
+  if (isNotableHeavy(type)) return 'heavy'
+  if (isServiceHeli(normReg(a.r), (a.flight || '').trim(), type, a.category)) return 'heli'
+  return null
+}
+
 function isSuspiciousHex(hex) {
   const n = parseInt(hex, 16)
   if (isNaN(n) || n === 0) return true
@@ -93,6 +129,7 @@ function mapADSBfi(a, lat, lon, radiusKm) {
     gs: a.gs != null ? Math.round(a.gs) : null,
     track: a.track != null ? Math.round(a.track) : null,
     squawk: a.squawk || null,
+    kind: a._kind || 'mil',
   }
 }
 
@@ -108,6 +145,7 @@ function stateToAircraft(s) {
     track: s[10] != null ? Math.round(s[10]) : null,
     squawk: s[14] || null,
     country: s[2],
+    kind: 'mil',
   }
 }
 
@@ -140,10 +178,12 @@ export async function fetchMilitaryNear(lat, lon, radiusKm) {
       .filter(a => isValidADSBfi(a) &&
         a.lat >= lamin && a.lat <= lamax &&
         a.lon >= lomin && a.lon <= lomax)
+    milAircraft.forEach(a => { a._kind = 'mil' })
     const milHexes = new Set(milAircraft.map(a => a.hex))
 
-    // Query 2: geographic supplement — catches aircraft military by our callsign/hex rules
-    // but not tagged in adsb.fi /mil database
+    // Query 2: geographic supplement — catches aircraft not tagged in adsb.fi
+    // /mil: military by our callsign/hex rules, service helicopters, and notable
+    // heavies (B747/An-124).
     let supplementAircraft = []
     try {
       const radiusNm = Math.min(250, Math.round(radiusKm * 0.54))
@@ -153,14 +193,16 @@ export async function fetchMilitaryNear(lat, lon, radiusKm) {
       )
       if (geoRes.ok) {
         const geoData = await geoRes.json()
-        supplementAircraft = (geoData.aircraft || geoData.ac || []).filter(a =>
-          isValidADSBfi(a) &&
-          a.lat >= lamin && a.lat <= lamax &&
-          a.lon >= lomin && a.lon <= lomax &&
-          !milHexes.has(a.hex) &&
-          (MILITARY_HEX_PREFIXES.some(p => (a.hex || '').toLowerCase().startsWith(p)) ||
-           isMilitaryCallsign((a.flight || '').trim()))
-        )
+        supplementAircraft = (geoData.aircraft || geoData.ac || []).filter(a => {
+          if (!isValidADSBfi(a)) return false
+          if (a.lat < lamin || a.lat > lamax || a.lon < lomin || a.lon > lomax) return false
+          if (milHexes.has(a.hex)) return false
+          if (MILITARY_HEX_PREFIXES.some(p => (a.hex || '').toLowerCase().startsWith(p)) ||
+              isMilitaryCallsign((a.flight || '').trim())) { a._kind = 'mil'; return true }
+          const extra = classifyExtra(a)
+          if (extra) { a._kind = extra; return true }
+          return false
+        })
       }
     } catch { /* supplement is best-effort */ }
 

@@ -12,6 +12,27 @@ import { corsHeaders } from './lib/security.js'
 const OPENSKY_USER = process.env.OPENSKY_USER || ''
 const OPENSKY_PASS = process.env.OPENSKY_PASS || ''
 
+// Środek geograficzny Polski — z promieniem 250nm (~463km) jedno zapytanie
+// geograficzne adsb.fi pokrywa cały kraj wraz z pograniczem.
+const POLAND_CENTER = { lat: '52.0', lon: '19.4' }
+
+// Bounding box Polski (z lekkim zapasem na pogranicze/podejścia).
+const POLAND_BBOX = { lamin: 48.9, lomin: 14.0, lamax: 55.0, lomax: 24.2 }
+
+function isInPolandBox(lat, lon) {
+  return lat != null && lon != null &&
+    lat >= POLAND_BBOX.lamin && lat <= POLAND_BBOX.lamax &&
+    lon >= POLAND_BBOX.lomin && lon <= POLAND_BBOX.lomax
+}
+
+// Redukcja szumu: poza Polską pokazujemy tylko maszyny ze znanym kodem typu.
+// Rekordy bez `t` to zwykle Mode-S / MLAT bez danych — masa kropek bez wartości.
+// W Polsce pokazujemy wszystko (także bez typu), żeby nic lokalnie nie umknęło.
+function passesTypeNoise(a) {
+  if ((a.t || '').trim()) return true
+  return isInPolandBox(a.lat ?? a.rr_lat, a.lon ?? a.rr_lon)
+}
+
 const TRAIL_MAX_AGE_MS = 4 * 60 * 60 * 1000  // 4 godziny historii
 const TRAIL_MIN_INTERVAL_MS = 15_000           // min. 15s między punktami
 // Gdy w trasie pojawia się przerwa dłuższa niż FLIGHT_SPLIT_GAP_MS, traktujemy
@@ -194,6 +215,56 @@ const CIVILIAN_CALLSIGN_PATTERNS = [
 
 const MILITARY_SQUAWKS = new Set(['7777', '7400'])
 
+// ── Dodatkowe kategorie poza wojskiem ────────────────────────────────────
+// Klasyfikacja działa tylko na danych adsb.fi (niosą kod typu `t`, rejestrację
+// `r` i kategorię ADS-B `category`) — OpenSky tych pól nie zwraca, więc tam
+// rozpoznajemy wyłącznie wojsko.
+//   'heli'  — śmigłowiec służbowy (LPR / policja / Straż Graniczna / SAR)
+//   'heavy' — duży/rzadki samolot (B747, An-124/225)
+
+// Międzynarodowe callsigny służb ratowniczych/porządkowych
+const SERVICE_HELI_CALLSIGNS = /^(RATOWNIK|RESCUE|MEDIC|HEMS|LIFEGUARD|POLICE|POLICJA|STRAZ|SAR|REGA)/i
+// Kody typów ICAO śmigłowców (uzupełnienie kategorii ADS-B A7)
+const HELI_TYPE_RE = /^(EC|AS3|AS5|AS6|AW|A109|A119|A129|A139|A149|A169|A189|B0[0-9]|B4(07|12|27|29)|B505|B47|S6[14]|S70|S76|S92|H1(2[05]|3[05]|4[05]|55|60|75)|H47|H53|H60|UH|HH|MH|CH|AH|EH10|MD5|MD6|MI[0-9]|KA[0-9]|R22|R44|R66|BK11|BO10|W3|PZL|NH90|SA3|SH60)/
+
+function normReg(r) { return (r || '').toUpperCase().replace(/[^A-Z0-9]/g, '') }
+function normType(t) { return (t || '').toUpperCase().replace(/[^A-Z0-9]/g, '') }
+
+function isRotorcraft(type, category) {
+  if ((category || '').toUpperCase() === 'A7') return true
+  return HELI_TYPE_RE.test(type)
+}
+
+// Służbowy śmigłowiec — wymagamy potwierdzenia, że to wirnikowiec (kategoria
+// ADS-B A7 lub kod typu), bo prefiks SN- noszą też samoloty Straży Granicznej
+// (M28), a SP-DX bywa lekkim samolotem. Kwalifikator „służbowy":
+//   • PL LPR  — rejestracja SP-HX* / SP-DX* (callsign RATOWNIK)
+//   • PL policja / Straż Graniczna — rejestracja SN-*
+//   • międzynarodowe służby — callsign RESCUE/MEDIC/POLICE/SAR…
+function isServiceHeli(reg, callsign, type, category) {
+  if (!isRotorcraft(type, category)) return false
+  if (/^SN/.test(reg)) return true
+  if (/^SP(HX|DX)/.test(reg)) return true
+  if (SERVICE_HELI_CALLSIGNS.test(callsign)) return true
+  return false
+}
+
+// Duże / rzadkie samoloty warte pokazania: B747 (wszystkie warianty) i An-124/225.
+function isNotableHeavy(type) {
+  if (/^B74/.test(type)) return true            // 747 family (B741..B74S)
+  if (/^A124$|^A225$/.test(type)) return true   // An-124 Rusłan / An-225 Mrija
+  return false
+}
+
+// Zwraca dodatkową kategorię ('heavy' | 'heli') lub null. Wojsko sprawdzamy
+// osobno i ma priorytet (np. wojskowy B747 zostaje 'mil').
+function classifyExtra(a) {
+  const type = normType(a.t)
+  if (isNotableHeavy(type)) return 'heavy'
+  if (isServiceHeli(normReg(a.r), (a.flight || '').trim(), type, a.category)) return 'heli'
+  return null
+}
+
 // Odrzuć adresy ICAO które wyglądają na syntetyczne / testowe:
 // - sekwencyjne bajty (np. 0x44-0x55-0x66, różnica stała) → fake/test
 // - kończące się na 0xFFF → TIS-B synthetic (FAA/TC tymczasowe adresy)
@@ -243,6 +314,7 @@ function stateToAircraft(s) {
     reg: null,
     country: s[2],
     on_ground: s[8],
+    kind: 'mil',  // OpenSky nie ma typu/rejestracji — rozpoznajemy tylko wojsko
   }
 }
 
@@ -296,6 +368,7 @@ function mapADSBfiRecord(a) {
     country: '',
     on_ground: a.alt_baro === 'ground' || !!a.on_ground,
     mlat: !hasRealPos && (a.rr_lat != null || a.rr_lon != null),
+    kind: a._kind || 'mil',
   }
 }
 
@@ -341,29 +414,34 @@ async function tryADSBfi(lamin, lomin, lamax, lomax, radiusKm) {
     })
     if (!milRes.ok) return null
     const milData = await milRes.json()
-    const milAircraft = (milData.ac || []).filter(a => isADSBfiRecordInBox(a, lamin, lomin, lamax, lomax))
+    const milAircraft = (milData.ac || []).filter(a =>
+      isADSBfiRecordInBox(a, lamin, lomin, lamax, lomax) && passesTypeNoise(a))
+    milAircraft.forEach(a => { a._kind = 'mil' })
     const milHexes = new Set(milAircraft.map(a => a.hex))
 
-    // Zapytanie 2: supplement geograficzny — łapie samoloty znane nam jako wojskowe
-    // (hex/callsign), ale nieoznaczone w bazie adsb.fi /mil
-    // adsb.fi obsługuje max 250nm (~463km); zawsze robimy supplement niezależnie od trybu
+    // Zapytanie 2: supplement geograficzny — łapie maszyny nieoznaczone w bazie
+    // adsb.fi /mil: wojskowe (po hex/callsign), służbowe śmigłowce oraz duże
+    // samoloty (B747/An-124). adsb.fi obsługuje max 250nm (~463km) — centrujemy
+    // na środku Polski, by jednym zapytaniem pokryć cały kraj (Kraków, Rzeszów).
     let supplementAircraft = []
     {
-      const centerLat = ((lamin + lamax) / 2).toFixed(4)
-      const centerLon = ((lomin + lomax) / 2).toFixed(4)
-      const radiusNm = Math.min(250, Math.round(radiusKm * 0.54))
+      const radiusNm = 250
       try {
         const geoRes = await fetch(
-          `https://opendata.adsb.fi/api/v2/lat/${centerLat}/lon/${centerLon}/dist/${radiusNm}`,
+          `https://opendata.adsb.fi/api/v2/lat/${POLAND_CENTER.lat}/lon/${POLAND_CENTER.lon}/dist/${radiusNm}`,
           { signal: AbortSignal.timeout(8000), headers }
         )
         if (geoRes.ok) {
           const geoData = await geoRes.json()
-          supplementAircraft = (geoData.aircraft || geoData.ac || []).filter(a =>
-            isADSBfiRecordInBox(a, lamin, lomin, lamax, lomax) &&
-            !milHexes.has(a.hex) &&
-            isMilitaryADSBfi(a)
-          )
+          supplementAircraft = (geoData.aircraft || geoData.ac || []).filter(a => {
+            if (!isADSBfiRecordInBox(a, lamin, lomin, lamax, lomax)) return false
+            if (!passesTypeNoise(a)) return false
+            if (milHexes.has(a.hex)) return false
+            if (isMilitaryADSBfi(a)) { a._kind = 'mil'; return true }
+            const extra = classifyExtra(a)
+            if (extra) { a._kind = extra; return true }
+            return false
+          })
         }
       } catch { /* supplement is best-effort */ }
     }

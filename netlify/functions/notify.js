@@ -220,10 +220,17 @@ async function processSubscription({ key, raw, ageMs }, aircraft, subsStore, ale
     const eligible = (map, hex) => !map[hex] || (now - map[hex]) > ALERT_COOLDOWN_MS
 
     const enriched = aircraft.map(a => ({ ...a, _dist: Math.round(haversine(lat, lon, a.lat, a.lon)) }))
-    const nearNow = enriched.filter(a => a._dist <= CLOSE_RANGE_KM)
-    const farNow = enriched.filter(a => a._dist > CLOSE_RANGE_KM)
+    // Wojsko zachowuje rozróżnienie blisko (≤10 km) / w zasięgu; nowe kategorie
+    // (duże samoloty, śmigłowce służbowe) alertują po prostu w całym promieniu.
+    const milNow = enriched.filter(a => (a.kind || 'mil') === 'mil')
+    const heavyNow = enriched.filter(a => a.kind === 'heavy')
+    const heliNow = enriched.filter(a => a.kind === 'heli')
+    const nearNow = milNow.filter(a => a._dist <= CLOSE_RANGE_KM)
+    const farNow = milNow.filter(a => a._dist > CLOSE_RANGE_KM)
     const newNear = nearNow.filter(a => eligible(prevNear, a.hex))
     const newFar = farNow.filter(a => eligible(prevFar, a.hex))
+    const newHeavy = heavyNow.filter(a => eligible(prevFar, a.hex))
+    const newHeli = heliNow.filter(a => eligible(prevFar, a.hex))
 
     subDiag.gpsAgeMs = ageMs
     subDiag.radius = radius
@@ -306,14 +313,40 @@ async function processSubscription({ key, raw, ageMs }, aircraft, subsStore, ale
       if (expired) { await cleanupExpired(); return result }
     }
 
+    // Duże samoloty (B747 / An-124) — rzadkie, więc warty osobny alert.
+    if (newHeavy.length) {
+      const sorted = [...newHeavy].sort((a, b) => a._dist - b._dist)
+      const n = sorted.length
+      const { expired } = await send({
+        title: n === 1 ? 'Duży samolot w zasięgu!' : `${n} dużych samolotów w zasięgu!`,
+        body: n === 1 ? `${planeLabel(sorted[0])} — ${planeDetail(sorted[0])}` : groupBody(sorted),
+        tag: n === 1 ? sorted[0].hex : 'heavy-group',
+        hex: sorted[0].hex,
+      }, `heavy group n=${n}`)
+      if (expired) { await cleanupExpired(); return result }
+    }
+
+    // Śmigłowce służbowe (pogotowie / policja / Straż Graniczna).
+    if (newHeli.length) {
+      const sorted = [...newHeli].sort((a, b) => a._dist - b._dist)
+      const n = sorted.length
+      const { expired } = await send({
+        title: n === 1 ? 'Śmigłowiec służbowy w zasięgu!' : `${n} śmigłowców służbowych w zasięgu!`,
+        body: n === 1 ? `${planeLabel(sorted[0])} — ${planeDetail(sorted[0])}` : groupBody(sorted),
+        tag: n === 1 ? sorted[0].hex : 'heli-group',
+        hex: sorted[0].hex,
+      }, `heli group n=${n}`)
+      if (expired) { await cleanupExpired(); return result }
+    }
+
     // Refresh cooldown maps. Every in-range plane is stamped `now` (so the
     // cooldown counts from when it leaves); near implies far, so a close plane
     // never fires a retroactive far alert. Recently-departed entries are kept
     // until their cooldown lapses, then dropped to bound the map size.
     const nextFar = {}
     const nextNear = {}
-    for (const a of farNow) nextFar[a.hex] = now
-    for (const a of nearNow) { nextNear[a.hex] = now; nextFar[a.hex] = now }
+    for (const a of enriched) nextFar[a.hex] = now
+    for (const a of nearNow) nextNear[a.hex] = now
     for (const [hex, ts] of Object.entries(prevFar)) {
       if (!(hex in nextFar) && now - ts <= ALERT_COOLDOWN_MS) nextFar[hex] = ts
     }
