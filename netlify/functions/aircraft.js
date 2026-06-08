@@ -60,6 +60,9 @@ function passesTypeNoise(a) {
   return isInPoland(a.lat ?? a.rr_lat, a.lon ?? a.rr_lon)
 }
 
+// Wspólny cache live-snapshotu (redukuje zapytania do adsb.fi → mniej 429)
+const SNAPSHOT_TTL_MS = 9000
+
 const TRAIL_MAX_AGE_MS = 4 * 60 * 60 * 1000  // 4 godziny historii
 const TRAIL_MIN_INTERVAL_MS = 15_000           // min. 15s między punktami
 // Gdy w trasie pojawia się przerwa dłuższa niż FLIGHT_SPLIT_GAP_MS, traktujemy
@@ -460,10 +463,14 @@ async function tryADSBfi(lamin, lomin, lamax, lomax) {
     {
       const radiusNm = 250
       try {
-        const geoRes = await fetch(
-          `https://opendata.adsb.fi/api/v2/lat/${POLAND_CENTER.lat}/lon/${POLAND_CENTER.lon}/dist/${radiusNm}`,
-          { signal: AbortSignal.timeout(8000), headers }
-        )
+        const geoUrl = `https://opendata.adsb.fi/api/v2/lat/${POLAND_CENTER.lat}/lon/${POLAND_CENTER.lon}/dist/${radiusNm}`
+        let geoRes = await fetch(geoUrl, { signal: AbortSignal.timeout(8000), headers })
+        // adsb.fi limituje ~1 req/s, a /mil i geo lecą tuż po sobie — drugie
+        // (geo) często dostaje 429. Odczekaj chwilę i spróbuj raz jeszcze.
+        if (geoRes.status === 429) {
+          await new Promise(r => setTimeout(r, 1200))
+          geoRes = await fetch(geoUrl, { signal: AbortSignal.timeout(6000), headers })
+        }
         if (geoRes.ok) {
           const geoData = await geoRes.json()
           supplementAircraft = (geoData.aircraft || geoData.ac || []).filter(a => {
@@ -554,9 +561,29 @@ export const handler = async (event) => {
   const lomin = lonN - degLon
   const lomax = lonN + degLon
 
+  // Cache odpowiedzi: klienci odpytują co 5 s, a adsb.fi limituje ~1 req/s —
+  // bez cache zapytanie geo (drugie po /mil) ciągle dostaje 429 i znikają
+  // helikoptery/heavy. Trzymamy wspólny snapshot ~9 s, więc adsb.fi jest pytane
+  // najwyżej raz na ~9 s niezależnie od liczby klientów.
+  const snapKey = `live-${latN.toFixed(2)}_${lonN.toFixed(2)}_${radiusKm}`
+  let snapStore = null
+  try { snapStore = getStore('aircraft-snapshot') } catch {}
+  if (snapStore) {
+    try {
+      const cached = await snapStore.get(snapKey, { type: 'json' })
+      if (cached && Date.now() - cached.ts < SNAPSHOT_TTL_MS && cached.source !== 'unavailable') {
+        return { statusCode: 200, headers, body: JSON.stringify({ aircraft: cached.aircraft, _source: cached.source, _cached: true }) }
+      }
+    } catch { /* brak cache → pobierz świeżo */ }
+  }
+
   const result = await tryADSBfi(lamin, lomin, lamax, lomax)
     || await tryOpenSky(lamin, lomin, lamax, lomax)
     || { aircraft: [], _source: 'unavailable' }
+
+  if (snapStore && result._source !== 'unavailable') {
+    await snapStore.set(snapKey, JSON.stringify({ ts: Date.now(), aircraft: result.aircraft, source: result._source })).catch(() => {})
+  }
 
   await Promise.race([saveTrails(result.aircraft).catch(() => {}), new Promise(r => setTimeout(r, 3000))])
 
