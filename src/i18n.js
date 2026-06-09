@@ -14,6 +14,7 @@ const STRINGS = {
     GPS_LABEL: 'GPS — wymagany do alertów',
     GPS_OFF_TITLE: 'GPS WYŁĄCZONY',
     GPS_OFF_DESC: 'Bez pozycji alerty zasięgowe nie działają — ani w aplikacji, ani push z serwera.',
+    GPS_SEARCHING: 'Szukam pozycji GPS…',
     GPS_WAITING: 'Oczekiwanie na GPS…',
     GPS_FETCH: 'Pobierz lokalizację',
     GPS_RETRY: 'Spróbuj ponownie',

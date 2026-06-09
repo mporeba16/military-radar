@@ -1,10 +1,19 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 
+const GEO_OPTS = { enableHighAccuracy: false, timeout: 15000, maximumAge: 30000 }
+const RETRY_DELAY_MS = 3000
+const MAX_RETRIES = 6  // ~18 s cichego ponawiania, zanim pokażemy twardy błąd
+
 export function useGeolocation() {
   const [location, setLocation] = useState(null)
   const [accuracy, setAccuracy] = useState(null)
   const [locationError, setLocationError] = useState(null)
   const watchIdRef = useRef(null)
+  const retryTimerRef = useRef(null)
+  const attemptsRef = useRef(0)
+  // Czy mieliśmy KIEDYKOLWIEK poprawny fix — gdy tak, przejściowe błędy
+  // (kCLErrorLocationUnknown) ignorujemy i zostaje ostatnia znana pozycja.
+  const hasFixRef = useRef(false)
 
   const startWatch = useCallback(() => {
     if (!navigator.geolocation) {
@@ -12,40 +21,67 @@ export function useGeolocation() {
       return
     }
     setLocationError(null)
+    attemptsRef.current = 0
 
-    // Ubijamy ewentualny poprzedni watch i startujemy świeży. KLUCZOWE dla
-    // „spróbuj ponownie": watchPosition zwraca id także gdy chwilę później
-    // odpala callback błędu (POSITION_UNAVAILABLE/timeout) — wcześniejszy guard
-    // `if (watchIdRef.current != null) return` blokował wtedy ponowienie na
-    // zawsze (martwy watch z ustawionym id). Teraz każdy retry naprawdę ponawia.
+    // Ubij poprzedni watch i zaplanowane ponowienie — KLUCZOWE dla „spróbuj
+    // ponownie": watchPosition zwraca id także gdy chwilę później odpala błąd,
+    // więc bez czyszczenia martwy watch blokowałby kolejne próby.
     if (watchIdRef.current != null) {
       navigator.geolocation.clearWatch(watchIdRef.current)
       watchIdRef.current = null
     }
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current)
+      retryTimerRef.current = null
+    }
 
     const onOk = pos => {
+      hasFixRef.current = true
+      attemptsRef.current = 0
+      if (retryTimerRef.current) { clearTimeout(retryTimerRef.current); retryTimerRef.current = null }
       setLocation({ lat: pos.coords.latitude, lon: pos.coords.longitude })
       setAccuracy(pos.coords.accuracy ?? null)
-      setLocationError(null)  // clear any stale error on first success
+      setLocationError(null)  // clear any stale error on success
     }
-    const onErr = err => {
-      switch (err.code) {
-        case err.PERMISSION_DENIED:
-          setLocationError('Brak zgody na lokalizację')
-          break
-        case err.POSITION_UNAVAILABLE:
-          setLocationError('Lokalizacja niedostępna')
-          break
-        default:
-          setLocationError('Błąd geolokalizacji')
+
+    const onDenied = () => {
+      hasFixRef.current = false
+      if (retryTimerRef.current) { clearTimeout(retryTimerRef.current); retryTimerRef.current = null }
+      setLocationError('Brak zgody na lokalizację')
+    }
+
+    // Błąd watcha: tylko odmowa zgody jest twarda. Błędy przejściowe
+    // (POSITION_UNAVAILABLE / timeout) ignorujemy — watch sam próbuje dalej, a
+    // ponawianiem i komunikatem zarządza pętla getCurrentPosition poniżej.
+    const onErrWatch = err => {
+      if (err.code === err.PERMISSION_DENIED) onDenied()
+    }
+
+    // Błąd pojedynczego strzału: napędza ponawianie i cap prób.
+    const onErrPoll = err => {
+      if (err.code === err.PERMISSION_DENIED) { onDenied(); return }
+      // POSITION_UNAVAILABLE = kCLErrorLocationUnknown (Safari/CoreLocation) —
+      // niemal zawsze przejściowy: system nie ma fixa teraz, ale dostanie go za
+      // chwilę. Jeśli mamy już pozycję → ignorujemy. Jeśli nie → zostajemy w
+      // stanie „szukam…" (locationError null, BEZ czerwonego alarmu) i ponawiamy
+      // co RETRY_DELAY_MS. Dopiero po MAX_RETRIES pokazujemy twardy błąd.
+      if (hasFixRef.current) return
+      attemptsRef.current += 1
+      if (attemptsRef.current >= MAX_RETRIES) {
+        setLocationError(err.code === err.POSITION_UNAVAILABLE ? 'Lokalizacja niedostępna' : 'Błąd geolokalizacji')
+        return
+      }
+      if (!retryTimerRef.current) {
+        retryTimerRef.current = setTimeout(() => {
+          retryTimerRef.current = null
+          navigator.geolocation.getCurrentPosition(onOk, onErrPoll, { ...GEO_OPTS, maximumAge: 0, timeout: 20000 })
+        }, RETRY_DELAY_MS)
       }
     }
-    const opts = { enableHighAccuracy: false, timeout: 15000, maximumAge: 30000 }
 
-    // Natychmiastowy strzał o pozycję — szybka odpowiedź zamiast czekania na
-    // pierwszy tick watcha (i błąd nie zostawia martwego id).
-    navigator.geolocation.getCurrentPosition(onOk, onErr, opts)
-    watchIdRef.current = navigator.geolocation.watchPosition(onOk, onErr, opts)
+    // Natychmiastowy strzał (szybka odpowiedź) + ciągły watch (utrzymuje pozycję).
+    navigator.geolocation.getCurrentPosition(onOk, onErrPoll, GEO_OPTS)
+    watchIdRef.current = navigator.geolocation.watchPosition(onOk, onErrWatch, GEO_OPTS)
   }, [])
 
   useEffect(() => {
@@ -64,6 +100,10 @@ export function useGeolocation() {
       if (watchIdRef.current != null) {
         navigator.geolocation.clearWatch(watchIdRef.current)
         watchIdRef.current = null
+      }
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current)
+        retryTimerRef.current = null
       }
     }
   }, [startWatch])

@@ -571,7 +571,7 @@ export default function App() {
               {/* 1. GPS — fundament wszystkiego. Karta statusu: zielona gdy jest
                   pozycja, czerwony alarm gdy brak (bez GPS alerty nie działają). */}
               <section className="cp-section">
-                <div className={`gps-card ${location ? 'gps-ok' : 'gps-off'}`}>
+                <div className={`gps-card ${location ? 'gps-ok' : locationError ? 'gps-off' : 'gps-wait'}`}>
                   <div className="cp-label" style={{ marginBottom: 7 }}>{t('GPS_LABEL')}</div>
                   {location
                     ? <>
@@ -584,15 +584,22 @@ export default function App() {
                           </p>
                         )}
                       </>
-                    : <>
-                        <div className="gps-alarm-head">⚠ {t('GPS_OFF_TITLE')}</div>
-                        <p className="gps-alarm-text">{t('GPS_OFF_DESC')}</p>
-                        {locationError === 'Brak zgody na lokalizację'
-                          ? <p className="info-text">{t('GPS_DENIED_HINT')}</p>
-                          : <button className="btn-gps-fix" onClick={requestLocation}>
-                              ◎ {locationError ? t('GPS_RETRY') : t('GPS_FETCH')}
-                            </button>}
-                      </>}
+                    : locationError
+                      ? <>
+                          {/* Twardy stan: odmowa zgody albo poddanie się po próbach */}
+                          <div className="gps-alarm-head">⚠ {t('GPS_OFF_TITLE')}</div>
+                          {locationError === 'Brak zgody na lokalizację'
+                            ? <p className="gps-alarm-text">{t('GPS_DENIED_HINT')}</p>
+                            : <>
+                                <p className="gps-alarm-text">{t('GPS_OFF_DESC')}</p>
+                                <button className="btn-gps-fix" onClick={requestLocation}>◎ {t('GPS_RETRY')}</button>
+                              </>}
+                        </>
+                      : <>
+                          {/* Stan przejściowy — szukamy fixa (np. kCLErrorLocationUnknown) */}
+                          <p className="gps-wait-text">◌ {t('GPS_SEARCHING')}</p>
+                          <button className="link-btn" style={{ marginTop: 6 }} onClick={requestLocation}>{t('GPS_RETRY')}</button>
+                        </>}
                 </div>
               </section>
 
