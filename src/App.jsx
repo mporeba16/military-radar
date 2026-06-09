@@ -16,6 +16,29 @@ const TRAIL_MAX_AGE_MS = 60 * 60 * 1000  // 60 min — aligned closer to server'
 const TRAIL_FLIGHT_SPLIT_GAP_MS = 10 * 60 * 1000  // gap → reset client trail (new flight)
 const SELECTION_GRACE_CYCLES = 2
 
+// Suwak zasięgu alertów. Kotwice rozmieszczone równo (co 1/3 toru), a między
+// nimi interpolacja liniowa — dzięki temu etykiety 25/100/250/500 trafiają
+// dokładnie w swoje pozycje, a dolny zakres (25–100 km, najczęściej używany)
+// dostaje proporcjonalnie więcej skoku suwaka niż rzadziej ruszany górny.
+const RANGE_ANCHORS = [25, 100, 250, 500]
+const RANGE_SEG = 100  // szerokość pozycji suwaka przypadająca na jeden segment
+function rangePosToKm(pos) {
+  const seg = Math.min(Math.floor(pos / RANGE_SEG), RANGE_ANCHORS.length - 2)
+  const f = (pos - seg * RANGE_SEG) / RANGE_SEG
+  const km = RANGE_ANCHORS[seg] + (RANGE_ANCHORS[seg + 1] - RANGE_ANCHORS[seg]) * f
+  const step = km < 100 ? 5 : km < 250 ? 10 : 25  // zaokrąglenie do „ładnych" wartości
+  return Math.round(km / step) * step
+}
+function rangeKmToPos(km) {
+  for (let i = 0; i < RANGE_ANCHORS.length - 1; i++) {
+    const lo = RANGE_ANCHORS[i], hi = RANGE_ANCHORS[i + 1]
+    if (km <= hi || i === RANGE_ANCHORS.length - 2) {
+      return Math.round((i + (km - lo) / (hi - lo)) * RANGE_SEG)
+    }
+  }
+  return 0
+}
+
 export default function App() {
   const [aircraft, setAircraft] = useState([])
   const [isLoading, setIsLoading] = useState(false)
@@ -23,7 +46,8 @@ export default function App() {
   const [error, setError] = useState(null)
   const [radius, setRadius] = useLocalStorage('radar.radius', 100)
   const [kinds, setKinds] = useLocalStorage('radar.kinds', { mil: true, heli: true, heavy: true })
-  const [muted, setMuted] = useLocalStorage('radar.muted', false)
+  const [soundOn, setSoundOn] = useLocalStorage('radar.sound', true)
+  const [vibrateOn, setVibrateOn] = useLocalStorage('radar.vibrate', true)
   const [selectedHex, setSelectedHex] = useState(null)
   const [serverTrails, setServerTrails] = useState(new Map())
   const [trailSources, setTrailSources] = useState(new Map())
@@ -66,10 +90,13 @@ export default function App() {
   const isSubscribedRef = useRef(false)
   isSubscribedRef.current = isSubscribed
 
-  // Wyciszenie dźwięku + wibracji w aplikacji (push systemowy działa niezależnie).
-  // Ref, żeby pętla fetchData widziała aktualną wartość bez przepinania interwału.
-  const mutedRef = useRef(muted)
-  mutedRef.current = muted
+  // Dźwięk i wibracja w aplikacji — niezależne przełączniki (push systemowy działa
+  // osobno). Ref, żeby pętla fetchData widziała aktualną wartość bez przepinania
+  // interwału.
+  const soundRef = useRef(soundOn)
+  soundRef.current = soundOn
+  const vibrateRef = useRef(vibrateOn)
+  vibrateRef.current = vibrateOn
 
   const center = EUROPE_CENTER
 
@@ -171,10 +198,8 @@ export default function App() {
             alertedHexRef.current.add(ac.hex)
             dismissedAlertsRef.current.delete(ac.hex)
             persistDismissed(dismissedAlertsRef.current)
-            if (!mutedRef.current) {
-              navigator.vibrate?.([200, 100, 200])
-              playAlertSound()
-            }
+            if (vibrateRef.current) navigator.vibrate?.([200, 100, 200])
+            if (soundRef.current) playAlertSound()
             // Push serwerowy obsłuży powiadomienie systemowe — lokalne tylko
             // gdy użytkownik NIE jest zasubskrybowany (fallback).
             if (!isSubscribedRef.current) triggerNotification(ac, ac._dist)
@@ -543,42 +568,41 @@ export default function App() {
 
           {activePanel === 'ustawienia' && (
             <div className="panel-body">
-              {/* 1. GPS — fundament wszystkiego */}
+              {/* 1. GPS — fundament wszystkiego. Karta statusu: zielona gdy jest
+                  pozycja, czerwony alarm gdy brak (bez GPS alerty nie działają). */}
               <section className="cp-section">
-                <div className="cp-label">{t('GPS_LABEL')}</div>
-                {location
-                  ? <>
-                      <p className="ok">◉ {location.lat.toFixed(4)}°N {location.lon.toFixed(4)}°E</p>
-                      {accuracy != null && (
-                        <p className="info-text" style={{ fontSize: 10, marginTop: 2 }}>
-                          {t('GPS_ACCURACY')} ±{accuracy < 1000 ? `${Math.round(accuracy)} m` : `${(accuracy / 1000).toFixed(1)} km`}
-                        </p>
-                      )}
-                    </>
-                  : locationError === 'Brak zgody na lokalizację'
+                <div className={`gps-card ${location ? 'gps-ok' : 'gps-off'}`}>
+                  <div className="cp-label" style={{ marginBottom: 7 }}>{t('GPS_LABEL')}</div>
+                  {location
                     ? <>
-                        <p className="err" style={{ fontSize: 11 }}>✗ {locationError}</p>
-                        <p className="info-text" style={{ marginTop: 4 }}>
-                          {t('GPS_DENIED_HINT')}
+                        <p className="ok" style={{ fontSize: 16, letterSpacing: 0.5 }}>
+                          ◉ {location.lat.toFixed(4)}°N {location.lon.toFixed(4)}°E
                         </p>
+                        {accuracy != null && (
+                          <p className="info-text" style={{ fontSize: 10, marginTop: 3 }}>
+                            {t('GPS_ACCURACY')} ±{accuracy < 1000 ? `${Math.round(accuracy)} m` : `${(accuracy / 1000).toFixed(1)} km`}
+                          </p>
+                        )}
                       </>
-                    : locationError
-                      ? <>
-                          <p className="err" style={{ fontSize: 11 }}>✗ {locationError}</p>
-                          <button className="link-btn" style={{ marginTop: 4 }} onClick={requestLocation}>{t('GPS_RETRY')}</button>
-                        </>
-                      : <>
-                          <p className="info-text">{t('GPS_WAITING')}</p>
-                          <button className="link-btn" style={{ marginTop: 4 }} onClick={requestLocation}>{t('GPS_FETCH')}</button>
-                        </>}
+                    : <>
+                        <div className="gps-alarm-head">⚠ {t('GPS_OFF_TITLE')}</div>
+                        <p className="gps-alarm-text">{t('GPS_OFF_DESC')}</p>
+                        {locationError === 'Brak zgody na lokalizację'
+                          ? <p className="info-text">{t('GPS_DENIED_HINT')}</p>
+                          : <button className="btn-gps-fix" onClick={requestLocation}>
+                              ◎ {locationError ? t('GPS_RETRY') : t('GPS_FETCH')}
+                            </button>}
+                      </>}
+                </div>
               </section>
 
               {/* 2. Zasięg alertów */}
               <section className="cp-section">
-                <div className="cp-label">{t('RANGE_LABEL')}: {radius} km</div>
-                <input type="range" min="25" max="500" step="25" value={radius}
-                  onChange={e => setRadius(Number(e.target.value))} className="range-slider" />
-                <div className="range-marks"><span>25</span><span>100</span><span>250</span><span>500</span></div>
+                <div className="cp-label">{t('RANGE_LABEL')}: <strong style={{ color: '#fff' }}>{radius} km</strong></div>
+                <input type="range" min="0" max={(RANGE_ANCHORS.length - 1) * RANGE_SEG} step="1"
+                  value={rangeKmToPos(radius)} aria-label={t('RANGE_LABEL')}
+                  onChange={e => setRadius(rangePosToKm(Number(e.target.value)))} className="range-slider" />
+                <div className="range-marks">{RANGE_ANCHORS.map(a => <span key={a}>{a}</span>)}</div>
                 {location && (
                   <p className="info-text" style={{ marginTop: 6 }}>
                     {t('IN_RANGE_NOW')} <strong style={{ color: inRangeCount > 0 ? '#ff5520' : '#00ff88' }}>
@@ -596,7 +620,7 @@ export default function App() {
               {/* 3. Filtr kategorii — co pokazywać na mapie */}
               <section className="cp-section">
                 <div className="cp-label">{t('FILTER_LABEL')}</div>
-                <div className="kind-filter-list" style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div className="toggle-list">
                   {[
                     { key: 'mil', label: t('FILTER_MIL'), color: '#00ff88' },
                     { key: 'heli', label: t('FILTER_HELI'), color: '#00d9ff' },
@@ -604,23 +628,16 @@ export default function App() {
                   ].map(({ key, label, color }) => (
                     <button
                       key={key}
-                      className="kind-filter-item"
+                      className="toggle-row"
+                      aria-pressed={kinds[key]}
                       onClick={() => setKinds(prev => ({ ...prev, [key]: !prev[key] }))}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 8,
-                        padding: '8px 10px', borderRadius: 6, cursor: 'pointer',
-                        border: '1px solid rgba(255,255,255,0.12)',
-                        background: kinds[key] ? 'rgba(255,255,255,0.08)' : 'transparent',
-                        color: '#fff', font: 'inherit', textAlign: 'left',
-                        opacity: kinds[key] ? 1 : 0.5,
-                      }}>
-                      <span style={{
-                        width: 12, height: 12, borderRadius: '50%', flexShrink: 0,
+                      style={{ opacity: kinds[key] ? 1 : 0.55 }}>
+                      <span className="toggle-dot" style={{
                         background: kinds[key] ? color : 'transparent',
                         border: `2px solid ${color}`,
                       }} />
-                      <span style={{ flex: 1 }}>{label}</span>
-                      <span style={{ fontSize: 12, color: kinds[key] ? color : 'rgba(255,255,255,0.4)' }}>
+                      <span className="toggle-row__label">{label}</span>
+                      <span className="toggle-row__state" style={{ color: kinds[key] ? color : 'rgba(255,255,255,0.4)' }}>
                         {kinds[key] ? '◉' : '○'}
                       </span>
                     </button>
@@ -653,23 +670,32 @@ export default function App() {
                   {t('PUSH_DESCRIPTION')}
                 </p>
 
-                <button
-                  className="mute-toggle"
-                  onClick={() => setMuted(m => !m)}
-                  aria-pressed={muted}
-                  style={{
-                    marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, width: '100%',
-                    padding: '8px 10px', borderRadius: 6, cursor: 'pointer',
-                    border: '1px solid rgba(255,255,255,0.12)',
-                    background: muted ? 'transparent' : 'rgba(255,255,255,0.08)',
-                    color: '#fff', font: 'inherit', textAlign: 'left',
-                  }}>
-                  <span style={{ fontSize: 15 }}>{muted ? '🔕' : '🔔'}</span>
-                  <span style={{ flex: 1 }}>{t('SOUND_LABEL')}</span>
-                  <span style={{ fontSize: 12, color: muted ? 'rgba(255,255,255,0.4)' : '#00ff88' }}>
-                    {muted ? t('SOUND_OFF') : t('SOUND_ON')}
-                  </span>
-                </button>
+                <div className="cp-sublabel">{t('IN_APP_LABEL')}</div>
+                <div className="toggle-list">
+                  <button
+                    className="toggle-row"
+                    onClick={() => setSoundOn(s => !s)}
+                    aria-pressed={soundOn}>
+                    <span className="toggle-ico">{soundOn ? '🔔' : '🔕'}</span>
+                    <span className="toggle-row__label">{t('SOUND_LABEL')}</span>
+                    <span className="toggle-row__state" style={{ color: soundOn ? '#00ff88' : 'rgba(255,255,255,0.4)' }}>
+                      {soundOn ? t('SOUND_ON') : t('SOUND_OFF')}
+                    </span>
+                  </button>
+
+                  {'vibrate' in navigator && (
+                    <button
+                      className="toggle-row"
+                      onClick={() => setVibrateOn(v => !v)}
+                      aria-pressed={vibrateOn}>
+                      <span className="toggle-ico">📳</span>
+                      <span className="toggle-row__label">{t('VIBRATION_LABEL')}</span>
+                      <span className="toggle-row__state" style={{ color: vibrateOn ? '#00ff88' : 'rgba(255,255,255,0.4)' }}>
+                        {vibrateOn ? t('SOUND_ON') : t('SOUND_OFF')}
+                      </span>
+                    </button>
+                  )}
+                </div>
               </section>
 
               {error && <p className="err" style={{ fontSize: 11, marginTop: 8 }}>✗ {error}</p>}
