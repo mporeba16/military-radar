@@ -4,6 +4,7 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import './RadarMap.css'
 import { SHAPES, getShapeKey, altToColor, ftToM } from './aircraftShapes'
+import { MIL_BASES_PL } from '../airfields'
 import { t } from '../i18n'
 
 delete L.Icon.Default.prototype._getIconUrl
@@ -167,13 +168,8 @@ function buildIconSvg(ac, isSelected, zoomScale) {
   const hitR = half + tapPad
   const hitArea = `<circle r="${hitR}" fill="rgba(0,0,0,0)"/>`
 
-  // V1: subtle desaturation when track is unknown (icon faces north by default).
-  // Pozycja tylko zgrubna (rr / rough receiver) → mocniej wyblakła + przerywane
-  // kółko niepewności, żeby było jasne, że to przybliżenie, nie dokładny fix.
-  const groupOpacity = ac.posApprox ? 0.4 : (hasTrack ? 1 : 0.55)
-  const approxRing = ac.posApprox
-    ? `<circle r="${ringR}" fill="none" stroke="#ffffff" stroke-width="1.3" stroke-dasharray="3 3" opacity="0.55"/>`
-    : ''
+  // V1: subtle desaturation when track is unknown (icon faces north by default)
+  const groupOpacity = hasTrack ? 1 : 0.55
 
   // Wykrzyknik dla maszyn z alarmowym squawkiem (7500/7600/7700/7400) — w prawym
   // górnym rogu ikony, NIE obraca się z dziobem (to oznaczenie UI, nie część maszyny).
@@ -198,7 +194,6 @@ function buildIconSvg(ac, isSelected, zoomScale) {
         </g>
       </g>
       ${kindRing}
-      ${approxRing}
       ${selectionRing}
       ${alertBadge}
     </svg>`
@@ -221,6 +216,45 @@ function buildLeafletIcon(ac, isSelected, zoomScale) {
 
 function MapClickHandler({ onSelect }) {
   useMapEvents({ click: () => onSelect(null) })
+  return null
+}
+
+// Statyczna warstwa polskich baz wojskowych (Łask, Krzesiny…). Rysowana POD
+// samolotami (zIndexOffset ujemny), bursztynowym kwadratem. Nazwa pokazuje się
+// dopiero od zoomu LABEL_ZOOM, żeby przy oddaleniu nie zaśmiecać mapy napisami.
+const BASE_LABEL_ZOOM = 8
+function BasesLayer({ zoom }) {
+  const map = useMap()
+  const groupRef = useRef(null)
+
+  useEffect(() => {
+    const group = L.layerGroup()
+    map.addLayer(group)
+    groupRef.current = group
+    return () => { map.removeLayer(group); groupRef.current = null }
+  }, [map])
+
+  useEffect(() => {
+    const group = groupRef.current
+    if (!group) return
+    group.clearLayers()
+    const showLabel = zoom >= BASE_LABEL_ZOOM
+    for (const ap of MIL_BASES_PL) {
+      const label = showLabel
+        ? `<span class="base-marker-label">${ap.name}<span class="base-marker-icao">${ap.icao}</span></span>`
+        : ''
+      const icon = L.divIcon({
+        className: 'base-marker',
+        html: `<span class="base-marker-sq"></span>${label}`,
+        iconSize: [12, 12],
+        iconAnchor: [6, 6],
+      })
+      const m = L.marker([ap.lat, ap.lon], { icon, zIndexOffset: -1000, keyboard: false })
+      m.bindTooltip(`${ap.name} · ${ap.icao}`, { direction: 'top', offset: [0, -8], className: 'base-tooltip' })
+      group.addLayer(m)
+    }
+  }, [zoom])
+
   return null
 }
 
@@ -286,7 +320,7 @@ function AircraftLayer({ aircraft, selectedHex, onSelect, zoomScale }) {
       const trackQ = ac.track != null ? Math.round(ac.track / 5) : 'na'
       const altQ = ac.alt_baro != null ? Math.round(ac.alt_baro / 200) : 'na'
       const v22Slow = /V22|MV22|CV22|OSPREY/i.test(ac.t || '') && ac.gs != null && ac.gs < 100 ? 1 : 0
-      const iconKey = `${trackQ}|${altQ}|${v22Slow}|${ac.t || ''}|${ac.kind || ''}|${squawkAlertColor(ac.squawk) || ''}|${ac.posApprox ? 1 : 0}|${isSelected ? 1 : 0}|${ac.on_ground ? 1 : 0}|${zoomScale}`
+      const iconKey = `${trackQ}|${altQ}|${v22Slow}|${ac.t || ''}|${ac.kind || ''}|${squawkAlertColor(ac.squawk) || ''}|${isSelected ? 1 : 0}|${ac.on_ground ? 1 : 0}|${zoomScale}`
 
       const existing = markersRef.current.get(ac.hex)
       if (existing) {
@@ -347,12 +381,21 @@ function AircraftLayer({ aircraft, selectedHex, onSelect, zoomScale }) {
 
 export default function RadarMap({
   aircraft, hasFetched, trails, serverTrails, center, gpsCenter, radius,
-  selectedHex, onSelect, activeTileId,
+  selectedHex, onSelect, activeTileId, showBases,
 }) {
   const initialZoom = 6  // S4: was 5, but icons were too small at default view
   const [zoom, setZoom] = useState(initialZoom)
   const tileLayer = TILE_LAYERS.find(l => l.id === activeTileId) || TILE_LAYERS[0]
   const zoomScale = useMemo(() => iconScaleForZoom(zoom), [zoom])
+  const mapRef = useRef(null)
+
+  // Mapa startuje na środku Europy (żeby było widać cały kraj). Ten przycisk
+  // pojawia się dopiero, gdy mamy GPS, i przelatuje kamerą do pozycji użytkownika.
+  const recenter = () => {
+    const map = mapRef.current
+    if (!map || !gpsCenter) return
+    map.flyTo(gpsCenter, Math.max(map.getZoom(), 9), { duration: 0.6 })
+  }
 
   // Trail polylines for the selected aircraft only.
   // - T2: dedup by proximity (50 m / 30 s) instead of exact ts match
@@ -440,7 +483,18 @@ export default function RadarMap({
           {t('NO_AIRCRAFT')}
         </div>
       )}
+      {gpsCenter && (
+        <button
+          className="map-recenter-btn"
+          onClick={recenter}
+          aria-label={t('RECENTER_GPS')}
+          title={t('RECENTER_GPS')}
+        >
+          ◎
+        </button>
+      )}
       <MapContainer
+        ref={mapRef}
         center={center}
         zoom={initialZoom}
         style={{ width: '100%', height: '100%' }}
@@ -451,6 +505,8 @@ export default function RadarMap({
         <MapClickHandler onSelect={onSelect} />
         <TileFilter filter={tileLayer.filter} />
         <ZoomTracker onZoomChange={setZoom} />
+
+        {showBases && <BasesLayer zoom={zoom} />}
 
         {radius && gpsCenter && (
           <Circle center={gpsCenter} radius={radius * 1000} pathOptions={{

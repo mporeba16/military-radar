@@ -57,7 +57,7 @@ function isInPoland(lat, lon) {
 // W Polsce pokazujemy wszystko (także bez typu), żeby nic lokalnie nie umknęło.
 function passesTypeNoise(a) {
   if ((a.t || '').trim()) return true
-  return isInPoland(a.lat ?? a.rr_lat, a.lon ?? a.rr_lon)
+  return isInPoland(a.lat, a.lon)
 }
 
 // Wspólny cache live-snapshotu (redukuje zapytania do adsb.fi → mniej 429)
@@ -356,18 +356,18 @@ async function tryOpenSky(lamin, lomin, lamax, lomax) {
 }
 
 function mapADSBfiRecord(a) {
-  // Pozycja: preferujemy realny fix ADS-B/MLAT (a.lat/a.lon). Gdy go brak,
-  // pokazujemy zgrubną rr_lat/rr_lon (rough receiver) — to lokalizacja odbiornika,
-  // potrafi być o dziesiątki km obok — ale OZNACZAMY ją jako przybliżoną
-  // (posApprox), żeby front narysował ją wyblakłą i bez trasy. Lepsze to niż
-  // chowanie lecącej maszyny wojskowej (np. M28, który chwilowo gubi ADS-B).
-  const hasRealPos = a.lat != null && a.lon != null
+  // Używamy WYŁĄCZNIE realnej pozycji (a.lat/a.lon) — pokrywa to ADS-B oraz
+  // wyliczony MLAT. NIE schodzimy do rr_lat/rr_lon (rough receiver) — to tylko
+  // lokalizacja odbiornika, potrafiąca być oddalona o dziesiątki km od maszyny
+  // (powodowała „odskok" ikony od trasy). Rekordy bez realnej pozycji są
+  // odsiewane już w isADSBfiRecordInBox — maszyna znika z radaru, dopóki nie
+  // odzyska własnego fixa (zamiast pokazywać ją w przybliżonym miejscu).
   return {
     hex: (a.hex || '').toLowerCase(),
     flight: (a.flight || a.hex || '').trim(),
     t: a.t || '',
-    lat: hasRealPos ? a.lat : a.rr_lat,
-    lon: hasRealPos ? a.lon : a.rr_lon,
+    lat: a.lat,
+    lon: a.lon,
     alt_baro: (a.alt_baro != null && a.alt_baro !== 'ground') ? a.alt_baro : null,
     gs: a.gs != null ? Math.round(a.gs) : null,
     track: a.track != null ? Math.round(a.track) : null,
@@ -376,10 +376,9 @@ function mapADSBfiRecord(a) {
     reg: a.r || null,
     country: '',
     on_ground: a.alt_baro === 'ground' || !!a.on_ground,
-    // Pozycja tylko zgrubna (rough receiver) — front rysuje ją inaczej.
-    posApprox: !hasRealPos,
-    // Pomijamy w trasie zarówno pozycje zgrubne, jak i MLAT-derived (skokowe).
-    mlat: !hasRealPos || (Array.isArray(a.mlat) && a.mlat.length > 0),
+    // MLAT-derived position (adsb.fi oznacza pola wyliczone w tablicy `mlat`) —
+    // bywa skokowy, więc pomijamy go przy zapisie trasy (saveTrails), ale rysujemy.
+    mlat: Array.isArray(a.mlat) && a.mlat.length > 0,
     kind: a._kind || 'mil',
   }
 }
@@ -387,10 +386,11 @@ function mapADSBfiRecord(a) {
 const GROUND_STATION_TYPES = new Set(['TWR', 'GND', 'MLAT', 'RADAR'])
 
 function isADSBfiRecordInBox(a, lamin, lomin, lamax, lomax) {
-  // Dopuszczamy też pozycję zgrubną rr_* (oznaczaną potem jako posApprox), żeby
-  // nie chować lecących maszyn, które chwilowo mają tylko rough-receiver fix.
-  const lat = a.lat ?? a.rr_lat
-  const lon = a.lon ?? a.rr_lon
+  // Wymagamy REALNEJ pozycji (ADS-B lub wyliczony MLAT). Rekordy mające tylko
+  // rr_lat/rr_lon (rough receiver) odrzucamy — to lokalizacja odbiornika, nie
+  // maszyny, i powodowała odskoki ikony. Bez własnego fixa maszyna znika.
+  const lat = a.lat
+  const lon = a.lon
   const alt = typeof a.alt_baro === 'number' ? a.alt_baro : null
   if (GROUND_STATION_TYPES.has((a.t || '').toUpperCase())) return false
   if (GROUND_STATION_TYPES.has((a.r || '').toUpperCase())) return false

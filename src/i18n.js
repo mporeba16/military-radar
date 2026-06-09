@@ -34,6 +34,9 @@ const STRINGS = {
     PUSH_ENABLE: 'Włącz powiadomienia',
     PUSH_CONNECTING: '◌ Łączenie…',
     PUSH_DESCRIPTION: 'Alert gdy wojskowy samolot pojawi się w zasięgu GPS — nawet gdy aplikacja jest zamknięta. Sprawdzane co 5 minut przez serwer.',
+    SOUND_LABEL: 'Dźwięk i wibracja w aplikacji',
+    SOUND_ON: '◉ WŁ',
+    SOUND_OFF: '○ WYŁ',
     TEST_PUSH_LABEL: 'TESTOWY PUSH',
     TEST_PUSH_BTN: '⚠ Wyślij testowy push z serwera',
     TEST_PUSH_SENDING: '◌ Wysyłanie…',
@@ -62,8 +65,9 @@ const STRINGS = {
     REFRESH_BTN: '↻ Odśwież',
     SETTINGS_FOOTER: 'Jeśli alerty nie działają: zamknij i otwórz app ponownie (wymuś odświeżenie).',
     SELECT_MAP: 'WYBIERZ MAPĘ',
+    OVERLAYS_LABEL: 'WARSTWY',
+    BASES_LABEL: 'Polskie bazy wojskowe',
     ALT_LEGEND_LABEL: 'WYSOKOŚĆ (KOLOR SAMOLOTU)',
-    INFO_POS_APPROX: '≈ Pozycja przybliżona (brak dokładnego ADS-B)',
     INFO_LANDING: 'Prawdopodobnie ląduje',
     INFO_LANDING_APPROACH: 'Na podejściu do',
     ALERT_TAG: '⚠ W ZASIĘGU',
@@ -95,6 +99,7 @@ const STRINGS = {
     NOTIF_TITLE_HELI: 'Śmigłowiec służbowy w zasięgu!',
     NOTIF_UNKNOWN_TYPE: 'nieznany typ',
     NOTIF_SHOW: 'Pokaż na mapie',
+    RECENTER_GPS: 'Wyśrodkuj na mojej pozycji',
   },
 }
 

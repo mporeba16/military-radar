@@ -23,11 +23,13 @@ export default function App() {
   const [error, setError] = useState(null)
   const [radius, setRadius] = useLocalStorage('radar.radius', 100)
   const [kinds, setKinds] = useLocalStorage('radar.kinds', { mil: true, heli: true, heavy: true })
+  const [muted, setMuted] = useLocalStorage('radar.muted', false)
   const [selectedHex, setSelectedHex] = useState(null)
   const [serverTrails, setServerTrails] = useState(new Map())
   const [trailSources, setTrailSources] = useState(new Map())
   const [activePanel, setActivePanel] = useState(null)
   const [activeTileId, setActiveTileId] = useLocalStorage('radar.tile', 'osm-adsbx')
+  const [showBases, setShowBases] = useLocalStorage('radar.bases', true)
   const [lastUpdated, setLastUpdated] = useState(null)
   const [alerts, setAlerts] = useState([])
   const [inRangeCount, setInRangeCount] = useState(0)
@@ -63,6 +65,11 @@ export default function App() {
   // W aplikacji i tak zostają toast + dźwięk + wibracja.
   const isSubscribedRef = useRef(false)
   isSubscribedRef.current = isSubscribed
+
+  // Wyciszenie dźwięku + wibracji w aplikacji (push systemowy działa niezależnie).
+  // Ref, żeby pętla fetchData widziała aktualną wartość bez przepinania interwału.
+  const mutedRef = useRef(muted)
+  mutedRef.current = muted
 
   const center = EUROPE_CENTER
 
@@ -164,8 +171,10 @@ export default function App() {
             alertedHexRef.current.add(ac.hex)
             dismissedAlertsRef.current.delete(ac.hex)
             persistDismissed(dismissedAlertsRef.current)
-            navigator.vibrate?.([200, 100, 200])
-            playAlertSound()
+            if (!mutedRef.current) {
+              navigator.vibrate?.([200, 100, 200])
+              playAlertSound()
+            }
             // Push serwerowy obsłuży powiadomienie systemowe — lokalne tylko
             // gdy użytkownik NIE jest zasubskrybowany (fallback).
             if (!isSubscribedRef.current) triggerNotification(ac, ac._dist)
@@ -206,6 +215,12 @@ export default function App() {
 
   // Auto-start GPS tracking on mount
   useEffect(() => { requestLocation() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Clear the test-push status timeout on unmount (avoids setState on a gone
+  // component if the panel closes mid-countdown).
+  useEffect(() => () => {
+    if (testPushTimerRef.current) clearTimeout(testPushTimerRef.current)
+  }, [])
 
   // Polling that pauses with the tab and resumes cleanly.
   //
@@ -427,6 +442,7 @@ export default function App() {
         selectedHex={selectedHex}
         onSelect={handleSelect}
         activeTileId={activeTileId}
+        showBases={showBases}
       />
 
       {/* Version — bottom left */}
@@ -464,12 +480,19 @@ export default function App() {
       {/* Alert toasts — persistent until aircraft leaves range or user dismisses */}
       {alerts.length > 0 && (
         <div className="alert-stack">
-          {alerts.slice(0, 3).map(({ hex, ac, dist }) => (
+          {alerts.slice(0, 3).map(({ hex, ac, dist }) => {
+            const openAircraft = () => {
+              if (hex.startsWith('__')) return
+              setSelectedHex(ac.hex)
+              setActivePanel(null)
+            }
+            return (
             <div key={hex} className="alert-toast"
-              onClick={() => {
-                if (hex.startsWith('__')) return
-                setSelectedHex(ac.hex)
-                setActivePanel(null)
+              role="button"
+              tabIndex={0}
+              onClick={openAircraft}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openAircraft() }
               }}>
               <div className="alert-toast-body">
                 <span className="alert-toast-tag">
@@ -494,7 +517,8 @@ export default function App() {
                   setAlerts(prev => prev.filter(a => a.hex !== hex))
                 }}>✕</button>
             </div>
-          ))}
+            )
+          })}
           {alerts.length > 3 && (
             <div className="alert-toast-overflow">+{alerts.length - 3} {t('ALERT_OVERFLOW')}</div>
           )}
@@ -628,6 +652,24 @@ export default function App() {
                 <p className="info-text" style={{ marginTop: 6 }}>
                   {t('PUSH_DESCRIPTION')}
                 </p>
+
+                <button
+                  className="mute-toggle"
+                  onClick={() => setMuted(m => !m)}
+                  aria-pressed={muted}
+                  style={{
+                    marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+                    padding: '8px 10px', borderRadius: 6, cursor: 'pointer',
+                    border: '1px solid rgba(255,255,255,0.12)',
+                    background: muted ? 'transparent' : 'rgba(255,255,255,0.08)',
+                    color: '#fff', font: 'inherit', textAlign: 'left',
+                  }}>
+                  <span style={{ fontSize: 15 }}>{muted ? '🔕' : '🔔'}</span>
+                  <span style={{ flex: 1 }}>{t('SOUND_LABEL')}</span>
+                  <span style={{ fontSize: 12, color: muted ? 'rgba(255,255,255,0.4)' : '#00ff88' }}>
+                    {muted ? t('SOUND_OFF') : t('SOUND_ON')}
+                  </span>
+                </button>
               </section>
 
               {error && <p className="err" style={{ fontSize: 11, marginTop: 8 }}>✗ {error}</p>}
@@ -772,6 +814,31 @@ export default function App() {
                   </button>
                 ))}
               </div>
+
+              <section className="cp-section" style={{ marginTop: 16 }}>
+                <div className="cp-label">{t('OVERLAYS_LABEL')}</div>
+                <button
+                  className="overlay-toggle"
+                  onClick={() => setShowBases(b => !b)}
+                  aria-pressed={showBases}
+                  style={{
+                    marginTop: 6, display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+                    padding: '8px 10px', borderRadius: 6, cursor: 'pointer',
+                    border: '1px solid rgba(255,255,255,0.12)',
+                    background: showBases ? 'rgba(255,179,0,0.12)' : 'transparent',
+                    color: '#fff', font: 'inherit', textAlign: 'left',
+                  }}>
+                  <span style={{
+                    width: 12, height: 12, flexShrink: 0, boxSizing: 'border-box',
+                    background: showBases ? 'rgba(255,179,0,0.2)' : 'transparent',
+                    border: '1.5px solid #ffb300',
+                  }} />
+                  <span style={{ flex: 1 }}>{t('BASES_LABEL')}</span>
+                  <span style={{ fontSize: 12, color: showBases ? '#ffb300' : 'rgba(255,255,255,0.4)' }}>
+                    {showBases ? '◉' : '○'}
+                  </span>
+                </button>
+              </section>
 
               <section className="cp-section" style={{ marginTop: 16 }}>
                 <div className="cp-label">{t('ALT_LEGEND_LABEL')}</div>

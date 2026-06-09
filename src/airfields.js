@@ -42,6 +42,10 @@ export const AIRFIELDS = [
   { icao: 'LKKB', name: 'Praga-Kbely',       lat: 50.1213, lon: 14.5436, mil: true },
 ]
 
+// Polskie bazy wojskowe (ICAO EP*) — do narysowania na mapie jako statyczna
+// warstwa. Przygraniczne bazy NATO z listy wyżej celowo pomijamy tutaj.
+export const MIL_BASES_PL = AIRFIELDS.filter(a => a.mil && a.icao.startsWith('EP'))
+
 function haversine(lat1, lon1, lat2, lon2) {
   const R = 6371
   const dLat = (lat2 - lat1) * Math.PI / 180
