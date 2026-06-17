@@ -249,9 +249,18 @@
   cursor: pointer;
   font-family: 'Courier New', monospace;
   font-size: 11px;
+  /* Tekstowy link, ale to realna akcja (wypis z push / ponów GPS) — dajemy
+     pełnowymiarowy tap-target 44px wysokości bez przesuwania layoutu. */
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
   padding: 0;
   text-decoration: underline;
   text-underline-offset: 2px;
+}
+.link-btn:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.5);
+  outline-offset: 2px;
 }
 
 .range-slider {
@@ -262,6 +271,13 @@
   outline: none;
   border-radius: 2px;
   margin-top: 2px;
+}
+
+/* Suwak zasięgu: domyślnie bez outline, ale focus z klawiatury MUSI być
+   widoczny (inaczej niewidzialny dla nawigacji Tab). */
+.range-slider:focus-visible {
+  outline: 2px solid rgba(0, 255, 136, 0.7);
+  outline-offset: 4px;
 }
 
 .range-slider::-webkit-slider-thumb {
@@ -439,6 +455,7 @@
 .toggle-row__label { flex: 1; }
 .toggle-row__state { font-size: 12px; font-family: 'Courier New', monospace; }
 .toggle-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; box-sizing: border-box; }
+.toggle-swatch { width: 12px; height: 12px; flex-shrink: 0; box-sizing: border-box; border: 1.5px solid #ffb300; }
 .toggle-ico { font-size: 15px; width: 18px; text-align: center; flex-shrink: 0; }
 
 .map-layer-list {

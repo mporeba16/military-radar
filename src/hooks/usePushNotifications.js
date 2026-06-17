@@ -60,6 +60,11 @@ async function fetchStatus(sub) {
 
 export function usePushNotifications(location, radius) {
   const [isSubscribed, setIsSubscribed] = useState(false)
+  // Czy znamy już stan subskrypcji? Zanim asynchroniczne getSubscription() się
+  // rozwiąże, isSubscribed jest false — gdyby klient w tym oknie odpalił lokalne
+  // powiadomienie, zdublowałby push z serwera. Ten flag pozwala odpalać fallback
+  // dopiero, gdy NA PEWNO wiemy, że użytkownik nie jest zasubskrybowany.
+  const [subResolved, setSubResolved] = useState(false)
   const [isSubscribing, setIsSubscribing] = useState(false)
   const [subscribeError, setSubscribeError] = useState(null)
   const [syncError, setSyncError] = useState(null)
@@ -72,15 +77,24 @@ export function usePushNotifications(location, radius) {
   // On mount: restore existing subscription. Re-sync handled by the
   // separate effect below, which reacts to location/radius changes.
   useEffect(() => {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      // Push nieobsługiwany → serwer i tak nie wyśle, więc lokalny fallback ma
+      // działać od razu: traktujemy stan jako rozstrzygnięty (i niesubskrybowany).
+      setSubResolved(true)
+      return
+    }
     let cancelled = false
     navigator.serviceWorker.ready
       .then(reg => reg.pushManager.getSubscription())
       .then(sub => {
-        if (cancelled || !sub) return
-        subRef.current = sub
-        setIsSubscribed(true)
+        if (cancelled) return
+        if (sub) {
+          subRef.current = sub
+          setIsSubscribed(true)
+        }
+        setSubResolved(true)
       })
+      .catch(() => { if (!cancelled) setSubResolved(true) })
     return () => { cancelled = true }
   }, [])
 
@@ -190,6 +204,7 @@ export function usePushNotifications(location, radius) {
 
   return {
     isSubscribed,
+    subResolved,
     isSubscribing,
     subscribe,
     unsubscribe,

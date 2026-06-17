@@ -34,6 +34,25 @@ function planeLabel(ac) {
   return `${ac.flight?.trim() || ac.hex}${ac.t ? ` (${ac.t})` : ''}`
 }
 
+// Dedup po urządzeniu: jeśli jeden telefon ma kilka rekordów subskrypcji
+// (rotacja endpointu APNS, albo stare rekordy bez deviceId, których prune w
+// subscribe.js nie sprzątnął), bez tego dostałby KAŻDY alert tyle razy, ile ma
+// rekordów — to główna przyczyna „podwójnych" powiadomień na iOS. Zostawiamy
+// tylko najświeższy endpoint (max updatedAt) na deviceId; rekordy bez deviceId
+// zostają nietknięte (nie mamy jak ich powiązać z urządzeniem).
+export function dedupeByDevice(subs) {
+  const byDevice = new Map()
+  const out = []
+  for (const v of subs) {
+    const dev = v.raw?.deviceId
+    if (!dev) { out.push(v); continue }
+    const prev = byDevice.get(dev)
+    if (!prev || (v.raw.updatedAt || 0) > (prev.raw.updatedAt || 0)) byDevice.set(dev, v)
+  }
+  for (const v of byDevice.values()) out.push(v)
+  return out
+}
+
 // "F16 (F16) — 8 km, FL300, kurs N"
 function planeDetail(ac) {
   const parts = [`${ac._dist} km`]
@@ -125,16 +144,22 @@ export const handler = async (event) => {
     valid.push({ key, raw, ageMs })
   }
 
+  const deduped = dedupeByDevice(valid)
+  stats.dedupedDuplicates = valid.length - deduped.length
+  if (stats.dedupedDuplicates > 0) {
+    console.log(`[notify] deduped ${stats.dedupedDuplicates} duplicate device record(s)`)
+  }
+
   // Shared fetch: one bounding circle (centroid + reach) covering all subs.
   // adsb.fi /mil is global so tagged military is always covered; the geographic
   // supplement is capped at ~250nm from the centroid, so subs far from the
   // centroid may miss callsign-only matches — fine for a Poland-focused app.
   let snapshot = []
   let cLat = 0, cLon = 0, coverage = 0
-  if (valid.length) {
-    cLat = valid.reduce((s, v) => s + v.raw.lat, 0) / valid.length
-    cLon = valid.reduce((s, v) => s + v.raw.lon, 0) / valid.length
-    for (const v of valid) {
+  if (deduped.length) {
+    cLat = deduped.reduce((s, v) => s + v.raw.lat, 0) / deduped.length
+    cLon = deduped.reduce((s, v) => s + v.raw.lon, 0) / deduped.length
+    for (const v of deduped) {
       coverage = Math.max(coverage, haversine(cLat, cLon, v.raw.lat, v.raw.lon) + (v.raw.radius ?? 100))
     }
     coverage = Math.min(Math.ceil(coverage), MAX_COVERAGE_KM)
@@ -152,7 +177,7 @@ export const handler = async (event) => {
     haversine(cLat, cLon, v.raw.lat, v.raw.lon) + (v.raw.radius ?? 100) <= coverage + 0.5
 
   // Pass 2 — resolve each sub's aircraft (shared snapshot, or own fetch) and process.
-  const results = await Promise.allSettled(valid.map(async (v) => {
+  const results = await Promise.allSettled(deduped.map(async (v) => {
     const radius = v.raw.radius ?? 100
     const aircraft = covered(v)
       ? snapshot.filter(a => haversine(v.raw.lat, v.raw.lon, a.lat, a.lon) <= radius)

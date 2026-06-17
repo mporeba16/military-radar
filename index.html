@@ -3,9 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#0a1628" />
+    <meta name="theme-color" content="#080f1c" />
     <meta name="description" content="Radar wojskowych samolotów nad Polską i Europą — alerty push, mapa, historia tras." />
     <meta name="color-scheme" content="dark" />
+
+    <!-- iOS PWA (dodane do ekranu głównego): standalone + treść POD status barem
+         / Dynamic Island. Bez 'black-translucent' iOS układa webview poniżej
+         nieprzezroczystego status baru, przez co env(safe-area-inset-top) ≈ 0 i
+         cała obsługa notcha (paddingi safe-area) nic by nie robiła. -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Radar PL" />
 
     <!-- Open Graph -->
     <meta property="og:title" content="Radar Wojskowy" />
