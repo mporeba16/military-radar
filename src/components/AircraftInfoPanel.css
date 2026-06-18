@@ -237,27 +237,31 @@
   .ac-info-panel { width: 290px; }
 }
 
-/* Mobile — wysuwana karta od dołu zamiast lewego boku */
+/* Mobile — karta wysuwana z GÓRY, na całą szerokość, ponad logiem i przyciskami
+   (USTAW/MAPY chowają się pod nią — żeby je odsłonić, zamknij kartę ✕).
+   z-index > .map-ctrl-btns (1001) i logo (1000); padding-top = safe-area, żeby
+   nagłówek/✕ nie wchodziły pod notch / Dynamic Island. */
 @media (max-width: 600px) {
   .ac-info-panel {
-    top: auto;
-    bottom: 0;
+    top: 0;
+    bottom: auto;
     left: 0;
     right: 0;
     width: 100vw;
     max-width: none;
-    max-height: 62dvh;
-    border-radius: 8px 8px 0 0;
+    max-height: 88dvh;
+    z-index: 1100;
+    border-radius: 0 0 10px 10px;
+    border-top: none;
     border-left: none;
     border-right: none;
-    border-bottom: none;
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-    animation: slideUpIn 0.18s ease-out;
-    box-shadow: 0 -6px 30px rgba(0, 0, 0, 0.6);
+    padding-top: env(safe-area-inset-top, 0px);
+    animation: slideDownIn 0.18s ease-out;
+    box-shadow: 0 6px 30px rgba(0, 0, 0, 0.6);
   }
 
-  @keyframes slideUpIn {
-    from { transform: translateY(100%); opacity: 0.4; }
+  @keyframes slideDownIn {
+    from { transform: translateY(-100%); opacity: 0.4; }
     to   { transform: translateY(0); opacity: 1; }
   }
 

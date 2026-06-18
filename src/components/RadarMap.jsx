@@ -152,8 +152,17 @@ function buildIconSvg(ac, isSelected, zoomScale) {
   ).join('')
   const shadowPaths = paths.map(d => `<path d="${d}" fill="rgba(0,0,0,0.4)"/>`).join('')
   const ringR = Math.min(16 * zoomScale, half - 2)
+  // Zaznaczenie: ciemne tło (czytelne na jasnej mapie/satelicie) + jaskrawy
+  // zielony pierścień + rozszerzający się, zanikający puls — od razu widać,
+  // którą maszynę kliknięto, nawet w gęstym ruchu.
+  const selPulseR = ringR + 11
   const selectionRing = isSelected
-    ? `<circle r="${ringR}" fill="none" stroke="#ffffff" stroke-width="2" opacity="0.9"/>`
+    ? `<circle r="${ringR}" fill="none" stroke="rgba(0,0,0,0.55)" stroke-width="4.5"/>
+       <circle r="${ringR}" fill="none" stroke="#00ff88" stroke-width="2.5"/>
+       <circle r="${ringR}" fill="none" stroke="#00ff88" stroke-width="2" opacity="0.7">
+         <animate attributeName="r" from="${ringR}" to="${selPulseR}" dur="1.4s" repeatCount="indefinite"/>
+         <animate attributeName="opacity" from="0.7" to="0" dur="1.4s" repeatCount="indefinite"/>
+       </circle>`
     : ''
   // Kategorie poza wojskiem dostają kolorową obwódkę, by wyróżniały się na mapie
   // (wojsko = bazowy wygląd bez obwódki). Pomijamy gdy ikona jest zaznaczona.

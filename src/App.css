@@ -606,9 +606,10 @@
   .panel-open .ac-info-panel {
     display: none;
   }
-  /* S1: when info card is open at the bottom on mobile, hide the zoom control
-     which would otherwise be hidden behind the card */
-  .info-open .leaflet-control-zoom {
+  /* Karta samolotu jest teraz u GÓRY na całą szerokość → stos alertów (również
+     u góry) zachodziłby na nią. Chowamy alerty gdy karta jest otwarta; wrócą po
+     jej zamknięciu (stan alertów się nie gubi). */
+  .info-open .alert-stack {
     display: none;
   }
 }
@@ -631,10 +632,5 @@
     top: 8px;
     right: 8px;
     gap: 5px;
-  }
-
-  .ac-info-panel {
-    width: calc(100vw - 24px);
-    max-width: 300px;
   }
 }
