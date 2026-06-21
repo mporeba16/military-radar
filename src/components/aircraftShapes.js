@@ -155,8 +155,10 @@ export const SHAPES = {
   // Twin turboprop small
   twin_small: { path: 'M9.5,15.75c-.21,0-.34-.17-.41-.51l-2.88.23v-.27c0-.78,0-1.11.28-1.13L9,13.1c-.31-1.86-.55-5-.59-5.55l-.08-.09H6.08L.25,6.54v-1A.43.43,0,0,1,.67,5l3.75-.27L5,4.45V3.53H4.73V2.7a.35.35,0,0,1,.34-.35h.07c.12-.52.26-.83.54-.83s.42.31.53.83h.07a.35.35,0,0,1,.34.35v.83H6.36v1l2-.08C8.42.81,9.09.25,9.49.25s1.09.55,1.12,4.21l2,.08v-1h-.25V2.7a.35.35,0,0,1,.34-.35h.07c.12-.52.26-.83.53-.83s.42.31.54.83h.07a.35.35,0,0,1,.34.35v.83H14v.92l.57.32L18.32,5a.42.42,0,0,1,.43.46v1L13,7.46H10.71l-.08.09c0,.56-.27,3.68-.59,5.55l2.46,1c.28,0,.28.35.28,1.13v.27l-2.88-.23C9.84,15.58,9.71,15.75,9.5,15.75Z' , cx:9.5, cy:7, scale:1.375 },
 
-  // Twin turboprop large
-  twin_large: { path: 'M10.1,18.34H7l0-.21c-.08-.54,0-.87.11-1L7.19,17l.2,0,2.35-.33c-.16-.82-.42-2.9-.42-3.14s0-2.71,0-3.51H8c-.12,1.34-.41,1.36-.55,1.37h0c-.19,0-.46,0-.6-1.55L.27,9.52l0-.25c.06-.73.31-.9.45-.93l6-.48a3.65,3.65,0,0,1,.3-2,.45.45,0,0,1,.32-.16h0a.39.39,0,0,1,.3.12A3.67,3.67,0,0,1,8,7.77l1.26-.07c0-.71,0-2.92,0-4.48A3.84,3.84,0,0,1,10.1.4a.4.4,0,0,1,.28-.16h.23A.4.4,0,0,1,10.9.4a3.84,3.84,0,0,1,.87,2.81c0,1.55,0,3.77,0,4.48L13,7.77a3.67,3.67,0,0,1,.29-1.94.38.38,0,0,1,.28-.12.46.46,0,0,1,.34.16,3.66,3.66,0,0,1,.3,2l6,.48c.18,0,.43.21.49.94l0,.25-6.53.3c-.14,1.55-.42,1.55-.59,1.55s-.45,0-.57-1.37H11.74c0,.8,0,3.27,0,3.51s-.26,2.32-.42,3.14l2.38.34h.11l.13.13c.15.18.19.51.11,1l0,.21H10.9l-.4,1Z' , cx:10.5, cy:9.5, scale:1.375 },
+  // Twin turboprop large — średnie transportowce taktyczne (C-295, C-27J, An-26…).
+  // scale podbity z 1.375, bo przy 1.375 renderowały się niemal jak lekkie twiny
+  // (twin_small) i ginęły na mapie obok C-130 / odrzutowców.
+  twin_large: { path: 'M10.1,18.34H7l0-.21c-.08-.54,0-.87.11-1L7.19,17l.2,0,2.35-.33c-.16-.82-.42-2.9-.42-3.14s0-2.71,0-3.51H8c-.12,1.34-.41,1.36-.55,1.37h0c-.19,0-.46,0-.6-1.55L.27,9.52l0-.25c.06-.73.31-.9.45-.93l6-.48a3.65,3.65,0,0,1,.3-2,.45.45,0,0,1,.32-.16h0a.39.39,0,0,1,.3.12A3.67,3.67,0,0,1,8,7.77l1.26-.07c0-.71,0-2.92,0-4.48A3.84,3.84,0,0,1,10.1.4a.4.4,0,0,1,.28-.16h.23A.4.4,0,0,1,10.9.4a3.84,3.84,0,0,1,.87,2.81c0,1.55,0,3.77,0,4.48L13,7.77a3.67,3.67,0,0,1,.29-1.94.38.38,0,0,1,.28-.12.46.46,0,0,1,.34.16,3.66,3.66,0,0,1,.3,2l6,.48c.18,0,.43.21.49.94l0,.25-6.53.3c-.14,1.55-.42,1.55-.59,1.55s-.45,0-.57-1.37H11.74c0,.8,0,3.27,0,3.51s-.26,2.32-.42,3.14l2.38.34h.11l.13.13c.15.18.19.51.11,1l0,.21H10.9l-.4,1Z' , cx:10.5, cy:9.5, scale:1.7 },
 
   // Cessna
   cessna: { path: 'M16.36 20.96l2.57.27s.44.05.4.54l-.02.63s-.03.47-.45.54l-2.31.34-.44-.74-.22 1.63-.25-1.62-.38.73-2.35-.35s-.44-.1-.43-.6l-.02-.6s0-.5.48-.5l2.5-.27-.56-5.4-3.64-.1-5.83-1.02h-.45v-2.06s-.07-.37.46-.34l5.8-.17 3.55.12s-.1-2.52.52-2.82l-1.68-.04s-.1-.06 0-.14l1.94-.03s.35-1.18.7 0l1.91.04s.11.05 0 .14l-1.7.02s.62-.09.56 2.82l3.54-.1 5.81.17s.51-.04.48.35l-.01 2.06h-.47l-5.8 1-3.67.11z' , cx:16, cy:14.5, scale:1.15323 },
@@ -340,6 +342,10 @@ export function getShapeKey(t, gs = null) {
   // A310 military (Bundeswehr MRTT, RCAF Polaris)
   if (/^A310$|^A30B$/.test(type)) return 'heavy_2e'
   if (/C130|C13J|C30J|C160|AN12|HERCULES/.test(type)) return 'c130'
+  // KC-390 / C-390 Millennium — brazylijski DWUSILNIKOWY wojskowy transportowiec.
+  // Bez typu wpadał w jet_swept (mała ikona biznesjeta); c130 byłby 4-silnikowy.
+  // twin_large = dwusilnikowa sylwetka transportowca we właściwym rozmiarze.
+  if (/^C390$|^C39M$|^KC39/.test(type)) return 'twin_large'
   if (/IL76|IL78|CANDID/.test(type)) return 'heavy_4e'
   // Antonov heavy / medium transports
   if (/^AN22$|COCK/.test(type)) return 'heavy_4e'
@@ -364,7 +370,7 @@ export function getShapeKey(t, gs = null) {
   if (/A332|A333|A338|A339/.test(type)) return 'a332'
   if (/A350|A359|A35K/.test(type)) return 'a359'
   if (/B707/.test(type)) return 'b707'
-  if (/AN124|AN225/.test(type)) return 'heavy_4e'
+  if (/^A124$|^A225$|AN124|AN225/.test(type)) return 'heavy_4e'
   if (/A319|A21N/.test(type)) return 'a319'
   if (/A321/.test(type)) return 'a321'
   if (/A320|A318|A20N/.test(type)) return 'a320'
@@ -372,12 +378,14 @@ export function getShapeKey(t, gs = null) {
   if (/^E121|XINGU/.test(type)) return 'twin_small'
   if (/E39[0-9]|E29[0-9]|E17[0-9]|E19[0-9]|E13[0-9]|E14[0-9]|RJ[0-9]|B46[123]/.test(type)) return 'e390'
   // Twin-engine military transports — extend with An-30/72/74 + C-9 / DC-9 / MD-80/90
-  if (/C295|CN235|C235|C212|AN26|AN30|AN32|^AN7[24]$|COALER|CLANK|DHC6|DHC5|CASA|C27J|C27/.test(type)) return 'twin_large'
+  if (/C295|CN235|C235|AN26|AN30|AN32|^AN7[24]$|COALER|CLANK|DHC5|CASA|C27J|C27/.test(type)) return 'twin_large'
   // PZL M28 Skytruck / Bryza (pochodna An-28) — lekki dwusilnikowy turbośmigłowiec
   // (~7.5 t), klasa King Air / Twin Otter, nie średni transport jak C-295 → twin_small.
   // adsb.fi koduje je NIESPÓJNIE: "M28", "AN28", czasem "A28" — wszystkie to ta sama
   // maszyna (część polskich Bryz nadaje oznaczenie An-28). C145 = wojskowe M28 (C-145A).
-  if (/^(M28|AN28|A28|C145)$|SKYTRUCK|BRYZA/.test(type)) return 'twin_small'
+  // C212 Aviocar (~20 m) i DHC6 Twin Otter (~20 m) to lekkie twiny klasy King Air —
+  // tu, nie w twin_large (po podbiciu skali wyglądałyby na większe niż w rzeczywistości).
+  if (/^(M28|AN28|A28|C145)$|^C212$|DHC6|SKYTRUCK|BRYZA/.test(type)) return 'twin_small'
   if (/^C9[A-Z]?$|^DC9$|^MD8[0-9]$|^MD9[0-9]$/.test(type)) return 'e390'  // C-9 Nightingale, DC-9, MD-80/90
   if (/ATR|PC6|CARAVAN|C208/.test(type)) return 'single_turbo'
   if (/^TBM/.test(type)) return 'single_turbo'
@@ -470,6 +478,9 @@ export function getCommonName(t) {
     [/^AN26$|CURL/, 'Curl'],
     [/^AN30$|CLANK/, 'Clank'],
     [/^AN7[24]$|COALER/, 'Coaler'],
+    [/^A124$|AN124/, 'An-124 Rusłan'],
+    [/^A225$|AN225/, 'An-225 Mrija'],
+    [/^C390$|^C39M$|KC390|MILLENNIUM/, 'C-390 Millennium'],
     [/A400M?/, 'Atlas'],
     [/^A310$/, 'A310 MRTT'],
     [/^C32[A-Z]?$/, 'C-32A'],

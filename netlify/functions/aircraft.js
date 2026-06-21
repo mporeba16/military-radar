@@ -266,11 +266,18 @@ function isNotableHeavy(type) {
   return false
 }
 
+// Antonov Airlines (ICAO "ADB") — niemal zawsze An-124 Rusłan (rzadziej An-225/An-22).
+// Łapiemy po callsignie, bo typ z ADS-B bywa pusty/spóźniony lub przychodzi przez
+// OpenSky bez pola typu — wtedy gubiliśmy alert o dużym samolocie. Ewentualny
+// mniejszy Antonow na tym callsignie też jest rzadki i wart pokazania jako 'heavy'.
+const ANTONOV_AIRLINES_CALLSIGN = /^ADB\d/
+
 // Zwraca dodatkową kategorię ('heavy' | 'heli') lub null. Wojsko sprawdzamy
 // osobno i ma priorytet (np. wojskowy B747 zostaje 'mil').
 function classifyExtra(a) {
   const type = normType(a.t)
   if (isNotableHeavy(type)) return 'heavy'
+  if (ANTONOV_AIRLINES_CALLSIGN.test((a.flight || '').trim().toUpperCase())) return 'heavy'
   if (isServiceHeli(normReg(a.r), (a.flight || '').trim(), type, a.category)) return 'heli'
   return null
 }
