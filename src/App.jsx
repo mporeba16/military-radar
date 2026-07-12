@@ -57,7 +57,6 @@ export default function App() {
   const fetchDataRef = useRef(null)
   const fetchAbortRef = useRef(null)
   const testPushTimerRef = useRef(null)
-  const radiusDebounceRef = useRef(null)
   const { location, accuracy, locationError, requestLocation } = useGeolocation()
   const {
     isSubscribed, subResolved, isSubscribing, subscribe, unsubscribe, sendTestPush,
@@ -84,6 +83,44 @@ export default function App() {
   vibrateRef.current = vibrateOn
 
   const center = EUROPE_CENTER
+
+  // Derive in-range count + persistent alert list from an already-fetched
+  // aircraft array (each carries `_dist` relative to the current GPS fix).
+  // Shared by the poll (fireEffects=true → vibrate/sound/OS-notification for
+  // newly entered aircraft) and the radius slider (fireEffects=false → just
+  // recompute the UI, no buzz, no network refetch). Keeping this in one place
+  // stops the two callers from drifting apart.
+  const applyInRange = useCallback((list, fireEffects) => {
+    if (!location) { setAlerts([]); setInRangeCount(0); return }
+    const inRange = list.filter(ac =>
+      ac._dist != null && ac._dist <= radius && kindsRef.current[ac.kind || 'mil'])
+    setInRangeCount(inRange.length)
+    inRange.forEach(ac => {
+      if (!alertedHexRef.current.has(ac.hex)) {
+        // Mark as seen either way, so widening the radius doesn't make the very
+        // next poll treat these as "new" and buzz a moment later.
+        alertedHexRef.current.add(ac.hex)
+        dismissedAlertsRef.current.delete(ac.hex)
+        persistDismissed(dismissedAlertsRef.current)
+        if (fireEffects) {
+          if (vibrateRef.current) navigator.vibrate?.([200, 100, 200])
+          if (soundRef.current) playAlertSound()
+          // Push serwerowy obsłuży powiadomienie systemowe — lokalne tylko
+          // gdy znamy już stan subskrypcji i użytkownik NIE jest zapisany.
+          if (subResolvedRef.current && !isSubscribedRef.current) {
+            triggerNotification(ac, ac._dist)
+          }
+        }
+      }
+    })
+    setAlerts(
+      inRange
+        .filter(ac => !dismissedAlertsRef.current.has(ac.hex))
+        .map(ac => ({ hex: ac.hex, ac, dist: ac._dist }))
+    )
+  }, [location, radius])
+  const applyInRangeRef = useRef(applyInRange)
+  applyInRangeRef.current = applyInRange
 
   const fetchData = useCallback(async () => {
     // Abort any in-flight fetch — fixes race where slower request returns
@@ -174,31 +211,9 @@ export default function App() {
         return next.size === prev.size ? prev : next
       })
       if (location && !isDemo) {
-        const inRange = enriched.filter(ac =>
-          ac._dist != null && ac._dist <= radius && kindsRef.current[ac.kind || 'mil'])
-        setInRangeCount(inRange.length)
-        // Fire one-time effects (vibration + OS notification) for newly entered aircraft
-        inRange.forEach(ac => {
-          if (!alertedHexRef.current.has(ac.hex)) {
-            alertedHexRef.current.add(ac.hex)
-            dismissedAlertsRef.current.delete(ac.hex)
-            persistDismissed(dismissedAlertsRef.current)
-            if (vibrateRef.current) navigator.vibrate?.([200, 100, 200])
-            if (soundRef.current) playAlertSound()
-            // Push serwerowy obsłuży powiadomienie systemowe — lokalne tylko
-            // gdy znamy już stan subskrypcji i użytkownik NIE jest zapisany.
-            if (subResolvedRef.current && !isSubscribedRef.current) {
-              triggerNotification(ac, ac._dist)
-            }
-          }
-        })
-        // Persistent alerts = all in-range aircraft not manually dismissed
-        setAlerts(
-          inRange
-            .filter(ac => !dismissedAlertsRef.current.has(ac.hex))
-            .map(ac => ({ hex: ac.hex, ac, dist: ac._dist }))
-        )
-        // When aircraft leaves radar: reset so it can re-alert on return
+        // Derive alerts + fire one-time effects for newly entered aircraft.
+        applyInRange(enriched, true)
+        // When aircraft leaves the feed entirely: reset so it can re-alert on return
         let dirty = false
         for (const h of alertedHexRef.current) {
           if (!currentHexes.has(h)) {
@@ -220,10 +235,15 @@ export default function App() {
         fetchAbortRef.current = null
       }
     }
-  }, [radius, location])
+  }, [radius, location, applyInRange])
 
   // Keep ref fresh so stable interval always calls latest closure
   fetchDataRef.current = fetchData
+
+  // Latest aircraft snapshot, so the radius slider can recompute alerts from
+  // the data we already have instead of refetching.
+  const aircraftRef = useRef(aircraft)
+  aircraftRef.current = aircraft
 
   // Auto-start GPS tracking on mount
   useEffect(() => { requestLocation() }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -286,14 +306,15 @@ export default function App() {
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Debounced refetch on radius change — drag of the slider used to fire
-  // a separate fetch for every notch (25 → 50 → 75 → ...). Wait until the
-  // user has settled on a value.
+  // Radius change → recompute alerts locally, no network refetch. The API
+  // response is always the same fixed bbox (EUROPE_CENTER / 2800 km); radius
+  // only drives the client-side `_dist <= radius` filter, so refetching on
+  // every slider notch was pure wasted function-invocation. fireEffects=false
+  // so widening the range updates the UI without buzzing for planes that were
+  // already on screen.
   useEffect(() => {
     if (!isMountedRef.current) { isMountedRef.current = true; return }
-    if (radiusDebounceRef.current) clearTimeout(radiusDebounceRef.current)
-    radiusDebounceRef.current = setTimeout(() => fetchDataRef.current(), 350)
-    return () => { if (radiusDebounceRef.current) clearTimeout(radiusDebounceRef.current) }
+    applyInRangeRef.current(aircraftRef.current, false)
   }, [radius]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // U4: deep link via URL hash — #hex=48da46 selects the aircraft on load

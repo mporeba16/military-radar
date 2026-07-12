@@ -370,14 +370,30 @@ export const handler = async (event) => {
     await snapStore.set(snapKey, JSON.stringify({ ts: Date.now(), aircraft: result.aircraft, source: result._source })).catch(() => {})
   }
 
-  await Promise.race([saveTrails(result.aircraft).catch(() => {}), new Promise(r => setTimeout(r, 3000))])
+  // Trails are also collected by the `collect` cron every 2 min. The live
+  // handler runs on every uncached client fetch (~every 9 s while anyone is
+  // watching), so writing trails here on every call just duplicated the cron's
+  // work. Throttle to once per 60 s per warm instance — enough to keep the
+  // server trail denser than the cron alone, without the per-fetch overhead.
+  if (Date.now() - lastLiveTrailSave >= LIVE_TRAIL_SAVE_INTERVAL_MS) {
+    lastLiveTrailSave = Date.now()
+    await Promise.race([saveTrails(result.aircraft).catch(() => {}), new Promise(r => setTimeout(r, 3000))])
+  }
 
   return {
     statusCode: 200,
-    headers,
+    // Every client polls the same fixed bbox (EUROPE_CENTER / 2800 km), so let
+    // Netlify's CDN collapse concurrent requests into one origin hit. s-maxage=5
+    // matches the client's 5 s poll — no staleness beyond one cycle.
+    headers: { ...headers, 'Cache-Control': 'public, max-age=0, s-maxage=5' },
     body: JSON.stringify(result)
   }
 }
+
+// Throttle for live-handler trail writes (see handler above). Module-level so
+// it persists across warm invocations of the same lambda instance.
+const LIVE_TRAIL_SAVE_INTERVAL_MS = 60_000
+let lastLiveTrailSave = 0
 
 export async function saveTrails(aircraft) {
   if (!aircraft?.length) return
