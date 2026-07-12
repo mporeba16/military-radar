@@ -213,13 +213,38 @@ export const handler = async (event) => {
 async function writeRunStats(stats, runStart) {
   try {
     const runsStore = getStore('push-runs')
-    // Keep only the latest run summary
+    // Keep only the latest run summary — status.js reads this. We deliberately
+    // do NOT write a per-run `run-<ts>` blob: the cron fires every minute, so
+    // that grew ~1440 blobs/day unbounded with nothing ever reading them back.
     await runsStore.set('latest', JSON.stringify(stats))
-    // Plus a per-run snapshot keyed by timestamp (for history)
-    await runsStore.set(`run-${runStart}`, JSON.stringify(stats))
+    // Housekeeping gated to ~once/hour so we don't list() stores every minute:
+    // purge the legacy `run-<ts>` blobs older versions accumulated, and expire
+    // stale rate-limit records (their `ts` is >24h old → the window is long gone).
+    if (runStart % 3_600_000 < 60_000) {
+      await purgeLegacyRunBlobs(runsStore).catch(() => {})
+      await purgeStaleRateLimits().catch(() => {})
+    }
   } catch (err) {
     console.error('[notify] Failed to write run stats:', err.message)
   }
+}
+
+async function purgeLegacyRunBlobs(runsStore) {
+  const { blobs } = await runsStore.list()
+  await Promise.allSettled((blobs || [])
+    .filter(b => b.key.startsWith('run-'))
+    .map(b => runsStore.delete(b.key)))
+}
+
+const RATE_LIMIT_MAX_AGE_MS = 24 * 60 * 60 * 1000
+async function purgeStaleRateLimits() {
+  const store = getStore('rate-limit')
+  const { blobs } = await store.list()
+  const now = Date.now()
+  await Promise.allSettled((blobs || []).map(async b => {
+    const rec = await store.get(b.key, { type: 'json' }).catch(() => null)
+    if (rec?.ts && now - rec.ts > RATE_LIMIT_MAX_AGE_MS) await store.delete(b.key).catch(() => {})
+  }))
 }
 
 async function processSubscription({ key, raw, ageMs }, aircraft, subsStore, alertedStore, stats) {

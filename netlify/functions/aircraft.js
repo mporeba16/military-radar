@@ -498,6 +498,11 @@ export const handler = async (event) => {
   // odpowiada okresowi na ziemi (lub utracie zasięgu ADS-B) — traktujemy ją
   // jako granicę między lotami i zwracamy TYLKO bieżący lot.
   if (hex) {
+    // `hex` becomes a blob store key — reject anything that isn't a real
+    // 6-digit ICAO address so a crafted value can't probe the store.
+    if (!/^[0-9a-f]{6}$/i.test(hex)) {
+      return { statusCode: 400, headers, body: JSON.stringify({ error: 'Nieprawidłowy hex' }) }
+    }
     const lowerHex = hex.toLowerCase()
     let blobError = null
     let allPoints = []
