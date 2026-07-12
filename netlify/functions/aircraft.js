@@ -78,7 +78,7 @@ const FLIGHT_SPLIT_GAP_MS = 10 * 60 * 1000
 
 // Returns only the points after the most recent gap >= FLIGHT_SPLIT_GAP_MS.
 // Assumes input is sorted ascending by ts.
-function currentFlightOnly(sortedPoints) {
+export function currentFlightOnly(sortedPoints) {
   if (sortedPoints.length < 2) return sortedPoints
   let cutIndex = 0
   for (let i = 1; i < sortedPoints.length; i++) {
@@ -95,7 +95,7 @@ function currentFlightOnly(sortedPoints) {
 // military aircraft, so legitimate fast turns / supersonic passes survive.
 const TRAIL_MAX_PLAUSIBLE_KMH = 2000
 
-function filterImplausibleJumps(sortedPoints) {
+export function filterImplausibleJumps(sortedPoints) {
   if (sortedPoints.length < 2) return sortedPoints
   const result = [sortedPoints[0]]
   for (let i = 1; i < sortedPoints.length; i++) {

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { altToColor, ftToM, knToKmh, getCommonName, countryFromHex, countryFlag } from './aircraftShapes'
 import { findLikelyLanding } from '../airfields'
 import { scorePhotoMatch, photoHasMatchSignal } from '../lib/photoMatch'
-import { t, useLang, getLang } from '../i18n'
+import { t, useLang } from '../i18n'
 import './AircraftInfoPanel.css'
 
 // V4: ICAO special transponder codes that mean something serious
@@ -205,7 +205,7 @@ export default function AircraftInfoPanel({ ac, trailSources, firstSeen, onClose
     if (trailSources.blobFirstTs && trailSources.blobLastTs) {
       const spanMs = trailSources.blobLastTs - trailSources.blobFirstTs
       parts.push(formatDuration(spanMs))
-      parts.push(`${getLang() === 'en' ? 'from' : 'od'} ${formatHhmm(trailSources.blobFirstTs)}`)
+      parts.push(`od ${formatHhmm(trailSources.blobFirstTs)}`)
     }
     trailLine = parts.join(' · ')
   }

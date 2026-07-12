@@ -304,7 +304,7 @@ export default function App() {
       window.removeEventListener('focus', onVis)
       stop()
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
   // Radius change → recompute alerts locally, no network refetch. The API
   // response is always the same fixed bbox (EUROPE_CENTER / 2800 km); radius
@@ -315,7 +315,7 @@ export default function App() {
   useEffect(() => {
     if (!isMountedRef.current) { isMountedRef.current = true; return }
     applyInRangeRef.current(aircraftRef.current, false)
-  }, [radius]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [radius])
 
   // U4: deep link via URL hash — #hex=48da46 selects the aircraft on load
   // and the hash updates as the user selects/deselects so the page can be

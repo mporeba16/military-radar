@@ -4,9 +4,50 @@ import App from './App'
 import { t } from './i18n'
 import './index.css'
 
+// Any render-time exception AFTER mount would otherwise leave a dead screen
+// (the index.html boot fallback only fires within the first 10 s). This catches
+// it and offers a reload instead.
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props)
+    this.state = { hasError: false }
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+  componentDidCatch(error, info) {
+    console.error('[app] uncaught render error:', error, info)
+  }
+  render() {
+    if (!this.state.hasError) return this.props.children
+    return (
+      <div role="alert" style={{
+        position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center', gap: 12, padding: '0 24px',
+        textAlign: 'center', color: '#ff7a55', fontFamily: "'Courier New', monospace",
+      }}>
+        <div style={{ fontSize: 15 }}>{t('BOOT_ERROR_TITLE')}</div>
+        <div style={{ fontSize: 12, opacity: 0.8, color: '#ccd' }}>{t('BOOT_ERROR_HINT')}</div>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          style={{
+            marginTop: 6, background: '#00ff88', color: '#003020', border: 'none',
+            padding: '8px 16px', fontFamily: "'Courier New', monospace", fontSize: 12,
+            fontWeight: 'bold', letterSpacing: '0.8px', borderRadius: 3, cursor: 'pointer',
+          }}>
+          {t('UPDATE_RELOAD')}
+        </button>
+      </div>
+    )
+  }
+}
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </React.StrictMode>
 )
 
