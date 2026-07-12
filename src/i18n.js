@@ -36,7 +36,7 @@ const STRINGS = {
     PUSH_DISABLE: 'Wyłącz powiadomienia',
     PUSH_ENABLE: 'Włącz powiadomienia',
     PUSH_CONNECTING: '◌ Łączenie…',
-    PUSH_DESCRIPTION: 'Alert gdy wojskowy samolot pojawi się w zasięgu GPS — nawet gdy aplikacja jest zamknięta. Sprawdzane co 5 minut przez serwer.',
+    PUSH_DESCRIPTION: 'Alert gdy wojskowy samolot pojawi się w zasięgu GPS — nawet gdy aplikacja jest zamknięta. Sprawdzane co minutę przez serwer.',
     IN_APP_LABEL: 'W aplikacji (gdy otwarta)',
     SOUND_LABEL: 'Dźwięk alertu',
     VIBRATION_LABEL: 'Wibracja',

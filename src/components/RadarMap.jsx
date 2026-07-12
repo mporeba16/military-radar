@@ -7,12 +7,9 @@ import { SHAPES, getShapeKey, altToColor, ftToM } from './aircraftShapes'
 import { MIL_BASES_PL } from '../airfields'
 import { t } from '../i18n'
 
-delete L.Icon.Default.prototype._getIconUrl
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-})
+// Note: no L.Icon.Default config — every marker here is a custom L.divIcon,
+// so the default marker/shadow images are never used (removing it also drops
+// the only hardcoded unpkg CDN dependency).
 
 export const TILE_LAYERS = [
   {

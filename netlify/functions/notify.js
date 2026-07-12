@@ -53,6 +53,14 @@ export function dedupeByDevice(subs) {
   return out
 }
 
+// Shallow equality of two hex→timestamp cooldown maps (order-independent).
+export function cooldownMapEqual(a, b) {
+  const ka = Object.keys(a), kb = Object.keys(b)
+  if (ka.length !== kb.length) return false
+  for (const k of ka) if (a[k] !== b[k]) return false
+  return true
+}
+
 // "F16 (F16) — 8 km, FL300, kurs N"
 function planeDetail(ac) {
   const parts = [`${ac._dist} km`]
@@ -282,6 +290,32 @@ async function processSubscription({ key, raw, ageMs }, aircraft, subsStore, ale
     const newHeavy = heavyNow.filter(a => eligible(prevFar, a.hex))
     const newHeli = heliNow.filter(a => eligible(prevFar, a.hex))
 
+    // Persist the cooldown maps BEFORE sending. A scheduled function can be
+    // killed mid-run (time limit) once some pushes have already gone out; if
+    // we saved the cooldown only afterwards, the next run (a minute later)
+    // would re-send the same alerts. Writing first means the worst case is a
+    // single dropped alert rather than a duplicate storm — and this app has a
+    // long history of fighting iOS duplicates, so that trade-off is deliberate.
+    //
+    // Every in-range plane is stamped `now` (cooldown counts from when it
+    // leaves); near implies far, so a close plane never fires a retroactive far
+    // alert. Recently-departed entries are kept until their cooldown lapses.
+    const nextFar = {}
+    const nextNear = {}
+    for (const a of enriched) nextFar[a.hex] = now
+    for (const a of nearNow) nextNear[a.hex] = now
+    for (const [hex, ts] of Object.entries(prevFar)) {
+      if (!(hex in nextFar) && now - ts <= ALERT_COOLDOWN_MS) nextFar[hex] = ts
+    }
+    for (const [hex, ts] of Object.entries(prevNear)) {
+      if (!(hex in nextNear) && now - ts <= ALERT_COOLDOWN_MS) nextNear[hex] = ts
+    }
+    // Skip the write when the cooldown content is unchanged (the common
+    // empty-sky case) — saves one blob write per idle subscription per minute.
+    if (!(cooldownMapEqual(nextFar, prevFar) && cooldownMapEqual(nextNear, prevNear))) {
+      await alertedStore.set(key, JSON.stringify({ far: nextFar, near: nextNear, ts: now }))
+    }
+
     subDiag.gpsAgeMs = ageMs
     subDiag.radius = radius
     subDiag.inRange = aircraft.length
@@ -389,22 +423,6 @@ async function processSubscription({ key, raw, ageMs }, aircraft, subsStore, ale
       if (expired) { await cleanupExpired(); return result }
     }
 
-    // Refresh cooldown maps. Every in-range plane is stamped `now` (so the
-    // cooldown counts from when it leaves); near implies far, so a close plane
-    // never fires a retroactive far alert. Recently-departed entries are kept
-    // until their cooldown lapses, then dropped to bound the map size.
-    const nextFar = {}
-    const nextNear = {}
-    for (const a of enriched) nextFar[a.hex] = now
-    for (const a of nearNow) nextNear[a.hex] = now
-    for (const [hex, ts] of Object.entries(prevFar)) {
-      if (!(hex in nextFar) && now - ts <= ALERT_COOLDOWN_MS) nextFar[hex] = ts
-    }
-    for (const [hex, ts] of Object.entries(prevNear)) {
-      if (!(hex in nextNear) && now - ts <= ALERT_COOLDOWN_MS) nextNear[hex] = ts
-    }
-
-    await alertedStore.set(key, JSON.stringify({ far: nextFar, near: nextNear, ts: now }))
     subDiag.sent = result.sent
     subDiag.errors = result.errors
     stats.perSub.push(subDiag)

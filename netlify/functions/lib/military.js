@@ -32,7 +32,7 @@ const CIVILIAN_CALLSIGN_PATTERNS = [
 ]
 
 const GROUND_STATION_PATTERNS = [/XCAM/i, /XCAT/i, /XBAT/i]
-const GROUND_STATION_TYPES = new Set(['TWR', 'GND', 'MLAT', 'RADAR'])
+export const GROUND_STATION_TYPES = new Set(['TWR', 'GND', 'MLAT', 'RADAR'])
 const MILITARY_SQUAWKS = new Set(['7777', '7400'])
 
 // ── Dodatkowe kategorie poza wojskiem (patrz aircraft.js — trzymane w synchronie) ──
@@ -71,7 +71,7 @@ function isNotableHeavy(type) {
 const ANTONOV_AIRLINES_CALLSIGN = /^ADB\d/
 
 // Zwraca dodatkową kategorię ('heavy' | 'heli') lub null (wojsko ma priorytet).
-function classifyExtra(a) {
+export function classifyExtra(a) {
   const type = normType(a.t)
   if (isNotableHeavy(type)) return 'heavy'
   if (ANTONOV_AIRLINES_CALLSIGN.test((a.flight || '').trim().toUpperCase())) return 'heavy'
@@ -79,7 +79,7 @@ function classifyExtra(a) {
   return null
 }
 
-function isSuspiciousHex(hex) {
+export function isSuspiciousHex(hex) {
   const n = parseInt(hex, 16)
   if (isNaN(n) || n === 0) return true
   const b1 = (n >> 16) & 0xFF
@@ -91,13 +91,7 @@ function isSuspiciousHex(hex) {
   return false
 }
 
-function isMilitaryCallsign(callsign) {
-  if (GROUND_STATION_PATTERNS.some(re => re.test(callsign))) return false
-  if (CIVILIAN_CALLSIGN_PATTERNS.some(re => re.test(callsign))) return false
-  return MILITARY_CALLSIGN_PATTERNS.some(re => re.test(callsign))
-}
-
-function isMilitaryADSBfiRecord(a) {
+export function isMilitaryADSBfiRecord(a) {
   const hex = (a.hex || '').toLowerCase()
   const callsign = (a.flight || '').trim()
   const squawk = a.squawk || ''
@@ -116,7 +110,8 @@ export function classifyADSBfi(a) {
   return classifyExtra(a)
 }
 
-function isMilitary(ac) {
+// OpenSky state-vector form (array indices) of the military test.
+export function isMilitaryState(ac) {
   const hex = (ac[0] || '').toLowerCase()
   const callsign = (ac[1] || '').trim()
   const squawk = ac[14] != null ? String(ac[14]).padStart(4, '0') : ''
@@ -220,8 +215,9 @@ export async function fetchMilitaryNear(lat, lon, radiusKm) {
           if (!isValidADSBfi(a)) return false
           if (a.lat < lamin || a.lat > lamax || a.lon < lomin || a.lon > lomax) return false
           if (milHexes.has(a.hex)) return false
-          if (MILITARY_HEX_PREFIXES.some(p => (a.hex || '').toLowerCase().startsWith(p)) ||
-              isMilitaryCallsign((a.flight || '').trim())) { a._kind = 'mil'; return true }
+          // Full military test (hex prefix + callsign + squawk) — mirrors the
+          // live path in aircraft.js so a squawk-7777 machine isn't dropped here.
+          if (isMilitaryADSBfiRecord(a)) { a._kind = 'mil'; return true }
           const extra = classifyExtra(a)
           if (extra) { a._kind = extra; return true }
           return false
@@ -246,7 +242,8 @@ export async function fetchMilitaryNear(lat, lon, radiusKm) {
     if (res.ok) {
       const data = await res.json()
       return (data.states || [])
-        .filter(s => s[5] != null && s[6] != null && !s[8] && isMilitary(s))
+        .filter(s => s[5] != null && s[6] != null && !s[8] &&
+          (s[7] == null || s[7] <= 18300) && !isSuspiciousHex(s[0]) && isMilitaryState(s))
         .map(stateToAircraft)
         .filter(a => haversine(lat, lon, a.lat, a.lon) <= radiusKm)
     }

@@ -24,7 +24,8 @@ export const OPERATOR_HINT_BY_CALLSIGN = [
   [/^CZAF/, 'czech'],
   [/^SLAF/, 'slovak'],
   [/^HUNAF/, 'hungarian'],
-  [/^(BUAF|BAH)/, 'bulgarian'],
+  [/^BUAF/, 'bulgarian'],
+  [/^BAH/, 'bahrain'],  // Bahrain Amiri Air Force — NIE Bułgaria
   [/^ROTAF/, 'romanian'],
   [/^(FNY|FINAF)/, 'finnish'],
   [/^(NRAF|SAVER)/, 'norwegian'],

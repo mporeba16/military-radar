@@ -8,6 +8,13 @@
 
 import { getStore, connectLambda } from '@netlify/blobs'
 import { corsHeaders } from './lib/security.js'
+import {
+  isSuspiciousHex,
+  classifyExtra,
+  isMilitaryADSBfiRecord,
+  isMilitaryState,
+  GROUND_STATION_TYPES,
+} from './lib/military.js'
 
 const OPENSKY_USER = process.env.OPENSKY_USER || ''
 const OPENSKY_PASS = process.env.OPENSKY_PASS || ''
@@ -112,205 +119,6 @@ function filterImplausibleJumps(sortedPoints) {
 // In-memory cache — survives across warm function invocations (eliminates per-aircraft blob reads)
 const trailCache = new Map() // hex → { points, flight, t }
 
-// Bloki ICAO hex używane do wykrywania wojska po SAMYM heksie. Tylko 'ae'
-// (USAF/USN/USMC) jest blokiem WYŁĄCZNIE wojskowym i bezpiecznym. Europejskie
-// "podbloki wojskowe" (43c, 49d, 48f, 47a…) okazały się błędne/mieszane —
-// zawierają cywilne maszyny (np. czeski 737 OK-TVR w 49Dxxx pokazywał się jako
-// wojskowy). Wojsko z tych krajów łapiemy przez /mil (adsb.fi taguje) oraz
-// callsigny (PLF, GAF, FRAF, REACH…), więc heksowych podbloków nie używamy.
-const MILITARY_HEX_PREFIXES = [
-  'ae',  // USA — USAF / US Navy / USMC (blok wyłącznie wojskowy)
-]
-
-// Callsigny wojskowe — prefiksy używane przez polskie i NATO lotnictwo
-const MILITARY_CALLSIGN_PATTERNS = [
-  /^RCF/i,    // Polska Siły Powietrzne
-  /^PLF/i,    // Polska wojsko
-  /^DUKE/i,   // USAF Europe
-  /^JAKE/i,   // USAF
-  /^PEARL/i,  // US Navy
-  /^POLO/i,   // USAF
-  /^GORDO/i,  // USAF
-  /^REACH/i,  // USAF Air Mobility Command
-  /^RCH/i,    // USAF Air Mobility Command
-  /^MAGMA/i,  // UK RAF
-  /^ASCOT/i,  // UK RAF
-  /^COMET/i,  // UK RAF
-  /^NATO/i,   // NATO AWACS
-  /^NAOC/i,   // NATO
-  /^GAF\d/i,  // German Air Force
-  /^FRAF/i,   // French Air Force
-  /^BAF\d/i,  // Belgian Air Force
-  /^DAMP/i,   // Danish Air Force
-  /^CZAF/i,   // Czech Air Force
-  /^SLAF/i,   // Slovak Air Force
-  /^HUNAF/i,  // Hungarian Air Force
-  /^BUAF/i,   // Bulgarian Air Force
-  /^ROTAF/i,  // Romanian Air Force
-  /^FNY/i,    // Finnish Air Force (Ilmavoimat)
-  /^FINAF/i,  // Finnish Air Force
-  /^NRAF/i,   // Norwegian Air Force
-  /^SWAF/i,   // Swedish Air Force
-  /^LTAF/i,   // Lithuanian Air Force
-  /^LVAF/i,   // Latvian Air Force
-  /^EEAF/i,   // Estonian Air Force
-  /^NATOQ/i,  // NATO Quick Reaction
-  /^FORTE/i,  // USAF
-  /^RAZER/i,  // USAF
-  /^KNIFE/i,  // USAF
-  /^ROCKY/i,  // USAF
-  /^IRON/i,   // USAF
-  /^SWORD/i,  // USAF
-  /^VALOR/i,  // USAF
-  /^HEAVY/i,  // USAF tankers
-  /^SAVER/i,    // Norwegian Air Force (Luftforsvaret)
-  /^EXPL/i,     // military exploration/reconnaissance helicopter
-  /^RIMC/i,     // Italian military (Aeronautica Militare / Marina Militare)
-  /^SRA/i,      // Saudi Royal Air Force
-  /^SHAHD/i,    // Jordan Royal Air Force
-  /^ZEUS/i,     // USAF
-  /^BISON/i,    // USAF
-  /^COLT/i,     // USAF
-  /^ANVIL/i,    // USAF
-  /^EAGLE\d/i,  // USAF (z cyfra — odróżnienie od Eagle Air)
-  /^VIPER/i,    // USAF
-  /^DEMON/i,    // USAF
-  /^DRAGON\d/i, // NATO (z cyfra — odróżnienie od Dragonair)
-  /^KNIGHT/i,   // USAF
-  /^SHADOW/i,   // USAF ISR
-  /^GHOST/i,    // USAF
-  /^RAVEN/i,    // USAF
-  /^STALLION/i, // USAF/USMC
-  /^RANGER\d/i, // USAF (z cyfra — odróżnienie od Ranger Air)
-  /^LANCE/i,    // NATO
-  /^SHIELD/i,   // NATO
-  /^TIGER\d/i,  // NATO (z cyfra — odróżnienie od Tiger Airways)
-  /^VENOM/i,    // USAF
-  /^SPECTRE/i,  // USAF AC-130
-  /^SPOOKY/i,   // USAF AC-130
-  /^PSYCHO/i,   // USAF
-  /^JOLLY/i,    // USAF CSAR
-  /^PEDRO/i,    // USAF CSAR
-  /^KING\d/i,   // USAF tanker/CSAR (z cyfra — odróżnienie od King Airlines)
-  /^PAVE/i,     // USAF special ops
-  /^COMBAT/i,   // USAF
-  /^BAH/i,      // Bahrain Amiri Air Force
-  /^KAF/i,      // Kuwait Air Force
-  /^QAF/i,      // Qatar Emiri Air Force
-  /^OAF/i,      // Oman Royal Air Force
-]
-
-// Callsigny naziemnych stacji radarowych/sensorów MLAT — wyklucz zawsze
-// (transmitują własną pozycję jak samolot, ale są stacjami naziemnymi)
-const GROUND_STATION_PATTERNS = [
-  /XCAM/i,  // ADS-B/MLAT ground sensor (np. 7777XCAM, XCAM01)
-  /XCAT/i,  // ADS-B/MLAT ground sensor
-  /XBAT/i,  // ADS-B/MLAT ground sensor
-]
-
-// Callsigny cywilnych linii — wyklucz nawet jeśli hex pasuje
-const CIVILIAN_CALLSIGN_PATTERNS = [
-  /^LOT/i,   // LOT Polish Airlines
-  /^RYR/i,   // Ryanair
-  /^WZZ/i,   // Wizz Air
-  /^DLH/i,   // Lufthansa
-  /^BAW/i,   // British Airways
-  /^AFR/i,   // Air France
-  /^IBE/i,   // Iberia
-  /^EZY/i,   // easyJet
-  /^TRA/i,   // Transavia
-  /^KLM/i,   // KLM
-]
-
-const MILITARY_SQUAWKS = new Set(['7777', '7400'])
-
-// ── Dodatkowe kategorie poza wojskiem ────────────────────────────────────
-// Klasyfikacja działa tylko na danych adsb.fi (niosą kod typu `t`, rejestrację
-// `r` i kategorię ADS-B `category`) — OpenSky tych pól nie zwraca, więc tam
-// rozpoznajemy wyłącznie wojsko.
-//   'heli'  — śmigłowiec służbowy (LPR / policja / Straż Graniczna / SAR)
-//   'heavy' — duży/rzadki samolot (B747, An-124/225)
-
-// Międzynarodowe callsigny służb ratowniczych/porządkowych
-// LPR = Lotnicze Pogotowie Ratunkowe (polskie pogotowie lotnicze, callsign LPRxx)
-const SERVICE_HELI_CALLSIGNS = /^(LPR|RATOWNIK|RESCUE|MEDIC|HEMS|LIFEGUARD|POLICE|POLICJA|STRAZ|SAR|REGA)/i
-// Kody typów ICAO śmigłowców (uzupełnienie kategorii ADS-B A7)
-const HELI_TYPE_RE = /^(EC|AS3|AS5|AS6|AW|A109|A119|A129|A139|A149|A169|A189|B0[0-9]|B4(07|12|27|29)|B505|B47|S6[14]|S70|S76|S92|H1(2[05]|3[05]|4[05]|55|60|75)|H47|H53|H60|UH|HH|MH|CH|AH|EH10|MD5|MD6|MI[0-9]|KA[0-9]|R22|R44|R66|BK11|BO10|W3|PZL|NH90|SA3|SH60)/
-
-function normReg(r) { return (r || '').toUpperCase().replace(/[^A-Z0-9]/g, '') }
-function normType(t) { return (t || '').toUpperCase().replace(/[^A-Z0-9]/g, '') }
-
-function isRotorcraft(type, category) {
-  if ((category || '').toUpperCase() === 'A7') return true
-  return HELI_TYPE_RE.test(type)
-}
-
-// Służbowy śmigłowiec — wymagamy potwierdzenia, że to wirnikowiec (kategoria
-// ADS-B A7 lub kod typu), bo prefiks SN- noszą też samoloty Straży Granicznej
-// (M28), a SP-DX bywa lekkim samolotem. Kwalifikator „służbowy":
-//   • PL LPR  — rejestracja SP-HX* / SP-DX* (callsign RATOWNIK)
-//   • PL policja / Straż Graniczna — rejestracja SN-*
-//   • międzynarodowe służby — callsign RESCUE/MEDIC/POLICE/SAR…
-function isServiceHeli(reg, callsign, type, category) {
-  if (!isRotorcraft(type, category)) return false
-  if (/^SN/.test(reg)) return true
-  if (/^SP(HX|DX)/.test(reg)) return true
-  if (SERVICE_HELI_CALLSIGNS.test(callsign)) return true
-  return false
-}
-
-// Duże / rzadkie samoloty warte pokazania: B747 (wszystkie warianty) i An-124/225.
-function isNotableHeavy(type) {
-  if (/^B74/.test(type)) return true            // 747 family (B741..B74S)
-  if (/^A124$|^A225$/.test(type)) return true   // An-124 Rusłan / An-225 Mrija
-  return false
-}
-
-// Antonov Airlines (ICAO "ADB") — niemal zawsze An-124 Rusłan (rzadziej An-225/An-22).
-// Łapiemy po callsignie, bo typ z ADS-B bywa pusty/spóźniony lub przychodzi przez
-// OpenSky bez pola typu — wtedy gubiliśmy alert o dużym samolocie. Ewentualny
-// mniejszy Antonow na tym callsignie też jest rzadki i wart pokazania jako 'heavy'.
-const ANTONOV_AIRLINES_CALLSIGN = /^ADB\d/
-
-// Zwraca dodatkową kategorię ('heavy' | 'heli') lub null. Wojsko sprawdzamy
-// osobno i ma priorytet (np. wojskowy B747 zostaje 'mil').
-function classifyExtra(a) {
-  const type = normType(a.t)
-  if (isNotableHeavy(type)) return 'heavy'
-  if (ANTONOV_AIRLINES_CALLSIGN.test((a.flight || '').trim().toUpperCase())) return 'heavy'
-  if (isServiceHeli(normReg(a.r), (a.flight || '').trim(), type, a.category)) return 'heli'
-  return null
-}
-
-// Odrzuć adresy ICAO które wyglądają na syntetyczne / testowe:
-// - sekwencyjne bajty (np. 0x44-0x55-0x66, różnica stała) → fake/test
-// - kończące się na 0xFFF → TIS-B synthetic (FAA/TC tymczasowe adresy)
-// - wszystkie bajty identyczne (np. 0xAAAAAA)
-function isSuspiciousHex(hex) {
-  const n = parseInt(hex, 16)
-  if (isNaN(n) || n === 0) return true
-  const b1 = (n >> 16) & 0xFF
-  const b2 = (n >> 8) & 0xFF
-  const b3 = n & 0xFF
-  if (b1 === b2 && b2 === b3) return true           // 0xAAAAAA
-  if (b2 - b1 === b3 - b2 && b1 !== b2) return true // 0x445566
-  if ((n & 0xFFF) === 0xFFF) return true             // 0xC2BFFF
-  return false
-}
-
-function isMilitary(ac) {
-  const hex = (ac[0] || '').toLowerCase()
-  const callsign = (ac[1] || '').trim()
-  const squawk = ac[14] != null ? String(ac[14]).padStart(4, '0') : ''
-
-  if (GROUND_STATION_PATTERNS.some(re => re.test(callsign))) return false
-  if (CIVILIAN_CALLSIGN_PATTERNS.some(re => re.test(callsign))) return false
-  if (MILITARY_HEX_PREFIXES.some(p => hex.startsWith(p))) return true
-  if (MILITARY_CALLSIGN_PATTERNS.some(re => re.test(callsign))) return true
-  if (MILITARY_SQUAWKS.has(squawk)) return true
-  return false
-}
-
 // OpenSky state vector indeksy:
 // 0:icao24, 1:callsign, 2:origin_country, 3:time_position, 4:last_contact,
 // 5:longitude, 6:latitude, 7:baro_altitude, 8:on_ground, 9:velocity,
@@ -354,7 +162,7 @@ async function tryOpenSky(lamin, lomin, lamax, lomax) {
     const data = await res.json()
     const states = data.states || []
     const military = states
-      .filter(s => s[5] != null && s[6] != null && !s[8] && (s[7] == null || s[7] <= 18300) && !isSuspiciousHex(s[0]) && isMilitary(s))
+      .filter(s => s[5] != null && s[6] != null && !s[8] && (s[7] == null || s[7] <= 18300) && !isSuspiciousHex(s[0]) && isMilitaryState(s))
       .map(stateToAircraft)
     return { aircraft: military, _source: 'opensky' }
   } catch {
@@ -390,8 +198,6 @@ function mapADSBfiRecord(a) {
   }
 }
 
-const GROUND_STATION_TYPES = new Set(['TWR', 'GND', 'MLAT', 'RADAR'])
-
 function isADSBfiRecordInBox(a, lamin, lomin, lamax, lomax) {
   // Wymagamy REALNEJ pozycji (ADS-B lub wyliczony MLAT). Rekordy mające tylko
   // rr_lat/rr_lon (rough receiver) odrzucamy — to lokalizacja odbiornika, nie
@@ -408,18 +214,6 @@ function isADSBfiRecordInBox(a, lamin, lomin, lamax, lomax) {
     lon >= lomin && lon <= lomax &&
     (alt == null || (alt >= 0 && alt <= 60000)) &&
     !isSuspiciousHex(a.hex)
-}
-
-function isMilitaryADSBfi(a) {
-  const hex = (a.hex || '').toLowerCase()
-  const callsign = (a.flight || '').trim()
-  const squawk = a.squawk || ''
-  if (GROUND_STATION_PATTERNS.some(re => re.test(callsign))) return false
-  if (CIVILIAN_CALLSIGN_PATTERNS.some(re => re.test(callsign))) return false
-  if (MILITARY_HEX_PREFIXES.some(p => hex.startsWith(p))) return true
-  if (MILITARY_CALLSIGN_PATTERNS.some(re => re.test(callsign))) return true
-  if (MILITARY_SQUAWKS.has(squawk)) return true
-  return false
 }
 
 // adsb.fi — publiczne API, działa z serverless, pokrywa Europę.
@@ -463,7 +257,7 @@ async function tryADSBfi(lamin, lomin, lamax, lomax) {
             if (!isADSBfiRecordInBox(a, lamin, lomin, lamax, lomax)) return false
             if (!passesTypeNoise(a)) return false
             if (milHexes.has(a.hex)) return false
-            if (isMilitaryADSBfi(a)) { a._kind = 'mil'; return true }
+            if (isMilitaryADSBfiRecord(a)) { a._kind = 'mil'; return true }
             const extra = classifyExtra(a)
             if (extra) { a._kind = extra; return true }
             return false
@@ -628,5 +422,14 @@ export async function saveTrails(aircraft) {
   await Promise.allSettled(toWrite.map(hex =>
     store.set(hex, JSON.stringify(trailCache.get(hex)))
   ))
+
+  // Evict stale entries so the in-memory cache doesn't grow unbounded across
+  // the lifetime of a warm lambda — an aircraft that vanished from the feed
+  // would otherwise linger forever. Drop anything whose newest point is older
+  // than TRAIL_MAX_AGE_MS.
+  for (const [hex, entry] of trailCache) {
+    const last = entry.points[entry.points.length - 1]
+    if (!last || now - last.ts >= TRAIL_MAX_AGE_MS) trailCache.delete(hex)
+  }
 }
 
