@@ -1,8 +1,5 @@
 // Shared military aircraft filtering and fetching — kept in sync with aircraft.js
 
-const OPENSKY_USER = process.env.OPENSKY_USER || ''
-const OPENSKY_PASS = process.env.OPENSKY_PASS || ''
-
 // Tylko 'ae' (US military) jest blokiem wyłącznie wojskowym. Europejskie
 // "podbloki" były błędne/mieszane (cywilne false-positivy) — patrz aircraft.js.
 const MILITARY_HEX_PREFIXES = [
@@ -230,14 +227,10 @@ export async function fetchMilitaryNear(lat, lon, radiusKm) {
       .filter(Boolean)
   } catch {}
 
-  // OpenSky fallback
+  // OpenSky fallback — anonimowo (Basic auth wycofany po stronie OpenSky, patrz aircraft.js)
   try {
     const url = `https://opensky-network.org/api/states/all?lamin=${lamin}&lomin=${lomin}&lamax=${lamax}&lomax=${lomax}`
     const fetchOpts = { signal: AbortSignal.timeout(8000), headers }
-    if (OPENSKY_USER && OPENSKY_PASS) {
-      fetchOpts.headers['Authorization'] =
-        'Basic ' + Buffer.from(`${OPENSKY_USER}:${OPENSKY_PASS}`).toString('base64')
-    }
     const res = await fetch(url, fetchOpts)
     if (res.ok) {
       const data = await res.json()

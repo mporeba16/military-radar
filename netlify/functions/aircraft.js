@@ -16,9 +16,6 @@ import {
   GROUND_STATION_TYPES,
 } from './lib/military.js'
 
-const OPENSKY_USER = process.env.OPENSKY_USER || ''
-const OPENSKY_PASS = process.env.OPENSKY_PASS || ''
-
 // Środek geograficzny Polski — z promieniem 250nm (~463km) jedno zapytanie
 // geograficzne adsb.fi pokrywa cały kraj wraz z pograniczem.
 const POLAND_CENTER = { lat: '52.0', lon: '19.4' }
@@ -143,6 +140,10 @@ function stateToAircraft(s) {
   }
 }
 
+// Anonimowy dostęp (bez auth) — OpenSky wycofał Basic auth na rzecz OAuth2,
+// więc dawne OPENSKY_USER/PASS nie dawały już wyższego limitu. Zostaje wyłącznie
+// najlepszy-efort fallback po adsb.fi; anonimowy limit w zupełności wystarcza,
+// bo trafiamy tu tylko, gdy adsb.fi zawiedzie.
 async function tryOpenSky(lamin, lomin, lamax, lomax) {
   try {
     const url = `https://opensky-network.org/api/states/all?lamin=${lamin}&lomin=${lomin}&lamax=${lamax}&lomax=${lomax}`
@@ -152,10 +153,6 @@ async function tryOpenSky(lamin, lomin, lamax, lomax) {
         'User-Agent': 'MilitaryRadarPL/1.0',
         'Accept': 'application/json',
       }
-    }
-    if (OPENSKY_USER && OPENSKY_PASS) {
-      fetchOpts.headers['Authorization'] =
-        'Basic ' + Buffer.from(`${OPENSKY_USER}:${OPENSKY_PASS}`).toString('base64')
     }
     const res = await fetch(url, fetchOpts)
     if (!res.ok) return null

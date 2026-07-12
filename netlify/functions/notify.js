@@ -77,6 +77,14 @@ function groupBody(sorted) {
   return `${names.join(', ')}${extra > 0 ? ` +${extra}` : ''} — od ${sorted[0]._dist} km`
 }
 
+// Scheduled function, cron co minutę (netlify.toml). UWAGA na limit czasu:
+// przy dużym wzroście liczby subskrypcji równoległe fetche + sekwencyjne pushy
+// mogą przekroczyć limit wykonania (Netlify scheduled ~10 s). Ryzyko duplikatów
+// jest już zdjęte — mapy cooldownu zapisujemy PRZED wysyłką (patrz
+// processSubscription), więc ubity w połowie run najwyżej zgubi pojedynczy alert,
+// nie zapętli powiadomień. Jeśli kiedyś liczba subskrypcji urośnie na tyle, że
+// runy zaczną być ucinane: przenieść notify na background function (nazwa
+// *-background, limit 15 min) albo rozbić przetwarzanie na paczki.
 export const handler = async (event) => {
   try { if (event?.blobs) connectLambda(event) } catch {}
   const runStart = Date.now()
