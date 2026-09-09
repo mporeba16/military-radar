@@ -19,7 +19,7 @@ const OPERATOR_PATTERNS = [
   [/^LIFT/, 'Luftwaffe (Niemcy)'],
   [/^RCF/, 'Siły Powietrzne RP'],
   [/^PLF/, 'Siły Powietrzne RP'],
-  [/^RCH|^REACH/, 'USAF Air Mobility Command'],
+  [/^RCH|^REACH/, 'USAF'],
   [/^DUKE|^JAKE|^POLO|^GORDO|^PEARL|^FORTE|^RAZER|^KNIFE|^IRON|^SWORD|^VALOR|^HEAVY|^EAGLE\d|^VIPER|^DEMON|^KNIGHT|^SHADOW|^GHOST|^RAVEN|^STALLION|^RANGER\d|^TIGER\d|^VENOM|^SPECTRE|^SPOOKY|^JOLLY|^PEDRO|^KING\d|^PAVE|^COMBAT/, 'USAF / US Air Force'],
   [/^MAGMA|^ASCOT|^COMET/, 'RAF (Wlk. Brytania)'],
   [/^NATO|^NAOC|^NATOQ/, 'NATO'],
@@ -52,28 +52,6 @@ function operatorFrom(callsign) {
     if (re.test(cs)) return op
   }
   return null
-}
-
-// M2: bearing in degrees → compass direction
-function bearingLabel(deg) {
-  if (deg == null) return null
-  const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
-  const idx = Math.round(((deg % 360) / 45)) % 8
-  return `${dirs[idx]} · ${Math.round(deg)}°`
-}
-
-function formatDuration(ms) {
-  const s = Math.round(ms / 1000)
-  if (s < 60) return `${s}s`
-  const m = Math.round(s / 60)
-  if (m < 60) return `${m} min`
-  const h = Math.floor(m / 60)
-  const rem = m % 60
-  return rem ? `${h}h ${rem} min` : `${h}h`
-}
-
-function formatHhmm(ts) {
-  return new Date(ts).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })
 }
 
 function useAircraftPhoto(hex, reg, ac) {
@@ -156,7 +134,7 @@ function useAircraftPhoto(hex, reg, ac) {
   return { photo, state }
 }
 
-export default function AircraftInfoPanel({ ac, trailSources, firstSeen, onClose }) {
+export default function AircraftInfoPanel({ ac, onClose }) {
   const { photo, state: photoState } = useAircraftPhoto(ac.hex, ac.reg, ac)
   const [imgError, setImgError] = useState(false)
   const altM = ftToM(ac.alt_baro)
@@ -170,24 +148,15 @@ export default function AircraftInfoPanel({ ac, trailSources, firstSeen, onClose
 
   useEffect(() => { setImgError(false) }, [photo])
 
-  const vsLabel = ac.baro_rate != null
-    ? (ac.baro_rate > 64 ? `▲ +${ac.baro_rate}` : ac.baro_rate < -64 ? `▼ ${ac.baro_rate}` : '→ 0')
-    : null
-
-  // M2: distance + bearing combined
-  const distRow = ac._dist != null
-    ? `${Math.round(ac._dist)} km${ac._bearing != null ? ` · ${bearingLabel(ac._bearing)}` : ''}`
-    : null
-
+  // Karta mówi CZYM jest maszyna, nie gdzie dokładnie leci względem Ciebie.
+  // Dystans, prędkość pionowa, czas na radarze i długość śladu zniknęły —
+  // dystans niesie i tak alert, a resztę widać na mapie. Kraj też nie ma
+  // własnego wiersza: mówi go flaga w nagłówku (nazwa została w podpowiedzi).
   const rows = [
     [t('INFO_TYPE'),       ac.t ? (commonName ? `${ac.t} · ${commonName}` : ac.t) : '—'],
     operator ? [t('INFO_OPERATOR'),  operator] : null,
-    distRow ? [t('INFO_DISTANCE'), distRow] : null,
     [t('INFO_ALTITUDE'), altM != null ? `${altM.toLocaleString()} m` : '—'],
-    vsLabel ? [t('INFO_VS'), `${vsLabel} ft/min`] : null,
     [t('INFO_SPEED'), kmh != null ? `${kmh} km/h` : '—'],
-    country ? [t('INFO_COUNTRY'),  country] : null,
-    firstSeen ? [t('INFO_ON_RADAR'), `${formatDuration(Date.now() - firstSeen)} · od ${formatHhmm(firstSeen)}`] : null,
   ].filter(Boolean)
 
   const photoSrc = photo?.thumbnail_large?.src || photo?.thumbnail?.src
@@ -196,24 +165,11 @@ export default function AircraftInfoPanel({ ac, trailSources, firstSeen, onClose
   // V4: special squawk badge
   const specialSquawk = ac.squawk ? SPECIAL_SQUAWKS[String(ac.squawk).padStart(4, '0')] : null
 
-  // M1: trail summary with duration + start time
-  let trailLine = null
-  if (trailSources) {
-    const count = trailSources.blob || 0
-    const parts = [`${count} ${t('INFO_TRAIL_PTS')}`]
-    if (trailSources.blobFirstTs && trailSources.blobLastTs) {
-      const spanMs = trailSources.blobLastTs - trailSources.blobFirstTs
-      parts.push(formatDuration(spanMs))
-      parts.push(`od ${formatHhmm(trailSources.blobFirstTs)}`)
-    }
-    trailLine = parts.join(' · ')
-  }
-
   return (
     <div className="ac-info-panel">
       <div className="ac-info-header">
         <span className="ac-info-title">
-          {flag && <span className="ac-info-flag">{flag}</span>}
+          {flag && <span className="ac-info-flag" title={country} aria-label={country} role="img">{flag}</span>}
           <span className="ac-info-callsign" style={{ color }}>
             {ac.flight?.trim() || ac.hex}
           </span>
@@ -272,15 +228,6 @@ export default function AircraftInfoPanel({ ac, trailSources, firstSeen, onClose
           ))}
         </tbody>
       </table>
-
-      {trailLine && (
-        <div className="ac-info-trail-info">
-          {t('INFO_TRAIL')} <span style={{ color: '#fff' }}>{trailLine}</span>
-          {trailSources?.blobError && (
-            <div className="ac-info-trail-warn">{trailSources.blobError}</div>
-          )}
-        </div>
-      )}
 
       <a
         className="ac-info-ext-link"

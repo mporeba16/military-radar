@@ -18,7 +18,8 @@
 
 /* Otwarty panel boczny przejmuje ekran: pasek górny schodzi POD przyciemnienie,
    zamiast przebijać się nad nim. */
-.app.panel-open .topbar { z-index: 1000; }
+.app.panel-open .map-mark,
+.app.panel-open .map-ctrl-btns { z-index: 1000; }
 
 /* Side panel backdrop — mobile/tablet */
 .side-panel-backdrop {
@@ -396,41 +397,38 @@
   }
 }
 
-/* ══ Pasek górny ══════════════════════════════════════════════════════════
-   Zastąpił plakietkę z logo i dwa tekstowe przyciski. Najlepsze miejsce na
-   ekranie niesie teraz stan, a wejścia do paneli są ikonami 44 px. */
-.topbar {
+/* ══ Chrome nad mapą ══════════════════════════════════════════════════════
+   Zamiast paska na całą szerokość: znacznik aplikacji w lewym górnym rogu i
+   dwa wejścia do paneli w prawym. Mapa jest treścią, więc chrome zajmuje
+   tylko rogi. Znacznik niesie stan — puls przy pobieraniu, czerwień przy
+   błędzie, czas ostatniego odświeżenia w podpowiedzi. */
+.map-mark {
   position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  z-index: 1002;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  left: calc(12px + env(safe-area-inset-left, 0px));
+  z-index: 1000;
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: calc(8px + env(safe-area-inset-top, 0px)) 12px 8px;
-  min-height: calc(52px + env(safe-area-inset-top, 0px));
-  background: rgba(4, 10, 20, 0.92);
-  border-bottom: 1px solid rgba(0, 255, 136, 0.22);
-  backdrop-filter: blur(8px);
-  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.55);
+  justify-content: center;
   font-family: 'Courier New', monospace;
+  font-size: 22px;
+  line-height: 1;
+  color: #00ff88;
+  background: rgba(4, 10, 20, 0.92);
+  border: 1px solid rgba(0, 255, 136, 0.35);
+  border-radius: 4px;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+  cursor: default;
+  user-select: none;
 }
 
-.topbar__mark { font-size: 17px; color: #00ff88; animation: pulse 2s ease-in-out infinite; }
-.topbar__name { font-size: 13px; font-weight: bold; letter-spacing: 2.5px; color: #ffffff; }
-.topbar__sep { width: 1px; height: 16px; background: rgba(255, 255, 255, 0.14); flex-shrink: 0; }
-.topbar__ts { font-size: 10px; color: rgba(255, 255, 255, 0.4); letter-spacing: 0.5px; white-space: nowrap; }
-.topbar__spin { font-size: 13px; color: #00ff88; animation: spin 1s linear infinite; }
-.topbar__grow { flex: 1; }
-.topbar__btns { display: flex; gap: 6px; flex-shrink: 0; }
-.topbar__err {
-  font-size: 11px;
-  font-weight: bold;
+.map-mark--busy { animation: pulse 1.4s ease-in-out infinite; }
+.map-mark--err {
   color: #ff6b6b;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  border-color: rgba(255, 107, 107, 0.55);
   animation: pulse 1s ease-in-out infinite;
 }
 
@@ -439,9 +437,15 @@
   50% { opacity: 0.35; }
 }
 
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+/* Dwa wejścia do paneli, jedno pod drugim przy prawej krawędzi. */
+.map-ctrl-btns {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  right: calc(12px + env(safe-area-inset-right, 0px));
+  z-index: 1001;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .icon-btn {

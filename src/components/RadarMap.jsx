@@ -426,14 +426,6 @@ export default function RadarMap({
   const zoomScale = useMemo(() => iconScaleForZoom(zoom), [zoom])
   const mapRef = useRef(null)
 
-  // Mapa startuje na środku Europy (żeby było widać cały kraj). Ten przycisk
-  // pojawia się dopiero, gdy mamy GPS, i przelatuje kamerą do pozycji użytkownika.
-  const recenter = () => {
-    const map = mapRef.current
-    if (!map || !gpsCenter) return
-    map.flyTo(gpsCenter, Math.max(map.getZoom(), 9), { duration: 0.6 })
-  }
-
   // Trail polylines for the selected aircraft only.
   // - T2: dedup by proximity (50 m / 30 s) instead of exact ts match
   // - T3: append the aircraft's current position so the trail visually reaches it
@@ -520,26 +512,6 @@ export default function RadarMap({
           {t('NO_AIRCRAFT')}
         </div>
       )}
-      {/* Trzy kontrolki jako JEDEN stos o wspólnej szerokości i prawej krawędzi.
-          Wcześniej okrągły przycisk GPS był pozycjonowany osobno, a zoom rysował
-          Leaflet w swoim rogu razem z atrybucją — przez co elementy miały różne
-          szerokości i schodziły się na siebie. */}
-      <div className="map-ctrl-stack">
-        {gpsCenter && (
-          <button
-            className="map-ctrl map-ctrl--gps"
-            onClick={recenter}
-            aria-label={t('RECENTER_GPS')}
-            title={t('RECENTER_GPS')}
-          >
-            ◎
-          </button>
-        )}
-        <div className="map-ctrl-zoom">
-          <button className="map-ctrl" onClick={() => mapRef.current?.zoomIn()} aria-label={t('ZOOM_IN')} title={t('ZOOM_IN')}>+</button>
-          <button className="map-ctrl" onClick={() => mapRef.current?.zoomOut()} aria-label={t('ZOOM_OUT')} title={t('ZOOM_OUT')}>−</button>
-        </div>
-      </div>
       <MapContainer
         ref={mapRef}
         center={center}

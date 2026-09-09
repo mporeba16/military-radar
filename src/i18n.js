@@ -5,7 +5,6 @@
 const STRINGS = {
   pl: {
     APP_TITLE: 'RADAR WOJSKOWY',
-    APP_TITLE_SHORT: 'RADAR',
     PANEL_SETTINGS: 'USTAWIENIA',
     PANEL_MAPS: 'MAPY',
     LOADING_AIRCRAFT: '◌ Ładowanie samolotów…',
@@ -84,14 +83,8 @@ const STRINGS = {
     ALERT_OVERFLOW: 'więcej w zasięgu',
     INFO_TYPE: 'Typ',
     INFO_OPERATOR: 'Operator',
-    INFO_DISTANCE: 'Odległość',
     INFO_ALTITUDE: 'Wysokość',
-    INFO_VS: 'V/S',
     INFO_SPEED: 'Prędkość',
-    INFO_COUNTRY: 'Kraj',
-    INFO_ON_RADAR: 'Na radarze',
-    INFO_TRAIL: 'Trasa:',
-    INFO_TRAIL_PTS: 'pkt',
     PHOTO_NOT_FOUND: '🛩 Brak zdjęcia w planespotters.net',
     PHOTO_ERROR: '⚠ Nie udało się pobrać zdjęcia (sieć / timeout)',
     EXT_LINK: 'Otwórz w ADS-B Exchange ↗',
@@ -103,9 +96,6 @@ const STRINGS = {
     BOOT_ERROR_TITLE: '⚠ Aplikacja nie odpowiada',
     BOOT_ERROR_HINT: 'Sprawdź połączenie i przeładuj stronę.',
     NOTIF_SHOW: 'Pokaż na mapie',
-    RECENTER_GPS: 'Wyśrodkuj na mojej pozycji',
-    ZOOM_IN: 'Przybliż',
-    ZOOM_OUT: 'Oddal',
   },
 }
 

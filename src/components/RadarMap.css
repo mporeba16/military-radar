@@ -1,64 +1,6 @@
-/* Kontrolki mapy — jeden pion przy prawej krawędzi: wyśrodkowanie na GPS, a pod
-   nim zoom. Wszystkie mają 44 px i wspólną prawą krawędź, więc układają się w
-   kolumnę z równymi odstępami. Wcześniej okrągły przycisk GPS pozycjonował się
-   osobno, a zoom rysował Leaflet w swoim rogu razem z atrybucją — elementy
-   miały różne szerokości i schodziły się na siebie. */
-.map-ctrl-stack {
-  position: absolute;
-  right: 10px;
-  bottom: calc(34px + env(safe-area-inset-bottom, 0px));
-  z-index: 1000;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 10px;
-}
-
-.map-ctrl {
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: 'Courier New', monospace;
-  font-size: 20px;
-  line-height: 1;
-  color: #ffffff;
-  background: rgba(4, 10, 20, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
-}
-
-.map-ctrl:hover {
-  background: rgba(10, 25, 45, 0.98);
-  border-color: #00ff88;
-  color: #00ff88;
-}
-
-.map-ctrl:active { transform: scale(0.94); }
-.map-ctrl:focus-visible { outline: 2px solid rgba(0, 255, 136, 0.7); outline-offset: 2px; }
-
-/* Okrągły, żeby odróżniał się od kwadratowego zoomu. */
-.map-ctrl--gps {
-  border-radius: 50%;
-  font-size: 22px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
-}
-
-.map-ctrl-zoom {
-  display: flex;
-  flex-direction: column;
-  border-radius: 6px;
-  overflow: hidden;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
-}
-
-.map-ctrl-zoom .map-ctrl:first-child { border-bottom: none; }
-
-/* Atrybucja zostaje w swoim rogu, pod stosem kontrolek. */
+/* Atrybucja podkładu — wymagana licencyjnie, więc zostaje, tylko wtopiona
+   w ciemny motyw. Kontrolek zoomu i wyśrodkowania nie ma: mapa zoomuje się
+   kółkiem i szczypaniem, a pozycja GPS ma własny znacznik i okrąg zasięgu. */
 .leaflet-control-attribution {
   background: rgba(4, 10, 20, 0.75) !important;
   color: rgba(255, 255, 255, 0.5) !important;

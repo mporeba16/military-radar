@@ -7,14 +7,20 @@ import { getCommonName } from '../src/lib/typeNames.js'
 // dla regionalnych Embraerów łapała ten kod pierwsza i dawała transportowcowi
 // ikonę o połowę mniejszą niż reszta floty.
 describe('C-390 Millennium', () => {
-  it('E390 dostaje ikonę transportowca, nie regionalnego odrzutowca', () => {
-    expect(getShapeKey('E390')).toBe('twin_large')
+  it('E390 dostaje własny kształt, nie regionalnego odrzutowca', () => {
+    expect(getShapeKey('E390')).toBe('c390')
   })
 
   it('wojskowe oznaczenia tej samej maszyny trafiają tam samo', () => {
     for (const t of ['C390', 'C39M', 'KC390', 'KC39']) {
-      expect(getShapeKey(t)).toBe('twin_large')
+      expect(getShapeKey(t)).toBe('c390')
     }
+  })
+
+  it('kontur jest pochodną C-17, więc dzieli z nim układ współrzędnych', () => {
+    expect(SHAPES.c390.cx).toBe(SHAPES.c17.cx)
+    expect(SHAPES.c390.cy).toBe(SHAPES.c17.cy)
+    expect(SHAPES.c390.scale).toBeLessThan(SHAPES.c17.scale)
   })
 
   it('ma nazwę własną, więc powiadomienie nie mówi „E390"', () => {

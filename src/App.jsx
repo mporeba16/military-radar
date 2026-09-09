@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import RadarMap from './components/RadarMap'
-import TopBar from './components/TopBar'
+import { MapMark, MapPanelButtons } from './components/MapChrome'
 import AircraftInfoPanel from './components/AircraftInfoPanel'
 import SettingsPanel from './components/SettingsPanel'
 import MapsPanel from './components/MapsPanel'
@@ -34,7 +34,6 @@ export default function App() {
   const [vibrateOn, setVibrateOn] = useLocalStorage('radar.vibrate', true)
   const [selectedHex, setSelectedHex] = useState(null)
   const [serverTrails, setServerTrails] = useState(new Map())
-  const [trailSources, setTrailSources] = useState(new Map())
   const [activePanel, setActivePanel] = useState(null)
   const [activeTileId, setActiveTileId] = useLocalStorage('radar.tile', 'osm-adsbx')
   const [altBandsRaw, setAltBands] = useLocalStorage('radar.altBands', ALL_BANDS_ON)
@@ -209,12 +208,6 @@ export default function App() {
         for (const hex of next.keys()) if (!currentHexes.has(hex)) next.delete(hex)
         return next.size === prev.size ? prev : next
       })
-      setTrailSources(prev => {
-        if (prev.size === 0) return prev
-        const next = new Map(prev)
-        for (const hex of next.keys()) if (!currentHexes.has(hex)) next.delete(hex)
-        return next.size === prev.size ? prev : next
-      })
       if (location && !isDemo) {
         // Derive alerts + fire one-time effects for newly entered aircraft.
         applyInRange(enriched, true)
@@ -378,11 +371,8 @@ export default function App() {
     const fetchTrail = async () => {
       try {
         const r = await fetch(`/.netlify/functions/aircraft?hex=${selectedHex}`, { signal: ctrl.signal })
-        const { trail, sources } = await r.json()
+        const { trail } = await r.json()
         if (ctrl.signal.aborted) return
-        if (sources) {
-          setTrailSources(prev => { const next = new Map(prev); next.set(selectedHex, sources); return next })
-        }
         if (trail?.length) {
           setServerTrails(prev => { const next = new Map(prev); next.set(selectedHex, trail); return next })
         }
@@ -523,13 +513,8 @@ export default function App() {
         dimmedHexes={dimmedHexes}
       />
 
-      <TopBar
-        isLoading={isLoading}
-        error={error}
-        lastUpdated={lastUpdated}
-        activePanel={activePanel}
-        onTogglePanel={togglePanel}
-      />
+      <MapMark isLoading={isLoading} error={error} lastUpdated={lastUpdated} />
+      <MapPanelButtons activePanel={activePanel} onTogglePanel={togglePanel} />
 
       {/* Karta maszyny — pływający panel przy lewej krawędzi, pod paskiem
           górnym. Na wąskim ekranie rozciąga się na całą szerokość od góry. */}
@@ -537,8 +522,6 @@ export default function App() {
         <AircraftInfoPanel
           key={selectedAc.hex}
           ac={selectedAc}
-          trailSources={trailSources.get(selectedHex)}
-          firstSeen={firstSeenRef.current.get(selectedHex)}
           onClose={() => setSelectedHex(null)}
         />
       )}

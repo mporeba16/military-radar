@@ -200,23 +200,6 @@
   100% { background-position: -200% 0; }
 }
 
-.ac-info-trail-info {
-  margin: 4px 12px 0;
-  padding: 5px 7px;
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 3px;
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.55);
-  letter-spacing: 0.3px;
-  line-height: 1.5;
-}
-
-.ac-info-trail-warn {
-  color: #ffb74d;
-  margin-top: 2px;
-  word-break: break-all;
-}
-
 .ac-info-ext-link {
   display: block;
   margin: 6px 12px 10px;
@@ -237,40 +220,28 @@
   .ac-info-panel { width: 290px; }
 }
 
-/* Mobile — karta wysuwana z GÓRY, na całą szerokość, ponad logiem i przyciskami
-   (USTAW/MAPY chowają się pod nią — żeby je odsłonić, zamknij kartę ✕).
-   z-index > .map-ctrl-btns (1001) i logo (1000); padding-top = safe-area, żeby
-   nagłówek/✕ nie wchodziły pod notch / Dynamic Island. */
+/* Mobile — ten sam pływający panel co na szerokim ekranie, tylko węższy.
+   Wcześniej wysuwał się z góry na całą szerokość i z mapy zostawał dolny pas.
+   Idzie do samej góry i PRZYKRYWA znacznik aplikacji (z-index wyżej niż jego
+   1000) — znacznik nic nie robi, więc nie ma czego odsłaniać. Przyciski paneli
+   zostają dostępne: panel kończy się na 262 px, one zaczynają na 334 px. */
 @media (max-width: 600px) {
   .ac-info-panel {
-    top: 0;
+    top: calc(12px + env(safe-area-inset-top, 0px));
+    left: calc(12px + env(safe-area-inset-left, 0px));
+    right: auto;
     bottom: auto;
-    left: 0;
-    right: 0;
-    width: 100vw;
-    max-width: none;
-    max-height: 88dvh;
+    width: 250px;
+    max-height: calc(100dvh - 24px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
     z-index: 1100;
-    border-radius: 0 0 10px 10px;
-    border-top: none;
-    border-left: none;
-    border-right: none;
-    padding-top: env(safe-area-inset-top, 0px);
-    animation: slideDownIn 0.18s ease-out;
-    box-shadow: 0 6px 30px rgba(0, 0, 0, 0.6);
-  }
-
-  @keyframes slideDownIn {
-    from { transform: translateY(-100%); opacity: 0.4; }
-    to   { transform: translateY(0); opacity: 1; }
   }
 
   .ac-info-photo {
-    height: 140px;
+    height: 100px;
   }
   .ac-info-photo-wrap,
   .ac-info-photo-skeleton {
-    min-height: 140px;
+    min-height: 100px;
   }
-  .ac-info-photo-skeleton { height: 140px; }
+  .ac-info-photo-skeleton { height: 100px; }
 }
