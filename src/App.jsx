@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import RadarMap from './components/RadarMap'
 import TopBar from './components/TopBar'
-import BottomSheet from './components/BottomSheet'
+import AircraftInfoPanel from './components/AircraftInfoPanel'
 import SettingsPanel from './components/SettingsPanel'
 import MapsPanel from './components/MapsPanel'
 import { useGeolocation } from './hooks/useGeolocation'
@@ -11,7 +11,7 @@ import { fetchMilitaryAircraft } from './api'
 import { haversine, bearing } from './lib/geo'
 import { ALL_BANDS_ON, bandForAltM, normalizeBands, ALT_BANDS } from './lib/altBands'
 import { ftToM } from './components/aircraftShapes'
-import { alertText } from './lib/notifyText'
+import { alertText, CLOSE_RANGE_KM } from './lib/notifyText'
 import { t } from './i18n'
 import { version } from '../package.json'
 import './App.css'
@@ -38,7 +38,6 @@ export default function App() {
   const [activePanel, setActivePanel] = useState(null)
   const [activeTileId, setActiveTileId] = useLocalStorage('radar.tile', 'osm-adsbx')
   const [altBandsRaw, setAltBands] = useLocalStorage('radar.altBands', ALL_BANDS_ON)
-  const [sheetExpanded, setSheetExpanded] = useState(false)
   const [showBases, setShowBases] = useLocalStorage('radar.bases', true)
   const [lastUpdated, setLastUpdated] = useState(null)
   const [alerts, setAlerts] = useState([])
@@ -444,13 +443,6 @@ export default function App() {
     return out
   }, [visibleAircraft])
 
-  // Lista do arkusza: tylko maszyny w promieniu, od najbliższej.
-  const inRangeList = useMemo(() => {
-    if (!location) return []
-    return visibleAircraft
-      .filter(ac => ac._dist != null && ac._dist <= radius)
-      .sort((a, b) => a._dist - b._dist)
-  }, [visibleAircraft, location, radius])
 
   // U12: meta theme-color flips red when an emergency squawk is currently
   // visible — gives the iOS Safari status bar / Android Chrome chrome a
@@ -515,7 +507,7 @@ export default function App() {
   }, [])
 
   return (
-    <div className={`app${activePanel ? ' panel-open' : ''}${selectedAc ? ' info-open' : ''}${sheetExpanded && !selectedAc ? ' sheet-open' : ''}${alerts.length && !selectedAc ? ' has-alert' : ''}`}>
+    <div className={`app${activePanel ? ' panel-open' : ''}${selectedAc ? ' info-open' : ''}`}>
       <RadarMap
         aircraft={visibleAircraft}
         hasFetched={hasFetched}
@@ -539,23 +531,57 @@ export default function App() {
         onTogglePanel={togglePanel}
       />
 
-      <BottomSheet
-        inRange={inRangeList}
-        inRangeCount={inRangeCount}
-        hasGps={!!location}
-        radius={radius}
-        setRadius={setRadius}
-        expanded={sheetExpanded}
-        setExpanded={setSheetExpanded}
-        alerts={alerts}
-        onDismissAlert={dismissAlert}
-        onOpenAlert={openAlert}
-        selectedAc={selectedAc}
-        trailSources={trailSources.get(selectedHex)}
-        firstSeen={firstSeenRef.current.get(selectedHex)}
-        onCloseSelected={() => setSelectedHex(null)}
-        onSelect={handleSelect}
-      />
+      {/* Karta maszyny — pływający panel przy lewej krawędzi, pod paskiem
+          górnym. Na wąskim ekranie rozciąga się na całą szerokość od góry. */}
+      {selectedAc && (
+        <AircraftInfoPanel
+          key={selectedAc.hex}
+          ac={selectedAc}
+          trailSources={trailSources.get(selectedHex)}
+          firstSeen={firstSeenRef.current.get(selectedHex)}
+          onClose={() => setSelectedHex(null)}
+        />
+      )}
+
+      {/* Alerty — do trzech naraz, znikają gdy maszyna wyleci z zasięgu
+          albo gdy użytkownik je odrzuci. */}
+      {alerts.length > 0 && (
+        <div className="alert-stack">
+          {alerts.slice(0, 3).map(({ hex, ac, dist }) => {
+            // Czerwień zostaje dla przypadku, który powiadomienie nazywa
+            // „blisko Ciebie": maszyna wojskowa bliżej niż CLOSE_RANGE_KM.
+            // Reszta dostaje kolor kategorii, zgodny z mapą.
+            const isNear = (ac.kind || 'mil') === 'mil' && dist <= CLOSE_RANGE_KM
+            return (
+              <div key={hex}
+                className={`alert-toast kind-${ac.kind || 'mil'}${isNear ? ' near' : ''}`}
+                role="button"
+                tabIndex={0}
+                onClick={() => openAlert(ac.hex)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openAlert(ac.hex) }
+                }}>
+                <div className="alert-toast-body">
+                  <span className="alert-toast-tag">
+                    <span className="alert-toast-dot" />
+                    {ac.kind === 'heli' ? t('FILTER_HELI')
+                      : ac.kind === 'heavy' ? t('FILTER_HEAVY')
+                      : isNear ? t('ALERT_TAG_NEAR') : t('ALERT_TAG')}
+                  </span>
+                  <span className="alert-toast-call">{ac.flight?.trim() || ac.hex}</span>
+                  <span className="alert-toast-detail">{ac.t || '?'} · {Math.round(dist)} km</span>
+                </div>
+                <button className="alert-toast-close"
+                  aria-label={t('DISMISS_NOTIFICATION')}
+                  onClick={e => { e.stopPropagation(); dismissAlert(hex) }}>✕</button>
+              </div>
+            )
+          })}
+          {alerts.length > 3 && (
+            <div className="alert-toast-overflow">+{alerts.length - 3} {t('ALERT_OVERFLOW')}</div>
+          )}
+        </div>
+      )}
 
       {/* Side panel backdrop — mobile only (U10) */}
       {activePanel && (

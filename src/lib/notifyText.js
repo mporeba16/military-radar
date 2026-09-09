@@ -12,7 +12,7 @@ import { plForm } from './plural'
 //            gdy już patrzysz w niebo
 // Jeden separator (·) zamiast mieszanki nawiasów, myślnika i przecinków.
 
-const CLOSE_RANGE_KM = 10
+export const CLOSE_RANGE_KM = 10
 const LIST_MAX = 5
 
 // Powyżej tego nazwa własna zjada całą linię tytułu, więc wracamy do kodu ICAO.

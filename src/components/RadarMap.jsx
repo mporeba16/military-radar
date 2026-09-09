@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { MapContainer, TileLayer, Circle, CircleMarker, Polyline, ZoomControl, useMap, useMapEvents } from 'react-leaflet'
+import { MapContainer, TileLayer, Circle, CircleMarker, Polyline, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import './RadarMap.css'
@@ -520,16 +520,26 @@ export default function RadarMap({
           {t('NO_AIRCRAFT')}
         </div>
       )}
-      {gpsCenter && (
-        <button
-          className="map-recenter-btn"
-          onClick={recenter}
-          aria-label={t('RECENTER_GPS')}
-          title={t('RECENTER_GPS')}
-        >
-          ◎
-        </button>
-      )}
+      {/* Trzy kontrolki jako JEDEN stos o wspólnej szerokości i prawej krawędzi.
+          Wcześniej okrągły przycisk GPS był pozycjonowany osobno, a zoom rysował
+          Leaflet w swoim rogu razem z atrybucją — przez co elementy miały różne
+          szerokości i schodziły się na siebie. */}
+      <div className="map-ctrl-stack">
+        {gpsCenter && (
+          <button
+            className="map-ctrl map-ctrl--gps"
+            onClick={recenter}
+            aria-label={t('RECENTER_GPS')}
+            title={t('RECENTER_GPS')}
+          >
+            ◎
+          </button>
+        )}
+        <div className="map-ctrl-zoom">
+          <button className="map-ctrl" onClick={() => mapRef.current?.zoomIn()} aria-label={t('ZOOM_IN')} title={t('ZOOM_IN')}>+</button>
+          <button className="map-ctrl" onClick={() => mapRef.current?.zoomOut()} aria-label={t('ZOOM_OUT')} title={t('ZOOM_OUT')}>−</button>
+        </div>
+      </div>
       <MapContainer
         ref={mapRef}
         center={center}
@@ -538,7 +548,6 @@ export default function RadarMap({
         zoomControl={false}
       >
         <TileLayer key={tileLayer.id} url={tileLayer.url} attribution={tileLayer.attribution} maxZoom={tileLayer.maxZoom} />
-        <ZoomControl position="bottomright" />
         <MapClickHandler onSelect={onSelect} />
         <TileFilter filter={tileLayer.filter} />
         <ZoomTracker onZoomChange={setZoom} />

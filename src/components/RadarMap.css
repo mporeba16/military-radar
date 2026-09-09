@@ -1,63 +1,70 @@
-/* Zoom control — bottom right */
-/* Kontrolki siadają NAD arkuszem dolnym — --sheet-h trzyma jego wysokość. */
-.leaflet-bottom.leaflet-right .leaflet-control-zoom {
-  margin-bottom: calc(var(--sheet-h, 176px) + 12px + env(safe-area-inset-bottom, 0px));
-  margin-right: 10px;
-  transition: opacity 0.15s;
-}
-
-.leaflet-control-zoom a {
-  background: rgba(4, 10, 20, 0.92) !important;
-  color: #ffffff !important;
-  border: 1px solid rgba(255,255,255,0.18) !important;
-  font-size: 16px !important;
-  line-height: 26px !important;
-}
-
-.leaflet-control-zoom a:hover {
-  background: rgba(10, 25, 45, 0.98) !important;
-  border-color: #00ff88 !important;
-  color: #00ff88 !important;
-}
-
-.leaflet-control-zoom-in {
-  border-bottom: 1px solid #1e3a5f !important;
-}
-
-/* Recenter-on-GPS button — bottom right, OKRĄGŁY (odróżnia go od kwadratowego
-   zoomu +/-), z wyraźną przerwą nad kontrolką zoomu, żeby się nie zlewały. */
-.map-recenter-btn {
+/* Kontrolki mapy — jeden pion przy prawej krawędzi: wyśrodkowanie na GPS, a pod
+   nim zoom. Wszystkie mają 44 px i wspólną prawą krawędź, więc układają się w
+   kolumnę z równymi odstępami. Wcześniej okrągły przycisk GPS pozycjonował się
+   osobno, a zoom rysował Leaflet w swoim rogu razem z atrybucją — elementy
+   miały różne szerokości i schodziły się na siebie. */
+.map-ctrl-stack {
   position: absolute;
   right: 10px;
-  bottom: calc(var(--sheet-h, 176px) + 80px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(34px + env(safe-area-inset-bottom, 0px));
   z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.map-ctrl {
   width: 44px;
   height: 44px;
   padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
+  font-family: 'Courier New', monospace;
+  font-size: 20px;
   line-height: 1;
   color: #ffffff;
   background: rgba(4, 10, 20, 0.92);
-  border: 1px solid rgba(255,255,255,0.18);
-  border-radius: 50%;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: opacity 0.15s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 
-.map-recenter-btn:hover {
+.map-ctrl:hover {
   background: rgba(10, 25, 45, 0.98);
   border-color: #00ff88;
   color: #00ff88;
 }
 
-.map-recenter-btn:active {
-  transform: scale(0.94);
+.map-ctrl:active { transform: scale(0.94); }
+.map-ctrl:focus-visible { outline: 2px solid rgba(0, 255, 136, 0.7); outline-offset: 2px; }
+
+/* Okrągły, żeby odróżniał się od kwadratowego zoomu. */
+.map-ctrl--gps {
+  border-radius: 50%;
+  font-size: 22px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
 }
+
+.map-ctrl-zoom {
+  display: flex;
+  flex-direction: column;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+}
+
+.map-ctrl-zoom .map-ctrl:first-child { border-bottom: none; }
+
+/* Atrybucja zostaje w swoim rogu, pod stosem kontrolek. */
+.leaflet-control-attribution {
+  background: rgba(4, 10, 20, 0.75) !important;
+  color: rgba(255, 255, 255, 0.5) !important;
+  font-size: 9px !important;
+}
+.leaflet-control-attribution a { color: rgba(255, 255, 255, 0.7) !important; }
 
 /* Polskie bazy wojskowe — statyczne znaczniki (bursztynowy kwadrat) */
 .base-marker {

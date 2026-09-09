@@ -6,8 +6,6 @@ const STRINGS = {
   pl: {
     APP_TITLE: 'RADAR WOJSKOWY',
     APP_TITLE_SHORT: 'RADAR',
-    NAV_SETTINGS: 'USTAW',
-    NAV_MAPS: 'MAPY',
     PANEL_SETTINGS: 'USTAWIENIA',
     PANEL_MAPS: 'MAPY',
     LOADING_AIRCRAFT: '◌ Ładowanie samolotów…',
@@ -33,14 +31,8 @@ const STRINGS = {
     IN_APP_SECTION: 'SYGNAŁY W APLIKACJI',
     GPS_DETAILS: 'Szczegóły pozycji',
     DEBUG_TOGGLE: 'Diagnostyka',
-    SHEET_IN_RANGE: 'W ZASIĘGU',
-    SHEET_EMPTY: 'Nic w zasięgu',
-    SHEET_NO_GPS: 'Brak pozycji GPS',
-    SHEET_BACK: 'W zasięgu',
     NAV_SETTINGS_A11Y: 'Ustawienia',
     NAV_MAPS_A11Y: 'Mapy i warstwy',
-    SHEET_EXPAND: 'Pokaż listę maszyn',
-    SHEET_COLLAPSE: 'Zwiń listę',
     REFRESHED_AT: 'odświeżono',
     MAP_BASE_LABEL: 'PODKŁAD',
     ALT_FILTER_LABEL: 'WYSOKOŚĆ — DOTKNIJ, ABY PRZYGASIĆ',
@@ -112,6 +104,8 @@ const STRINGS = {
     BOOT_ERROR_HINT: 'Sprawdź połączenie i przeładuj stronę.',
     NOTIF_SHOW: 'Pokaż na mapie',
     RECENTER_GPS: 'Wyśrodkuj na mojej pozycji',
+    ZOOM_IN: 'Przybliż',
+    ZOOM_OUT: 'Oddal',
   },
 }
 
