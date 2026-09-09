@@ -1,10 +1,13 @@
 .ac-info-panel {
   position: absolute;
-  top: 58px;
-  left: 12px;
+  /* Do samej góry — karta PRZYKRYWA znacznik aplikacji w lewym rogu. Znacznik
+     jest tylko wskaźnikiem stanu i nic nie robi, więc nie ma czego odsłaniać,
+     a karta zyskuje 46 px wysokości. Przyciski paneli zostają odkryte. */
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  left: calc(12px + env(safe-area-inset-left, 0px));
   z-index: 1001;
   width: 230px;
-  max-height: calc(100dvh - 80px);
+  max-height: calc(100dvh - 24px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
@@ -222,17 +225,12 @@
 
 /* Mobile — ten sam pływający panel co na szerokim ekranie, tylko węższy.
    Wcześniej wysuwał się z góry na całą szerokość i z mapy zostawał dolny pas.
-   Idzie do samej góry i PRZYKRYWA znacznik aplikacji (z-index wyżej niż jego
-   1000) — znacznik nic nie robi, więc nie ma czego odsłaniać. Przyciski paneli
-   zostają dostępne: panel kończy się na 262 px, one zaczynają na 334 px. */
+   Pozycję i wysokość dziedziczy z reguły bazowej; tu różni się szerokością,
+   niższym zdjęciem i warstwą (nad przyciskami paneli, gdyby kiedyś sięgnął
+   ich krawędzi). Przy 250 px kończy się na 262 px, one zaczynają na 334. */
 @media (max-width: 600px) {
   .ac-info-panel {
-    top: calc(12px + env(safe-area-inset-top, 0px));
-    left: calc(12px + env(safe-area-inset-left, 0px));
-    right: auto;
-    bottom: auto;
     width: 250px;
-    max-height: calc(100dvh - 24px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
     z-index: 1100;
   }
 
