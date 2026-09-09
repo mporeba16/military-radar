@@ -75,7 +75,7 @@ export function getCommonName(t) {
     [/^AN7[24]$|COALER/, 'Coaler'],
     [/^A124$|AN124/, 'An-124 Rusłan'],
     [/^A225$|AN225/, 'An-225 Mrija'],
-    [/^C390$|^C39M$|KC390|MILLENNIUM/, 'C-390 Millennium'],
+    [/^C390$|^C39M$|^E390$|KC390|MILLENNIUM/, 'C-390 Millennium'],
     [/A400M?/, 'Atlas'],
     [/^A310$/, 'A310 MRTT'],
     [/^C32[A-Z]?$/, 'C-32A'],
