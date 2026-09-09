@@ -61,7 +61,7 @@ export default function App() {
   const {
     isSubscribed, subResolved, isSubscribing, subscribe, unsubscribe, sendTestPush,
     permissionState, subscribeError, syncError, serverStatus,
-  } = usePushNotifications(location, radius)
+  } = usePushNotifications(location, radius, kinds)
 
   // Gdy aktywny jest push serwerowy, NIE strzelamy też lokalnym powiadomieniem
   // systemowym — inaczej (w foreground) ten sam samolot daje dwa komunikaty.
@@ -427,7 +427,9 @@ export default function App() {
   useEffect(() => {
     const meta = document.querySelector('meta[name="theme-color"]')
     if (!meta) return
-    meta.setAttribute('content', hasEmergency ? '#a01818' : '#0a1628')
+    // Wartość spoczynkowa musi się zgadzać z <meta theme-color> w index.html,
+    // inaczej pasek stanu zmienia odcień w chwili zamontowania aplikacji.
+    meta.setAttribute('content', hasEmergency ? '#a01818' : '#080f1c')
   }, [hasEmergency])
 
   async function handleTestPush() {
@@ -522,8 +524,13 @@ export default function App() {
               setSelectedHex(ac.hex)
               setActivePanel(null)
             }
+            // Czerwień zostaje dla przypadku, który powiadomienie nazywa
+            // „blisko Ciebie": maszyna wojskowa bliżej niż CLOSE_RANGE_KM.
+            // Reszta dostaje tło kategorii, zgodne z kolorami na mapie.
+            const isNear = (ac.kind || 'mil') === 'mil' && dist <= NOTIF_CLOSE_RANGE_KM
             return (
-            <div key={hex} className="alert-toast"
+            <div key={hex}
+              className={`alert-toast kind-${ac.kind || 'mil'}${isNear ? ' near' : ''}`}
               role="button"
               tabIndex={0}
               onClick={openAircraft}
@@ -532,12 +539,10 @@ export default function App() {
               }}>
               <div className="alert-toast-body">
                 <span className="alert-toast-tag">
-                  <span style={{
-                    display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
-                    marginRight: 5, verticalAlign: 'middle',
-                    background: ac.kind === 'heli' ? '#00d9ff' : ac.kind === 'heavy' ? '#ffb300' : '#00ff88',
-                  }} />
-                  {ac.kind === 'heli' ? t('FILTER_HELI') : ac.kind === 'heavy' ? t('FILTER_HEAVY') : t('ALERT_TAG')}
+                  <span className="alert-toast-dot" />
+                  {ac.kind === 'heli' ? t('FILTER_HELI')
+                    : ac.kind === 'heavy' ? t('FILTER_HEAVY')
+                    : isNear ? t('ALERT_TAG_NEAR') : t('ALERT_TAG')}
                 </span>
                 <span className="alert-toast-call">{ac.flight?.trim() || ac.hex}</span>
                 <span className="alert-toast-detail">{ac.t || '?'} · {Math.round(dist)} km</span>

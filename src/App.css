@@ -512,22 +512,51 @@
   width: clamp(220px, 60vw, 340px);
 }
 
+/* Toast dziedziczy kolor swojej kategorii — te same barwy, którymi maszyny są
+   oznaczone na mapie. Wcześniej każdy alert był jednakowo czerwony, więc
+   śmigłowiec pogotowia 40 km stąd krzyczał tak samo jak myśliwiec nad głową. */
 .alert-toast {
   display: flex;
   align-items: center;
   gap: 12px;
-  background: rgba(200, 40, 0, 0.92);
-  border: 1px solid rgba(255, 100, 40, 0.8);
+  --kind-color: #00ff88;
+  background: rgba(8, 18, 32, 0.94);
+  border: 1px solid var(--kind-color);
+  border-left-width: 3px;
   border-radius: 4px;
   padding: 10px 14px;
   font-family: 'Courier New', monospace;
   color: #fff;
   cursor: pointer;
   pointer-events: auto;
-  box-shadow: 0 4px 20px rgba(200, 40, 0, 0.5);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.55);
   animation: alertSlideIn 0.2s ease-out;
   backdrop-filter: blur(8px);
 }
+
+.alert-toast.kind-mil { --kind-color: #00ff88; }
+.alert-toast.kind-heli { --kind-color: #00d9ff; }
+.alert-toast.kind-heavy { --kind-color: #ffb300; }
+
+.alert-toast-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 5px;
+  vertical-align: middle;
+  background: var(--kind-color);
+}
+
+/* Czerwień zarezerwowana dla tego, co powiadomienie nazywa „blisko Ciebie":
+   maszyna wojskowa bliżej niż 10 km. */
+.alert-toast.near {
+  background: rgba(200, 40, 0, 0.92);
+  border-color: rgba(255, 100, 40, 0.85);
+  box-shadow: 0 4px 20px rgba(200, 40, 0, 0.5);
+}
+
+.alert-toast.near .alert-toast-dot { background: #fff; }
 
 @keyframes alertSlideIn {
   from { opacity: 0; transform: translateY(-8px); }
@@ -535,6 +564,10 @@
 }
 
 .alert-toast:hover {
+  background: rgba(16, 32, 52, 0.97);
+}
+
+.alert-toast.near:hover {
   background: rgba(220, 60, 10, 0.97);
 }
 
@@ -554,7 +587,11 @@
 .alert-toast-tag {
   font-size: 9px;
   letter-spacing: 1.5px;
-  color: rgba(255, 200, 180, 0.85);
+  color: var(--kind-color);
+}
+
+.alert-toast.near .alert-toast-tag {
+  color: rgba(255, 200, 180, 0.9);
 }
 
 .alert-toast-call {
@@ -606,11 +643,13 @@
   .panel-open .ac-info-panel {
     display: none;
   }
-  /* Karta samolotu jest teraz u GÓRY na całą szerokość → stos alertów (również
-     u góry) zachodziłby na nią. Chowamy alerty gdy karta jest otwarta; wrócą po
-     jej zamknięciu (stan alertów się nie gubi). */
+  /* Karta samolotu zajmuje górę ekranu, więc stos alertów schodzi na dół
+     zamiast znikać. Wcześniej maszyna wchodząca w zasięg podczas czytania
+     karty dawała dźwięk i wibrację, ale na ekranie nie było jej widać.
+     Stos ma wyższy z-index niż karta, więc unosi się nad jej dolną krawędzią. */
   .info-open .alert-stack {
-    display: none;
+    top: auto;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
   }
 }
 

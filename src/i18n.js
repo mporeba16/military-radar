@@ -1,6 +1,6 @@
-// Minimal i18n — aplikacja jest wyłącznie po polsku. STRINGS trzyma jeden
-// słownik (pl); funkcje językowe zostają dla zgodności API, ale nie ma już
-// przełączania języka.
+// Minimal i18n — aplikacja jest wyłącznie po polsku. Jeden słownik, jedna
+// funkcja `t`. Przełączania języka nie ma i nie było czego zachowywać: hook
+// `useLang` zwracał stałą, więc niczego nie odświeżał.
 
 const STRINGS = {
   pl: {
@@ -22,7 +22,8 @@ const STRINGS = {
     IN_RANGE_NOW: 'W zasięgu teraz:',
     PLANES: 'samolotów',
     VISIBLE_ALERTS: 'widocznych alertów:',
-    FILTER_LABEL: 'POKAZUJ NA MAPIE',
+    FILTER_LABEL: 'KATEGORIE MASZYN',
+    FILTER_HINT: 'Wyłączona kategoria znika z mapy i nie wysyła powiadomień.',
     FILTER_MIL: 'Wojskowe',
     FILTER_HELI: 'Śmigłowce służbowe',
     FILTER_HEAVY: 'Duże samoloty',
@@ -61,6 +62,7 @@ const STRINGS = {
     INFO_LANDING: 'Prawdopodobnie ląduje',
     INFO_LANDING_APPROACH: 'Na podejściu do',
     ALERT_TAG: '⚠ W ZASIĘGU',
+    ALERT_TAG_NEAR: '⚠ BLISKO CIEBIE',
     ALERT_OVERFLOW: 'więcej w zasięgu',
     INFO_TYPE: 'Typ',
     INFO_OPERATOR: 'Operator',
@@ -92,16 +94,9 @@ const STRINGS = {
   },
 }
 
-const _lang = 'pl'
-
 export function t(key) {
   return STRINGS.pl[key] ?? key
 }
 
-export function getLang() { return _lang }
-
-// Hook zachowany dla zgodności; język się nie zmienia, więc zwraca stałą.
-export function useLang() { return _lang }
-
 // Ustaw <html lang> dla czytników ekranu / SEO.
-if (typeof document !== 'undefined') document.documentElement.lang = _lang
+if (typeof document !== 'undefined') document.documentElement.lang = 'pl'

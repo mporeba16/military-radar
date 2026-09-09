@@ -76,6 +76,19 @@ export function classifyExtra(a) {
   return null
 }
 
+// ── Kategorie wybierane przez użytkownika ─────────────────────────────────
+// Przełączniki w aplikacji filtrują mapę I powiadomienia, więc klient, zapis
+// subskrypcji i wysyłka muszą czytać ten sam kształt. Wyłącza wyłącznie jawne
+// `false`: brak pola albo śmieci znaczą „wszystko włączone", żeby rekord
+// zapisany starszą wersją klienta nie wyciszył komuś alertów po deployu.
+export const KIND_KEYS = ['mil', 'heli', 'heavy']
+
+export function normalizeKinds(v) {
+  const out = {}
+  for (const k of KIND_KEYS) out[k] = !(v && typeof v === 'object' && v[k] === false)
+  return out
+}
+
 export function isSuspiciousHex(hex) {
   const n = parseInt(hex, 16)
   if (isNaN(n) || n === 0) return true

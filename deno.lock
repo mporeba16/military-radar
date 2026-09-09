@@ -11,15 +11,23 @@
   "workspace": {
     "packageJson": {
       "dependencies": [
+        "npm:@eslint/js@^9.39.5",
+        "npm:@netlify/blobs@^10.7.4",
         "npm:@types/react-dom@^18.3.1",
         "npm:@types/react@^18.3.1",
         "npm:@vitejs/plugin-react@^4.3.1",
+        "npm:eslint-plugin-react-hooks@^7.1.1",
+        "npm:eslint-plugin-react@^7.37.5",
+        "npm:eslint@^9.39.5",
+        "npm:globals@^17.7.0",
         "npm:leaflet@^1.9.4",
         "npm:react-dom@^18.3.1",
         "npm:react-leaflet@^4.2.1",
         "npm:react@^18.3.1",
         "npm:vite-plugin-pwa@~0.20.5",
-        "npm:vite@^5.4.2"
+        "npm:vite@^5.4.2",
+        "npm:vitest@^2.1.9",
+        "npm:web-push@^3.6.7"
       ]
     }
   }

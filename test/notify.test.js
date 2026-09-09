@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { dedupeByDevice, cooldownMapEqual } from '../netlify/functions/notify.js'
+import { dedupeByDevice, cooldownMapEqual, toCooldownMap } from '../netlify/functions/notify.js'
 
 describe('dedupeByDevice', () => {
   it('leaves records without a deviceId untouched', () => {
@@ -52,5 +52,60 @@ describe('cooldownMapEqual', () => {
   })
   it('differing key counts are not equal', () => {
     expect(cooldownMapEqual({ a: 1 }, { a: 1, b: 2 })).toBe(false)
+  })
+})
+
+describe('toCooldownMap', () => {
+  const NOW = 1_000_000
+
+  it('an absent record yields an empty map', () => {
+    expect(toCooldownMap(null, NOW)).toEqual({})
+    expect(toCooldownMap(undefined, NOW)).toEqual({})
+  })
+
+  it('reads the current single-map format', () => {
+    expect(toCooldownMap({ alerted: { abc: 5 } }, NOW)).toEqual({ abc: 5 })
+  })
+
+  it('merges the legacy far/near split into one map', () => {
+    expect(toCooldownMap({ far: { abc: 5 }, near: { def: 7 } }, NOW))
+      .toEqual({ abc: 5, def: 7 })
+  })
+
+  it('keeps the freshest timestamp when a hex is in both legacy maps', () => {
+    expect(toCooldownMap({ far: { abc: 5 }, near: { abc: 9 } }, NOW)).toEqual({ abc: 9 })
+    expect(toCooldownMap({ far: { abc: 9 }, near: { abc: 5 } }, NOW)).toEqual({ abc: 9 })
+  })
+
+  it('treats the oldest `hexes` array as just-alerted', () => {
+    expect(toCooldownMap({ hexes: ['abc', 'def'] }, NOW)).toEqual({ abc: NOW, def: NOW })
+  })
+})
+
+// The eligibility rule the handler applies: one cooldown per hex, shared by
+// every category. A plane already alerted as "w zasięgu" must not fire again
+// when it crosses inside CLOSE_RANGE_KM, nor when adsb.fi reclassifies it.
+describe('shared cooldown eligibility', () => {
+  const COOLDOWN = 45 * 60 * 1000
+  const NOW = 1_000_000_000
+  const eligible = (map, hex) => !map[hex] || (NOW - map[hex]) > COOLDOWN
+
+  it('blocks a near alert for a plane already alerted at range', () => {
+    const map = toCooldownMap({ far: { abc: NOW - 60_000 } }, NOW)
+    expect(eligible(map, 'abc')).toBe(false)
+  })
+
+  it('blocks a near alert for a plane first alerted as a service helicopter', () => {
+    const map = toCooldownMap({ alerted: { abc: NOW - 60_000 } }, NOW)
+    expect(eligible(map, 'abc')).toBe(false)
+  })
+
+  it('allows a fresh alert once the cooldown has lapsed', () => {
+    const map = toCooldownMap({ alerted: { abc: NOW - COOLDOWN - 1 } }, NOW)
+    expect(eligible(map, 'abc')).toBe(true)
+  })
+
+  it('allows an alert for an aircraft never seen before', () => {
+    expect(eligible(toCooldownMap({ alerted: { abc: NOW } }, NOW), 'zzz')).toBe(true)
   })
 })

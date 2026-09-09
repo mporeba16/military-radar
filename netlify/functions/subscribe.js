@@ -1,6 +1,7 @@
 import { getStore, connectLambda } from '@netlify/blobs'
 import crypto from 'crypto'
 import { corsHeaders, isValidPushEndpoint, rateLimit } from './lib/security.js'
+import { normalizeKinds } from './lib/military.js'
 
 export const handler = async (event) => {
   connectLambda(event)
@@ -27,6 +28,9 @@ export const handler = async (event) => {
     try {
       const delKey = crypto.createHash('sha256').update(ep).digest('hex').slice(0, 32)
       await getStore('push-subscriptions').delete(delKey)
+      // Mapa cooldownu jest kluczowana tym samym hashem endpointu, więc bez tego
+      // zostawał osierocony blob w push-alerted, którego nikt już nie odczyta.
+      await getStore('push-alerted').delete(delKey).catch(() => {})
       console.log(`[subscribe] unsubscribed key=${delKey}`)
       return { statusCode: 200, headers, body: JSON.stringify({ ok: true, removed: true }) }
     } catch (err) {
@@ -35,7 +39,7 @@ export const handler = async (event) => {
     }
   }
 
-  const { subscription, lat, lon, radius, deviceId } = body
+  const { subscription, lat, lon, radius, deviceId, kinds } = body
 
   if (!subscription?.endpoint) {
     return { statusCode: 400, headers, body: JSON.stringify({ error: 'missing-endpoint' }) }
@@ -100,6 +104,10 @@ export const handler = async (event) => {
     // Stabilny identyfikator urządzenia (z localStorage klienta) — pozwala
     // sprzątać stare endpointy po rotacji push (patrz niżej).
     deviceId: deviceId ?? existing?.deviceId ?? null,
+    // Kategorie, o których to urządzenie chce dostawać powiadomienia. Klient
+    // wysyła je razem z pozycją; starszy klient nie wysyła nic i wtedy zostaje
+    // to, co już zapisano, a w ostateczności komplet włączonych kategorii.
+    kinds: normalizeKinds(kinds ?? existing?.kinds),
   }
 
   let serialized
@@ -137,6 +145,7 @@ export const handler = async (event) => {
         const other = await store.get(b.key, { type: 'json' }).catch(() => null)
         if (other?.deviceId && other.deviceId === deviceId) {
           await store.delete(b.key).catch(() => {})
+          await getStore('push-alerted').delete(b.key).catch(() => {})
           console.log(`[subscribe] pruned stale endpoint key=${b.key} device=${deviceId}`)
         }
       }))

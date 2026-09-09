@@ -97,6 +97,7 @@ export default function SettingsPanel({
       {/* 3. Filtr kategorii — co pokazywać na mapie */}
       <section className="cp-section">
         <div className="cp-label">{t('FILTER_LABEL')}</div>
+        <p className="info-text" style={{ marginBottom: 8 }}>{t('FILTER_HINT')}</p>
         <div className="toggle-list">
           {[
             { key: 'mil', label: t('FILTER_MIL'), color: '#00ff88' },

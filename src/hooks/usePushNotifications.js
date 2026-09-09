@@ -2,6 +2,21 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || ''
 
+// Suwak zasięgu ma 300 pozycji, a watchPosition potrafi sypać fiksami co kilka
+// sekund. Bez zwłoki każdy krok suwaka i każdy fix szedł osobnym POST-em, a
+// subscribe.js przepuszcza jedno wywołanie na 10 s — reszta wracała z 429 i
+// końcowa wartość zasięgu nigdy nie docierała na serwer.
+const SYNC_DEBOUNCE_MS = 600
+
+// Około 110 m. Poniżej tej zmiany pozycja nie wpływa na alerty zasięgowe, a
+// surowy odczyt z GPS różni się praktycznie przy każdym fiksie.
+const COORD_DECIMALS = 3
+function roundCoord(v) {
+  if (v == null) return null
+  const f = 10 ** COORD_DECIMALS
+  return Math.round(v * f) / f
+}
+
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4)
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
@@ -22,13 +37,15 @@ function getDeviceId() {
   } catch { return null }
 }
 
-async function syncToServer(sub, lat, lon, radius) {
+async function syncToServer(sub, lat, lon, radius, kinds) {
   if (!sub) return { ok: false, error: 'no-subscription' }
   try {
     const res = await fetch('/.netlify/functions/subscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ subscription: sub.toJSON(), lat, lon, radius, deviceId: getDeviceId() }),
+      body: JSON.stringify({
+        subscription: sub.toJSON(), lat, lon, radius, kinds, deviceId: getDeviceId(),
+      }),
     })
     let payload = null
     try { payload = await res.json() } catch {}
@@ -58,7 +75,7 @@ async function fetchStatus(sub) {
   }
 }
 
-export function usePushNotifications(location, radius) {
+export function usePushNotifications(location, radius, kinds) {
   const [isSubscribed, setIsSubscribed] = useState(false)
   // Czy znamy już stan subskrypcji? Zanim asynchroniczne getSubscription() się
   // rozwiąże, isSubscribed jest false — gdyby klient w tym oknie odpalił lokalne
@@ -73,6 +90,15 @@ export function usePushNotifications(location, radius) {
     typeof Notification !== 'undefined' ? Notification.permission : 'unsupported'
   )
   const subRef = useRef(null)
+
+  // Pozycja zaokrąglona i kategorie rozłożone na wartości proste — dzięki temu
+  // efekt synchronizacji reaguje na realną zmianę, a nie na nową referencję
+  // obiektu przy każdym renderze.
+  const syncLat = roundCoord(location?.lat)
+  const syncLon = roundCoord(location?.lon)
+  const wantMil = kinds?.mil !== false
+  const wantHeli = kinds?.heli !== false
+  const wantHeavy = kinds?.heavy !== false
 
   // On mount: restore existing subscription. Re-sync handled by the
   // separate effect below, which reacts to location/radius changes.
@@ -98,15 +124,24 @@ export function usePushNotifications(location, radius) {
     return () => { cancelled = true }
   }, [])
 
-  // Whenever GPS position or radius changes, push updated position to server
+  // Pozycja, zasięg i filtr kategorii lecą na serwer po ustaniu zmian. Każda
+  // kolejna zmiana kasuje poprzedni timer, więc przeciągnięcie suwaka przez
+  // cały tor kończy się jednym zapytaniem z wartością końcową.
   useEffect(() => {
     if (!isSubscribed || !subRef.current) return
-    syncToServer(subRef.current, location?.lat, location?.lon, radius).then(res => {
-      setSyncError(res.ok ? null : res.error)
-    })
-  }, [isSubscribed, location?.lat, location?.lon, radius])
+    const id = setTimeout(() => {
+      syncToServer(subRef.current, syncLat, syncLon, radius, {
+        mil: wantMil, heli: wantHeli, heavy: wantHeavy,
+      }).then(res => {
+        setSyncError(res.ok ? null : res.error)
+      })
+    }, SYNC_DEBOUNCE_MS)
+    return () => clearTimeout(id)
+  }, [isSubscribed, syncLat, syncLon, radius, wantMil, wantHeli, wantHeavy])
 
-  // Periodically refresh server-side status while subscribed
+  // Diagnostyka serwerowa, odświeżana co minutę. Zależy WYŁĄCZNIE od stanu
+  // subskrypcji: gdyby zależała też od pozycji, każdy fix GPS zerowałby
+  // interwał i od razu strzelał kolejnym zapytaniem.
   useEffect(() => {
     if (!isSubscribed || !subRef.current) {
       setServerStatus(null)
@@ -120,7 +155,7 @@ export function usePushNotifications(location, radius) {
     refresh()
     const id = setInterval(refresh, 60_000)
     return () => { cancelled = true; clearInterval(id) }
-  }, [isSubscribed, location?.lat, location?.lon, radius])
+  }, [isSubscribed])
 
   const subscribe = useCallback(async () => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
@@ -146,7 +181,9 @@ export function usePushNotifications(location, radius) {
       })
       subRef.current = sub
       setIsSubscribed(true)
-      const res = await syncToServer(sub, location?.lat, location?.lon, radius)
+      const res = await syncToServer(sub, syncLat, syncLon, radius, {
+        mil: wantMil, heli: wantHeli, heavy: wantHeavy,
+      })
       if (!res.ok) setSyncError(res.error)
     } catch (err) {
       console.error('Push subscribe failed:', err)
@@ -158,7 +195,7 @@ export function usePushNotifications(location, radius) {
     } finally {
       setIsSubscribing(false)
     }
-  }, [location, radius])
+  }, [syncLat, syncLon, radius, wantMil, wantHeli, wantHeavy])
 
   const unsubscribe = useCallback(async () => {
     const sub = subRef.current

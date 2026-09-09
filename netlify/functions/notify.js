@@ -1,6 +1,6 @@
 import { getStore, connectLambda } from '@netlify/blobs'
 import webpush from 'web-push'
-import { fetchMilitaryNear, haversine } from './lib/military.js'
+import { fetchMilitaryNear, haversine, normalizeKinds } from './lib/military.js'
 
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY
@@ -8,9 +8,13 @@ const VAPID_EMAIL = process.env.VAPID_SUBJECT || process.env.VAPID_EMAIL || 'mai
 
 const MAX_POSITION_AGE_MS = 7 * 24 * 60 * 60 * 1000  // 7 days
 const CLOSE_RANGE_KM = 10
-// Don't re-alert the same aircraft within this window. The timestamp is
-// refreshed every run while the plane stays in range, so the cooldown is
-// effectively measured from when it LEAVES — a brief drop-out won't re-alert.
+// Don't re-alert the same aircraft within this window. JEDEN cooldown na hex,
+// wspólny dla wszystkich kategorii — dystans i rodzaj maszyny decydują tylko o
+// treści tego jednego powiadomienia. Wcześniej „blisko" i „w zasięgu" miały
+// osobne mapy, więc samolot wlatujący w promień z dużej odległości dostawał
+// najpierw alert „w zasięgu", a po kilku minutach drugi „blisko Ciebie".
+// Znacznik jest odświeżany w każdym przebiegu, dopóki maszyna jest w promieniu,
+// więc cooldown liczy się od WYLOTU — chwilowy zanik sygnału nie alarmuje ponownie.
 const ALERT_COOLDOWN_MS = 45 * 60 * 1000
 const NEAR_GROUP_THRESHOLD = 3    // above this many close planes, group them too
 const FAR_LIST_MAX = 5            // max names listed in a grouped push
@@ -50,6 +54,28 @@ export function dedupeByDevice(subs) {
     if (!prev || (v.raw.updatedAt || 0) > (prev.raw.updatedAt || 0)) byDevice.set(dev, v)
   }
   for (const v of byDevice.values()) out.push(v)
+  return out
+}
+
+// Wczytuje zapisany rekord cooldownu do jednej mapy hex→timestamp. Obsługuje
+// wszystkie historyczne formaty: bieżący `alerted`, wcześniejsze rozdzielone
+// `far`/`near` oraz najstarszą tablicę `hexes`. Dla hexa obecnego w kilku
+// polach bierzemy NAJŚWIEŻSZY znacznik, żeby migracja nie skróciła cooldownu.
+export function toCooldownMap(rec, now) {
+  const out = {}
+  if (!rec) return out
+  const merge = (v) => {
+    if (!v) return
+    if (Array.isArray(v)) {
+      for (const h of v) out[h] = Math.max(out[h] || 0, now)
+      return
+    }
+    for (const [h, ts] of Object.entries(v)) out[h] = Math.max(out[h] || 0, ts)
+  }
+  merge(rec.alerted)
+  merge(rec.far)
+  merge(rec.near)
+  merge(rec.hexes)
   return out
 }
 
@@ -229,17 +255,21 @@ export const handler = async (event) => {
 async function writeRunStats(stats, runStart) {
   try {
     const runsStore = getStore('push-runs')
+    // Housekeeping gated to ~once/hour so we don't list() stores every minute:
+    // purge the legacy `run-<ts>` blobs older versions accumulated, expire stale
+    // rate-limit records (their `ts` is >24h old → the window is long gone),
+    // wyrzuć dawno porzucone subskrypcje i posprzątaj po nich mapy cooldownu.
+    // Idzie PRZED zapisem `latest`, żeby liczniki sprzątania trafiły do podsumowania.
+    if (runStart % 3_600_000 < 60_000) {
+      await purgeLegacyRunBlobs(runsStore).catch(() => {})
+      await purgeStaleRateLimits().catch(() => {})
+      await purgeStaleSubscriptions(stats).catch(() => {})
+      await purgeOrphanAlerted(stats).catch(() => {})
+    }
     // Keep only the latest run summary — status.js reads this. We deliberately
     // do NOT write a per-run `run-<ts>` blob: the cron fires every minute, so
     // that grew ~1440 blobs/day unbounded with nothing ever reading them back.
     await runsStore.set('latest', JSON.stringify(stats))
-    // Housekeeping gated to ~once/hour so we don't list() stores every minute:
-    // purge the legacy `run-<ts>` blobs older versions accumulated, and expire
-    // stale rate-limit records (their `ts` is >24h old → the window is long gone).
-    if (runStart % 3_600_000 < 60_000) {
-      await purgeLegacyRunBlobs(runsStore).catch(() => {})
-      await purgeStaleRateLimits().catch(() => {})
-    }
   } catch (err) {
     console.error('[notify] Failed to write run stats:', err.message)
   }
@@ -250,6 +280,48 @@ async function purgeLegacyRunBlobs(runsStore) {
   await Promise.allSettled((blobs || [])
     .filter(b => b.key.startsWith('run-'))
     .map(b => runsStore.delete(b.key)))
+}
+
+// Rekord, którego klient nie odświeżył od miesiąca, jest martwy: notify pomija
+// go już po MAX_POSITION_AGE_MS, więc przez kolejne tygodnie tylko puchnie
+// magazyn i lista w każdym przebiegu. Kasowanie jest odwracalne — przy następnym
+// otwarciu aplikacji hook usePushNotifications zapisuje subskrypcję od nowa.
+const SUBSCRIPTION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000
+async function purgeStaleSubscriptions(stats) {
+  const subsStore = getStore('push-subscriptions')
+  const alertedStore = getStore('push-alerted')
+  const { blobs } = await subsStore.list()
+  const now = Date.now()
+  let removed = 0
+  await Promise.allSettled((blobs || []).map(async b => {
+    const rec = await subsStore.get(b.key, { type: 'json' }).catch(() => null)
+    if (!rec) return
+    const age = now - (rec.updatedAt || rec.createdAt || now)
+    if (age <= SUBSCRIPTION_MAX_AGE_MS) return
+    await subsStore.delete(b.key).catch(() => {})
+    await alertedStore.delete(b.key).catch(() => {})
+    removed++
+    console.log(`[notify] purged abandoned subscription key=${b.key} ageDays=${Math.round(age / 86_400_000)}`)
+  }))
+  if (removed) stats.staleSubsRemoved = removed
+}
+
+// Mapy cooldownu bez odpowiadającej subskrypcji. Zostawały po ścieżkach, które
+// kasowały tylko push-subscriptions; te są już załatane, ale sprzątanie zostaje
+// jako siatka bezpieczeństwa. Listujemy push-alerted PRZED push-subscriptions,
+// żeby subskrypcja założona w trakcie nie wyglądała na osieroconą.
+async function purgeOrphanAlerted(stats) {
+  const alertedStore = getStore('push-alerted')
+  const subsStore = getStore('push-subscriptions')
+  const { blobs: alerted } = await alertedStore.list()
+  const { blobs: subs } = await subsStore.list()
+  const live = new Set((subs || []).map(b => b.key))
+  const orphans = (alerted || []).filter(b => !live.has(b.key))
+  await Promise.allSettled(orphans.map(async b => {
+    await alertedStore.delete(b.key).catch(() => {})
+    console.log(`[notify] purged orphan cooldown map key=${b.key}`)
+  }))
+  if (orphans.length) stats.orphanAlertedRemoved = orphans.length
 }
 
 const RATE_LIMIT_MAX_AGE_MS = 24 * 60 * 60 * 1000
@@ -273,19 +345,20 @@ async function processSubscription({ key, raw, ageMs }, aircraft, subsStore, ale
     const now = Date.now()
 
     const alertedRaw = await alertedStore.get(key, { type: 'json' }).catch(() => null)
-    // Migrate legacy formats (the old `hexes` array, or the interim far/near
-    // arrays) into timestamp maps, treating known hexes as just-alerted so a
-    // deploy doesn't trigger an alert storm.
-    const toMap = (v) => {
-      if (!v) return {}
-      if (Array.isArray(v)) { const m = {}; for (const h of v) m[h] = now; return m }
-      return { ...v }
-    }
-    const prevFar = toMap(alertedRaw?.far ?? alertedRaw?.hexes)
-    const prevNear = toMap(alertedRaw?.near)
-    const eligible = (map, hex) => !map[hex] || (now - map[hex]) > ALERT_COOLDOWN_MS
+    // Jedna mapa cooldownu na subskrypcję. Stare formaty (rozdzielone far/near,
+    // najstarsza tablica `hexes`) są scalane w locie — znane hexy trafiają do
+    // niej jako świeżo zaalarmowane, więc deploy nie wywołuje lawiny alertów.
+    const prevAlerted = toCooldownMap(alertedRaw, now)
+    const eligible = (hex) => !prevAlerted[hex] || (now - prevAlerted[hex]) > ALERT_COOLDOWN_MS
 
-    const enriched = aircraft.map(a => ({ ...a, _dist: Math.round(haversine(lat, lon, a.lat, a.lon)) }))
+    // Filtr kategorii ustawiony w aplikacji obowiązuje też push. Odsiewamy tuż
+    // po wzbogaceniu o dystans, więc maszyna z wyłączonej kategorii nie trafia
+    // ani do koszyków, ani do mapy cooldownu — po ponownym włączeniu kategorii
+    // zaalarmuje normalnie, jakby dopiero co się pojawiła.
+    const wanted = normalizeKinds(raw.kinds)
+    const enriched = aircraft
+      .map(a => ({ ...a, _dist: Math.round(haversine(lat, lon, a.lat, a.lon)) }))
+      .filter(a => wanted[a.kind || 'mil'])
     // Wojsko zachowuje rozróżnienie blisko (≤10 km) / w zasięgu; nowe kategorie
     // (duże samoloty, śmigłowce służbowe) alertują po prostu w całym promieniu.
     const milNow = enriched.filter(a => (a.kind || 'mil') === 'mil')
@@ -293,40 +366,39 @@ async function processSubscription({ key, raw, ageMs }, aircraft, subsStore, ale
     const heliNow = enriched.filter(a => a.kind === 'heli')
     const nearNow = milNow.filter(a => a._dist <= CLOSE_RANGE_KM)
     const farNow = milNow.filter(a => a._dist > CLOSE_RANGE_KM)
-    const newNear = nearNow.filter(a => eligible(prevNear, a.hex))
-    const newFar = farNow.filter(a => eligible(prevFar, a.hex))
-    const newHeavy = heavyNow.filter(a => eligible(prevFar, a.hex))
-    const newHeli = heliNow.filter(a => eligible(prevFar, a.hex))
+    // Każda maszyna trafia dokładnie do jednego z tych czterech koszyków, a
+    // wszystkie sięgają po ten sam cooldown — stąd jeden alert na samolot.
+    const newNear = nearNow.filter(a => eligible(a.hex))
+    const newFar = farNow.filter(a => eligible(a.hex))
+    const newHeavy = heavyNow.filter(a => eligible(a.hex))
+    const newHeli = heliNow.filter(a => eligible(a.hex))
 
-    // Persist the cooldown maps BEFORE sending. A scheduled function can be
+    // Persist the cooldown map BEFORE sending. A scheduled function can be
     // killed mid-run (time limit) once some pushes have already gone out; if
     // we saved the cooldown only afterwards, the next run (a minute later)
     // would re-send the same alerts. Writing first means the worst case is a
     // single dropped alert rather than a duplicate storm — and this app has a
     // long history of fighting iOS duplicates, so that trade-off is deliberate.
     //
-    // Every in-range plane is stamped `now` (cooldown counts from when it
-    // leaves); near implies far, so a close plane never fires a retroactive far
-    // alert. Recently-departed entries are kept until their cooldown lapses.
-    const nextFar = {}
-    const nextNear = {}
-    for (const a of enriched) nextFar[a.hex] = now
-    for (const a of nearNow) nextNear[a.hex] = now
-    for (const [hex, ts] of Object.entries(prevFar)) {
-      if (!(hex in nextFar) && now - ts <= ALERT_COOLDOWN_MS) nextFar[hex] = ts
-    }
-    for (const [hex, ts] of Object.entries(prevNear)) {
-      if (!(hex in nextNear) && now - ts <= ALERT_COOLDOWN_MS) nextNear[hex] = ts
+    // Every in-range plane is stamped `now`, niezależnie od kategorii i dystansu,
+    // więc zbliżenie się poniżej CLOSE_RANGE_KM ani przeklasyfikowanie maszyny
+    // (mil ↔ heli/heavy między feedami adsb.fi) nie odpali drugiego alertu.
+    // Wpisy maszyn, które właśnie wyleciały, zostają do wygaśnięcia cooldownu.
+    const nextAlerted = {}
+    for (const a of enriched) nextAlerted[a.hex] = now
+    for (const [hex, ts] of Object.entries(prevAlerted)) {
+      if (!(hex in nextAlerted) && now - ts <= ALERT_COOLDOWN_MS) nextAlerted[hex] = ts
     }
     // Skip the write when the cooldown content is unchanged (the common
     // empty-sky case) — saves one blob write per idle subscription per minute.
-    if (!(cooldownMapEqual(nextFar, prevFar) && cooldownMapEqual(nextNear, prevNear))) {
-      await alertedStore.set(key, JSON.stringify({ far: nextFar, near: nextNear, ts: now }))
+    if (!cooldownMapEqual(nextAlerted, prevAlerted)) {
+      await alertedStore.set(key, JSON.stringify({ alerted: nextAlerted, ts: now }))
     }
 
     subDiag.gpsAgeMs = ageMs
     subDiag.radius = radius
-    subDiag.inRange = aircraft.length
+    subDiag.inRange = enriched.length
+    if (aircraft.length !== enriched.length) subDiag.filteredOutByKind = aircraft.length - enriched.length
     subDiag.newAircraft = newFar.length
     subDiag.newNearAircraft = newNear.length
 

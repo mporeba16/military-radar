@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { altToColor, ftToM, knToKmh, getCommonName, countryFromHex, countryFlag } from './aircraftShapes'
 import { findLikelyLanding } from '../airfields'
 import { scorePhotoMatch, photoHasMatchSignal } from '../lib/photoMatch'
-import { t, useLang } from '../i18n'
+import { t } from '../i18n'
 import './AircraftInfoPanel.css'
 
 // V4: ICAO special transponder codes that mean something serious
@@ -157,7 +157,6 @@ function useAircraftPhoto(hex, reg, ac) {
 }
 
 export default function AircraftInfoPanel({ ac, trailSources, firstSeen, onClose }) {
-  useLang()  // re-render on language switch
   const { photo, state: photoState } = useAircraftPhoto(ac.hex, ac.reg, ac)
   const [imgError, setImgError] = useState(false)
   const altM = ftToM(ac.alt_baro)
