@@ -1,3 +1,5 @@
+import { getCommonName } from '../lib/typeNames'
+
 // Aircraft icon paths from tar1090 / globe.adsbexchange.com
 // (c) wiedehopf, MIT licence — https://github.com/wiedehopf/tar1090
 //
@@ -407,141 +409,6 @@ export function getShapeKey(t, gs = null) {
   return 'jet_swept'
 }
 
-export function getCommonName(t) {
-  const type = (t || '').toUpperCase().replace(/[-\s]/g, '')
-  if (!type) return null
-  const map = [
-    [/F16|FIGHTINGFALCON/, 'Fighting Falcon'],
-    [/F15C?D?E?|STRIKEEAGLE/, 'Eagle'],
-    [/FA18|F18|SUPERHORNET/, 'Hornet'],
-    [/F35/, 'Lightning II'],
-    [/EF2000|TYPHOON/, 'Typhoon'],
-    [/RAFALE/, 'Rafale'],
-    [/MIRAGEF1/, 'Mirage F1'],
-    [/MIRAGE2000|MIRAGE/, 'Mirage 2000'],
-    [/JAS39|GRIPEN|SB39/, 'Gripen'],
-    [/ALPHAJET/, 'Alpha Jet'],
-    [/BAEHAWK|^HAWK\d/, 'Hawk'],
-    [/L159|ALCA/, 'ALCA'],
-    [/MB339|M339/, 'Aermacchi MB-339'],
-    [/MB326|M326|M346/, 'Aermacchi MB-326'],
-    [/^L39|ALBATROS/, 'L-39 Albatros'],
-    [/^T38|TALON/, 'Talon'],
-    [/^F5|F5E/, 'Tiger II'],
-    [/^A4$|TA4|SKYHAWK/, 'Skyhawk'],
-    [/HUNTER/, 'Hunter'],
-    [/MIG29|FULCRUM/, 'Fulcrum'],
-    [/MIG31/, 'Foxhound'],
-    [/SU57/, 'Felon'],
-    [/SU27|SU30|SU35|FLANKER/, 'Flanker'],
-    [/^SU(17|22)[A-Z]?$|FITTER/, 'Fitter'],
-    [/^SU24$|FENCER/, 'Fencer'],
-    [/^SU34$|FULLBACK/, 'Fullback'],
-    [/^F22[A-Z]?$|RAPTOR/, 'Raptor'],
-    [/^F4[A-G]?$|PHANTOM/, 'Phantom II'],
-    [/^F14[A-D]?$|TOMCAT/, 'Tomcat'],
-    [/^F104$|STARFIGHTER/, 'Starfighter'],
-    [/^F111$|AARDVARK/, 'Aardvark'],
-    [/^F2[AB]?$/, 'Mitsubishi F-2'],
-    [/^AV8[A-Z]?$|^HARR$|HARRIER/, 'Harrier II'],
-    [/^SR71$|BLACKBIRD/, 'Blackbird'],
-    [/^MG1[5-9]$|^MIG1[5-9]$/, 'MiG-15/17/19'],
-    [/B1B|LANCER/, 'Lancer'],
-    [/^B2[AT]?$|SPIRIT/, 'Spirit'],
-    [/B52|STRATOFORTRESS/, 'Stratofortress'],
-    [/^TU95$|^TU142$|BEAR/, 'Bear'],
-    [/^TU160$|BLACKJACK/, 'Blackjack'],
-    [/^TU22M$|BACKFIRE/, 'Backfire'],
-    [/TORNADO/, 'Tornado'],
-    [/^A10|WARTHOG/, 'Warthog'],
-    [/^U2$|^TR1$/, 'Dragon Lady'],
-    [/C17|GLOBEMASTER/, 'Globemaster III'],
-    [/^C5$|C5M|GALAXY/, 'Galaxy'],
-    [/^E3[A-Z]?$|SENTRY/, 'Sentry (AWACS)'],
-    [/E737|WEDGETAIL/, 'Wedgetail'],
-    [/^P8|POSEIDON/, 'Poseidon'],
-    [/^P3|ORION/, 'Orion'],
-    [/^E2[A-Z]?$|HAWKEYE/, 'Hawkeye'],
-    [/^C2[A-Z]?$|GREYHOUND/, 'Greyhound'],
-    [/RC135/, 'Rivet Joint'],
-    [/JSTARS/, 'J-STARS'],
-    [/KC46/, 'Pegasus'],
-    [/KC135/, 'Stratotanker'],
-    [/KC10|EXTENDER/, 'Extender'],
-    [/MRTT|A330MRT/, 'MRTT'],
-    [/C130|HERCULES/, 'Hercules'],
-    [/C160/, 'Transall'],
-    [/AN12/, 'Cub'],
-    [/^Q4[AB]?$|RQ4|GLOBALHAWK|PHOENIX/, 'RQ-4 Global Hawk'],
-    [/^(M28|AN28|A28|C145)$|SKYTRUCK|BRYZA/, 'M28 Bryza / An-28'],
-    [/^AN22$|COCK/, 'Cock'],
-    [/^AN26$|CURL/, 'Curl'],
-    [/^AN30$|CLANK/, 'Clank'],
-    [/^AN7[24]$|COALER/, 'Coaler'],
-    [/^A124$|AN124/, 'An-124 Rusłan'],
-    [/^A225$|AN225/, 'An-225 Mrija'],
-    [/^C390$|^C39M$|KC390|MILLENNIUM/, 'C-390 Millennium'],
-    [/A400M?/, 'Atlas'],
-    [/^A310$/, 'A310 MRTT'],
-    [/^C32[A-Z]?$/, 'C-32A'],
-    [/^C9[A-Z]?$/, 'Nightingale'],
-    [/^C70$/, 'C-70'],
-    [/^C146$|WOLFHOUND/, 'Wolfhound'],
-    [/^L188$|ELECTRA/, 'Electra'],
-    [/^T6[A-Z]?$|TEXANII/, 'Texan II'],
-    [/^T7A?$|REDHAWK/, 'Red Hawk'],
-    [/^T45[A-Z]?$|GOSHAWK/, 'Goshawk'],
-    [/^YK130$|^YAK130$|YAK130/, 'Yak-130'],
-    [/^TUCA$|TUCANO/, 'Tucano'],
-    [/AH64|APACHE/, 'Apache'],
-    [/CH47|CHINOOK/, 'Chinook'],
-    [/CH53E?|STALLION/, 'Super Stallion'],
-    [/UH60|HH60|^S70[A-Z]?$|BLACKHAWK/, 'Black Hawk'],
-    [/MI24|HIND/, 'Hind'],
-    [/^MI2$/, 'Hoplite'],
-    [/^B412$/, 'Bell 412'],
-    [/^B407$/, 'Bell 407'],
-    [/^B(06|206)$/, 'JetRanger'],
-    [/^B(427|429)$/, 'Bell 427/429'],
-    [/^B505$/, 'Bell 505'],
-    [/^BO105$|^B105$/, 'Bo 105'],
-    [/^H145$/, 'H145'],
-    [/^H160$/, 'H160'],
-    [/^H175$/, 'H175'],
-    [/^AS35[0-5]?$/, 'AS350 Écureuil'],
-    [/^AS55[0-9]?$/, 'AS555 Fennec'],
-    [/EC725/, 'Caracal'],
-    [/AS332|AS532|SUPERPUMA/, 'Super Puma'],
-    [/PUMA/, 'Puma'],
-    [/AS365|DAUPHIN/, 'Dauphin'],
-    [/SA342|GAZELLE/, 'Gazelle'],
-    [/V22|OSPREY/, 'Osprey'],
-    [/MQ9|REAPER/, 'Reaper'],
-    [/MQ1|PREDATOR/, 'Predator'],
-    [/RQ4|GLOBALHAWK/, 'Global Hawk'],
-    [/W3A?$/, 'Sokół'],
-    [/MI8|MI17/, 'Hip'],
-    [/MI28/, 'Havoc'],
-    [/KA50|KA52/, 'Alligator'],
-    [/C295|CN295/, 'CN-295'],
-    [/C212/, 'Aviocar'],
-    [/C12$/, 'Huron'],
-    [/B744|B747|B748/, 'Jumbo Jet'],
-    [/MD9|EXPLORER/, 'MD-900 Explorer'],
-    [/^E121|XINGU/, 'EMB-121 Xingu'],
-    [/^DA62/, 'Diamond DA-62'],
-    [/^DA42/, 'Diamond DA-42'],
-    [/^DA40/, 'Diamond DA-40'],
-    [/^Z42$|^Z142$|^Z242$|^ZLIN/, 'Zlin'],
-    [/^TBM/, 'TBM'],
-    [/^BN2|ISLANDER/, 'Islander'],
-  ]
-  for (const [re, name] of map) {
-    if (re.test(type)) return name
-  }
-  return null
-}
-
 export function altToColor(altM) {
   if (altM == null || isNaN(altM)) return '#aaaaaa'
   // Breakpoints match ADS-B Exchange feet scale converted to metres:
@@ -715,3 +582,7 @@ const FLAG_MAP = {
 }
 
 export const countryFlag = (country) => FLAG_MAP[country] || ''
+
+// Re-eksport dla dotychczasowych importów z tego modułu — mapa nazw mieszka
+// teraz w lib/typeNames.js, bo korzysta z niej także serwer.
+export { getCommonName }

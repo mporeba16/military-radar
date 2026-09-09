@@ -15,6 +15,8 @@ export const TILE_LAYERS = [
   {
     id: 'osm-adsbx',
     name: 'OSM ADSBx',
+    label: 'Ciemna',
+    sub: 'OpenStreetMap, przyciemniona',
     url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     maxZoom: 19,
@@ -23,6 +25,8 @@ export const TILE_LAYERS = [
   {
     id: 'carto-voyager',
     name: 'Carto Voyager',
+    label: 'Stonowana',
+    sub: 'Carto Voyager',
     url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
     maxZoom: 19,
@@ -31,6 +35,8 @@ export const TILE_LAYERS = [
   {
     id: 'osm',
     name: 'OpenStreetMap',
+    label: 'Klasyczna',
+    sub: 'OpenStreetMap',
     url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     maxZoom: 19,
@@ -39,12 +45,28 @@ export const TILE_LAYERS = [
   {
     id: 'esri-satellite',
     name: 'Esri Satellite',
+    label: 'Satelita',
+    sub: 'Esri World Imagery',
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
     attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP',
     maxZoom: 18,
     filter: '',
   },
 ]
+
+// Miniatura podkładu do wyboru mapy: jeden prawdziwy kafelek nad południową
+// Polską, wyciągnięty z tego samego szablonu URL, którego używa mapa. Dzięki
+// temu podgląd pokazuje realny wygląd warstwy, a nie jej imitację — a filtr
+// przyciemniający nakłada się na miniaturę tak samo jak na mapę.
+const THUMB_TILE = { z: 6, x: 35, y: 21 }
+export function tileThumbUrl(layer) {
+  return layer.url
+    .replace('{s}', 'a')
+    .replace('{z}', String(THUMB_TILE.z))
+    .replace('{x}', String(THUMB_TILE.x))
+    .replace('{y}', String(THUMB_TILE.y))
+    .replace('{r}', '')
+}
 
 // F2: scale aircraft icons with zoom — clamped so they stay readable
 function iconScaleForZoom(z) {
@@ -283,7 +305,7 @@ function ZoomTracker({ onZoomChange }) {
   return null
 }
 
-function AircraftLayer({ aircraft, selectedHex, onSelect, zoomScale }) {
+function AircraftLayer({ aircraft, selectedHex, onSelect, zoomScale, dimmedHexes }) {
   const map = useMap()
   const groupRef = useRef(null)
   const markersRef = useRef(new Map()) // hex → { marker, key }
@@ -328,6 +350,10 @@ function AircraftLayer({ aircraft, selectedHex, onSelect, zoomScale }) {
       const v22Slow = /V22|MV22|CV22|OSPREY/i.test(ac.t || '') && ac.gs != null && ac.gs < 100 ? 1 : 0
       const iconKey = `${trackQ}|${altQ}|${v22Slow}|${ac.t || ''}|${ac.kind || ''}|${squawkAlertColor(ac.squawk) || ''}|${isSelected ? 1 : 0}|${ac.on_ground ? 1 : 0}|${zoomScale}`
 
+      // Pasmo wysokości wyłączone w panelu Mapy → maszyna przygaszona, ale
+      // nadal na mapie i nadal klikalna. setOpacity jest tanie: nie przebudowuje
+      // ikony, więc filtrowanie nie kosztuje tyle co zmiana wyglądu markera.
+      const dim = dimmedHexes?.has(ac.hex) ? 0.22 : 1
       const existing = markersRef.current.get(ac.hex)
       if (existing) {
         if (existing.posKey !== posKey) {
@@ -354,6 +380,10 @@ function AircraftLayer({ aircraft, selectedHex, onSelect, zoomScale }) {
           existing.marker.setIcon(buildLeafletIcon(ac, isSelected, zoomScale))
           existing.iconKey = iconKey
         }
+        if (existing.dim !== dim) {
+          existing.marker.setOpacity(dim)
+          existing.dim = dim
+        }
       } else {
         const marker = L.marker([ac.lat, ac.lon], {
           icon: buildLeafletIcon(ac, isSelected, zoomScale),
@@ -363,7 +393,8 @@ function AircraftLayer({ aircraft, selectedHex, onSelect, zoomScale }) {
           if (e.originalEvent) e.originalEvent.stopPropagation()
           onSelect?.(hex)
         })
-        markersRef.current.set(ac.hex, { marker, posKey, iconKey, lastUpdateTs: Date.now() })
+        if (dim !== 1) marker.setOpacity(dim)
+        markersRef.current.set(ac.hex, { marker, posKey, iconKey, dim, lastUpdateTs: Date.now() })
         additions.push(marker)
       }
     }
@@ -380,14 +411,14 @@ function AircraftLayer({ aircraft, selectedHex, onSelect, zoomScale }) {
       group.removeLayer(m)
     }
     for (const m of additions) group.addLayer(m)
-  }, [aircraft, selectedHex, zoomScale, onSelect])
+  }, [aircraft, selectedHex, zoomScale, onSelect, dimmedHexes])
 
   return null
 }
 
 export default function RadarMap({
   aircraft, hasFetched, trails, serverTrails, center, gpsCenter, radius,
-  selectedHex, onSelect, activeTileId, showBases,
+  selectedHex, onSelect, activeTileId, showBases, dimmedHexes,
 }) {
   const initialZoom = 6  // S4: was 5, but icons were too small at default view
   const [zoom, setZoom] = useState(initialZoom)
@@ -539,6 +570,7 @@ export default function RadarMap({
           selectedHex={selectedHex}
           onSelect={onSelect}
           zoomScale={zoomScale}
+          dimmedHexes={dimmedHexes}
         />
       </MapContainer>
     </div>

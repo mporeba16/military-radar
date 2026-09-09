@@ -46,7 +46,9 @@ const OPERATOR_PATTERNS = [
   [/^SHAHD/, 'Jordan Royal Air Force'],
 ]
 
-function operatorFrom(callsign) {
+// Eksportowane: arkusz dolny pokazuje operatora w wierszu listy, żeby callsign
+// nie był jedyną wskazówką, czyja to maszyna.
+export function operatorFrom(callsign) {
   const cs = (callsign || '').toUpperCase()
   for (const [re, op] of OPERATOR_PATTERNS) {
     if (re.test(cs)) return op
@@ -156,7 +158,7 @@ function useAircraftPhoto(hex, reg, ac) {
   return { photo, state }
 }
 
-export default function AircraftInfoPanel({ ac, trailSources, firstSeen, onClose }) {
+export default function AircraftInfoPanel({ ac, trailSources, firstSeen, onClose, variant }) {
   const { photo, state: photoState } = useAircraftPhoto(ac.hex, ac.reg, ac)
   const [imgError, setImgError] = useState(false)
   const altM = ftToM(ac.alt_baro)
@@ -209,8 +211,12 @@ export default function AircraftInfoPanel({ ac, trailSources, firstSeen, onClose
     trailLine = parts.join(' · ')
   }
 
+  // W arkuszu dolnym kartę zamyka przycisk powrotu nad nią, więc własny ✕ w
+  // nagłówku byłby drugim przyciskiem do tego samego.
+  const inSheet = variant === 'sheet'
+
   return (
-    <div className="ac-info-panel">
+    <div className={inSheet ? 'ac-info-body' : 'ac-info-panel'}>
       <div className="ac-info-header">
         <span className="ac-info-title">
           {flag && <span className="ac-info-flag">{flag}</span>}
@@ -218,7 +224,9 @@ export default function AircraftInfoPanel({ ac, trailSources, firstSeen, onClose
             {ac.flight?.trim() || ac.hex}
           </span>
         </span>
-        <button className="ac-info-close" onClick={onClose} aria-label={t('CLOSE_AIRCRAFT_PANEL')}>✕</button>
+        {!inSheet && (
+          <button className="ac-info-close" onClick={onClose} aria-label={t('CLOSE_AIRCRAFT_PANEL')}>✕</button>
+        )}
       </div>
 
       {specialSquawk && (

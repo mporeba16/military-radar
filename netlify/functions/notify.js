@@ -1,6 +1,9 @@
 import { getStore, connectLambda } from '@netlify/blobs'
 import webpush from 'web-push'
 import { fetchMilitaryNear, haversine, normalizeKinds } from './lib/military.js'
+// Treść alertów mieszka we wspólnym module — ten sam kod składa push z serwera
+// i lokalne powiadomienie w otwartej aplikacji, więc nie mogą się rozjechać.
+import { alertText, groupText } from '../../src/lib/notifyText.js'
 
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY
@@ -17,26 +20,7 @@ const CLOSE_RANGE_KM = 10
 // więc cooldown liczy się od WYLOTU — chwilowy zanik sygnału nie alarmuje ponownie.
 const ALERT_COOLDOWN_MS = 45 * 60 * 1000
 const NEAR_GROUP_THRESHOLD = 3    // above this many close planes, group them too
-const FAR_LIST_MAX = 5            // max names listed in a grouped push
 const MAX_COVERAGE_KM = 1500      // clamp for the shared fetch bounding circle
-
-// Polish numeral agreement for "samolot"
-function planeWord(n) {
-  if (n === 1) return 'wojskowy samolot'
-  const t = n % 10, h = n % 100
-  if (t >= 2 && t <= 4 && !(h >= 12 && h <= 14)) return 'wojskowe samoloty'
-  return 'wojskowych samolotów'
-}
-
-const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
-function compass(track) {
-  if (track == null) return null
-  return COMPASS[Math.round(track / 45) % 8]
-}
-
-function planeLabel(ac) {
-  return `${ac.flight?.trim() || ac.hex}${ac.t ? ` (${ac.t})` : ''}`
-}
 
 // Dedup po urządzeniu: jeśli jeden telefon ma kilka rekordów subskrypcji
 // (rotacja endpointu APNS, albo stare rekordy bez deviceId, których prune w
@@ -85,22 +69,6 @@ export function cooldownMapEqual(a, b) {
   if (ka.length !== kb.length) return false
   for (const k of ka) if (a[k] !== b[k]) return false
   return true
-}
-
-// "F16 (F16) — 8 km, FL300, kurs N"
-function planeDetail(ac) {
-  const parts = [`${ac._dist} km`]
-  if (ac.alt_baro != null) parts.push(`FL${Math.round(ac.alt_baro / 100)}`)
-  const c = compass(ac.track)
-  if (c) parts.push(`kurs ${c}`)
-  return parts.join(', ')
-}
-
-// Body for a grouped push: lists up to FAR_LIST_MAX names + overflow count.
-function groupBody(sorted) {
-  const names = sorted.slice(0, FAR_LIST_MAX).map(a => a.flight?.trim() || a.hex)
-  const extra = sorted.length - names.length
-  return `${names.join(', ')}${extra > 0 ? ` +${extra}` : ''} — od ${sorted[0]._dist} km`
 }
 
 // Scheduled function, cron co minutę (netlify.toml). UWAGA na limit czasu:
@@ -431,59 +399,48 @@ async function processSubscription({ key, raw, ageMs }, aircraft, subsStore, ale
       stats.perSub.push(subDiag)
     }
 
-    // Close-range alerts (≤10 km): the urgent ones. Sent individually with
-    // full detail, but collapsed into one grouped push if the sky is busy.
+    // Alerty bliskie (≤10 km). Pojedynczo, dopóki niebo nie jest zbyt gęste —
+    // wtedy jeden alert zbiorczy.
     if (newNear.length) {
       const sorted = [...newNear].sort((a, b) => a._dist - b._dist)
       const n = sorted.length
       if (n <= NEAR_GROUP_THRESHOLD) {
         for (const ac of sorted) {
-          const { expired } = await send({
-            title: 'Wojskowy samolot blisko Ciebie!',
-            body: `${planeLabel(ac)} — ${planeDetail(ac)}`,
-            tag: ac.hex,
-            hex: ac.hex,
-          }, `near hex=${ac.hex} dist=${ac._dist}km`)
+          const { title, body } = alertText(ac, ac._dist)
+          const { expired } = await send({ title, body, tag: ac.hex, hex: ac.hex },
+            `near hex=${ac.hex} dist=${ac._dist}km`)
           if (expired) { await cleanupExpired(); return result }
         }
       } else {
-        const { expired } = await send({
-          title: `${n} ${planeWord(n)} blisko Ciebie!`,
-          body: groupBody(sorted),
-          tag: 'mil-near-group',
-          hex: sorted[0].hex,
-        }, `near group n=${n}`)
+        const { title, body } = groupText(sorted, 'mil')
+        const { expired } = await send({ title, body, tag: 'mil-near-group', hex: sorted[0].hex },
+          `near group n=${n}`)
         if (expired) { await cleanupExpired(); return result }
       }
     }
 
-    // Far-range alerts: collapsed into a single grouped push so a busy sky
-    // doesn't fire a dozen separate notifications.
+    // Alerty w zasięgu: zawsze jedno powiadomienie, żeby gęste niebo nie
+    // odpaliło kilkunastu osobnych.
     if (newFar.length) {
       const sorted = [...newFar].sort((a, b) => a._dist - b._dist)
       const n = sorted.length
-      let title, body, tag
-      if (n === 1) {
-        const ac = sorted[0]
-        title = 'Wojskowy samolot w zasięgu!'
-        body = `${planeLabel(ac)} — ${planeDetail(ac)}`
-        tag = ac.hex
-      } else {
-        title = `${n} ${planeWord(n)} w zasięgu!`
-        body = groupBody(sorted)
-        tag = 'mil-far-group'
-      }
+      const { title, body } = n === 1
+        ? alertText(sorted[0], sorted[0]._dist)
+        : groupText(sorted, 'mil')
+      const tag = n === 1 ? sorted[0].hex : 'mil-far-group'
       const { expired } = await send({ title, body, tag, hex: sorted[0].hex }, `far group n=${n}`)
       if (expired) { await cleanupExpired(); return result }
     }
 
-    // Duże samoloty (B747 / An-124) — rzadkie, więc warty osobny alert.
+    // Duże samoloty (B747 / An-124) — rzadkie, więc warte osobnego alertu.
     if (newHeavy.length) {
       const sorted = [...newHeavy].sort((a, b) => a._dist - b._dist)
       const n = sorted.length
+      const { title, body } = n === 1
+        ? alertText(sorted[0], sorted[0]._dist)
+        : groupText(sorted, 'heavy')
       const { expired } = await send({
-        title: n === 1 ? 'Duży samolot w zasięgu!' : `${n} dużych samolotów w zasięgu!`,
-        body: n === 1 ? `${planeLabel(sorted[0])} — ${planeDetail(sorted[0])}` : groupBody(sorted),
+        title, body,
         tag: n === 1 ? sorted[0].hex : 'heavy-group',
         hex: sorted[0].hex,
       }, `heavy group n=${n}`)
@@ -494,9 +451,11 @@ async function processSubscription({ key, raw, ageMs }, aircraft, subsStore, ale
     if (newHeli.length) {
       const sorted = [...newHeli].sort((a, b) => a._dist - b._dist)
       const n = sorted.length
+      const { title, body } = n === 1
+        ? alertText(sorted[0], sorted[0]._dist)
+        : groupText(sorted, 'heli')
       const { expired } = await send({
-        title: n === 1 ? 'Śmigłowiec służbowy w zasięgu!' : `${n} śmigłowców służbowych w zasięgu!`,
-        body: n === 1 ? `${planeLabel(sorted[0])} — ${planeDetail(sorted[0])}` : groupBody(sorted),
+        title, body,
         tag: n === 1 ? sorted[0].hex : 'heli-group',
         hex: sorted[0].hex,
       }, `heli group n=${n}`)

@@ -1,43 +1,84 @@
-import { TILE_LAYERS, AltitudeLegend } from './RadarMap'
+import { TILE_LAYERS, tileThumbUrl } from './RadarMap'
 import Toggle from './Toggle'
 import { t } from '../i18n'
+import { ALT_BANDS } from '../lib/altBands'
+import { altToColor } from './aircraftShapes'
 
-// Panel „Mapy": wybór warstwy podkładu, nakładki (bazy wojskowe) i legenda
-// wysokości. Wydzielony z App.jsx, żeby kontener stanu nie puchł.
-export default function MapsPanel({ activeTileId, setActiveTileId, showBases, setShowBases }) {
+// Panel „Mapy": podkład, nakładki i filtr wysokości.
+//
+// Podkład wybiera się z podglądów, nie z listy technicznych nazw — „OSM ADSBx"
+// i „OpenStreetMap" to ten sam serwis różniący się filtrem przyciemniającym,
+// czego z samej nazwy nie dało się odgadnąć. Miniatura to prawdziwy kafelek z
+// tego samego szablonu URL, z nałożonym tym samym filtrem CSS co na mapie.
+export default function MapsPanel({
+  activeTileId, setActiveTileId, showBases, setShowBases,
+  altBands, setAltBands, bandCounts,
+}) {
   return (
     <div className="panel-body">
-      <div className="cp-label">{t('SELECT_MAP')}</div>
-      <div className="map-layer-list">
-        {TILE_LAYERS.map(layer => (
-          <button key={layer.id}
-            className={`map-layer-item ${activeTileId === layer.id ? 'active' : ''}`}
-            onClick={() => setActiveTileId(layer.id)}>
-            <span className="map-layer-name">{layer.name}</span>
-            {activeTileId === layer.id && <span className="map-layer-check">◉</span>}
-          </button>
-        ))}
-      </div>
 
-      <section className="cp-section" style={{ marginTop: 16 }}>
+      <section className="cp-section">
+        <div className="cp-label">{t('MAP_BASE_LABEL')}</div>
+        <div className="tile-grid">
+          {TILE_LAYERS.map(layer => {
+            const active = activeTileId === layer.id
+            return (
+              <button key={layer.id}
+                className={`tile-card ${active ? 'active' : ''}`}
+                aria-pressed={active}
+                onClick={() => setActiveTileId(layer.id)}>
+                <span className="tile-card__thumb">
+                  <img src={tileThumbUrl(layer)} alt="" loading="lazy"
+                    style={layer.filter ? { filter: layer.filter } : undefined} />
+                </span>
+                <span className="tile-card__meta">
+                  <span className="tile-card__name">{layer.label || layer.name}</span>
+                  <span className="tile-card__src">{layer.sub || layer.name}</span>
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </section>
+
+      <section className="cp-section">
         <div className="cp-label">{t('OVERLAYS_LABEL')}</div>
-        <Toggle
-          on={showBases}
-          onToggle={() => setShowBases(b => !b)}
-          label={t('BASES_LABEL')}
-          style={{ marginTop: 6, background: showBases ? 'rgba(255,179,0,0.12)' : undefined }}
-          marker={<span className="toggle-swatch" style={{
-            background: showBases ? 'rgba(255,179,0,0.2)' : 'transparent',
-          }} />}
-          state={showBases ? '◉' : '○'}
-          stateColor={showBases ? '#ffb300' : 'rgba(255,255,255,0.4)'}
-        />
+        <div className="toggle-list">
+          <Toggle
+            on={showBases}
+            onToggle={() => setShowBases(b => !b)}
+            label={t('BASES_LABEL')}
+            marker={<span className="toggle-swatch" style={{
+              background: showBases ? 'rgba(255,179,0,0.2)' : 'transparent',
+            }} />}
+            state={showBases ? '◉' : '○'}
+            stateColor={showBases ? '#ffb300' : 'rgba(255,255,255,0.4)'}
+          />
+        </div>
       </section>
 
-      <section className="cp-section" style={{ marginTop: 16 }}>
-        <div className="cp-label">{t('ALT_LEGEND_LABEL')}</div>
-        <div style={{ marginTop: 6 }}><AltitudeLegend /></div>
+      <section className="cp-section">
+        <div className="cp-label">{t('ALT_FILTER_LABEL')}</div>
+        <div className="band-list">
+          {ALT_BANDS.map(b => {
+            const on = altBands[b.id]
+            const hi = Number.isFinite(b.max) ? b.max : 12200
+            return (
+              <button key={b.id}
+                className={`band-row ${on ? '' : 'off'}`}
+                aria-pressed={on}
+                onClick={() => setAltBands(prev => ({ ...prev, [b.id]: !prev[b.id] }))}>
+                <span className="band-row__sw" style={{
+                  background: `linear-gradient(90deg, ${altToColor(b.min)}, ${altToColor(hi)})`,
+                }} />
+                <span className="band-row__label">{b.label}</span>
+                <span className="band-row__count">{bandCounts?.[b.id] || 0}</span>
+              </button>
+            )
+          })}
+        </div>
       </section>
+
     </div>
   )
 }
