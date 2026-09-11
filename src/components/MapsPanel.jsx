@@ -27,9 +27,12 @@ export default function MapsPanel({
                 className={`tile-card ${active ? 'active' : ''}`}
                 aria-pressed={active}
                 onClick={() => setActiveTileId(layer.id)}>
-                <span className="tile-card__thumb">
-                  <img src={tileThumbUrl(layer)} alt="" loading="lazy"
-                    style={layer.filter ? { filter: layer.filter } : undefined} />
+                <span className="tile-card__thumb"
+                  style={layer.filter ? { filter: layer.filter } : undefined}>
+                  <img src={tileThumbUrl(layer)} alt="" loading="lazy" />
+                  {layer.overlay && (
+                    <img src={tileThumbUrl(layer, 'overlay')} alt="" loading="lazy" />
+                  )}
                 </span>
                 <span className="tile-card__meta">
                   <span className="tile-card__name">{layer.label || layer.name}</span>

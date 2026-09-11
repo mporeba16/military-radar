@@ -23,16 +23,6 @@ export const TILE_LAYERS = [
     filter: 'saturate(0.55) brightness(0.54) contrast(1.1)',
   },
   {
-    id: 'carto-voyager',
-    name: 'Carto Voyager',
-    label: 'Stonowana',
-    sub: 'Carto Voyager',
-    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-    maxZoom: 19,
-    filter: '',
-  },
-  {
     id: 'osm',
     name: 'OpenStreetMap',
     label: 'Klasyczna',
@@ -52,6 +42,40 @@ export const TILE_LAYERS = [
     maxZoom: 18,
     filter: '',
   },
+  {
+    id: 'esri-dark',
+    name: 'Esri Dark Gray',
+    label: 'Neutralna ciemna',
+    sub: 'Esri Dark Gray Canvas',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    // Esri publikuje opisy jako OSOBNĄ warstwę — bez niej płótno jest niemal
+    // puste i nie widać, nad czym się patrzy.
+    overlay: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
+    attribution: 'Tiles &copy; Esri &mdash; Esri, HERE, Garmin, &copy; OpenStreetMap contributors',
+    maxZoom: 16,
+    filter: '',
+  },
+  {
+    id: 'esri-light',
+    name: 'Esri Light Gray',
+    label: 'Neutralna jasna',
+    sub: 'Esri Light Gray Canvas',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    overlay: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
+    attribution: 'Tiles &copy; Esri &mdash; Esri, HERE, Garmin, &copy; OpenStreetMap contributors',
+    maxZoom: 16,
+    filter: '',
+  },
+  {
+    id: 'opentopo',
+    name: 'OpenTopoMap',
+    label: 'Teren',
+    sub: 'OpenTopoMap',
+    url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+    attribution: 'Mapa: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA), dane: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    maxZoom: 17,
+    filter: '',
+  },
 ]
 
 // Miniatura podkładu do wyboru mapy: jeden prawdziwy kafelek nad południową
@@ -59,8 +83,10 @@ export const TILE_LAYERS = [
 // temu podgląd pokazuje realny wygląd warstwy, a nie jej imitację — a filtr
 // przyciemniający nakłada się na miniaturę tak samo jak na mapę.
 const THUMB_TILE = { z: 6, x: 35, y: 21 }
-export function tileThumbUrl(layer) {
-  return layer.url
+export function tileThumbUrl(layer, which = 'url') {
+  const tpl = layer[which]
+  if (!tpl) return null
+  return tpl
     .replace('{s}', 'a')
     .replace('{z}', String(THUMB_TILE.z))
     .replace('{x}', String(THUMB_TILE.x))
@@ -520,6 +546,9 @@ export default function RadarMap({
         zoomControl={false}
       >
         <TileLayer key={tileLayer.id} url={tileLayer.url} attribution={tileLayer.attribution} maxZoom={tileLayer.maxZoom} />
+        {tileLayer.overlay && (
+          <TileLayer key={`${tileLayer.id}-ref`} url={tileLayer.overlay} maxZoom={tileLayer.maxZoom} />
+        )}
         <MapClickHandler onSelect={onSelect} />
         <TileFilter filter={tileLayer.filter} />
         <ZoomTracker onZoomChange={setZoom} />
