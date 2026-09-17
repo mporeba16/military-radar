@@ -1,3 +1,5 @@
+import { getCommonName } from '../../../src/lib/typeNames.js'
+
 // Model ryzyka „dron / rakieta nad wschodnią Polską”.
 //
 // WAŻNE, i powtórzone w UI: to NIE jest system ostrzegania. alerts.in.ua działa,
@@ -104,8 +106,16 @@ function inWatchBox(lat, lon) {
   return lat >= b.latMin && lat <= b.latMax && lon >= b.lonMin && lon <= b.lonMax
 }
 
+// Powód alertu czyta człowiek, więc surowy adres ICAO („ae0265") jest tu bez
+// wartości. Kolejność: znak wywoławczy, nazwa własna typu, kod typu, a hex
+// dopiero na końcu, gdy nie wiadomo zupełnie nic.
 function label(ac) {
-  return (ac.flight || '').trim() || ac.hex || '?'
+  const callsign = (ac.flight || '').trim()
+  if (callsign) return callsign
+  const common = getCommonName(ac.t)
+  if (common) return common.split('/')[0].trim()
+  const code = (ac.t || '').trim()
+  return code || ac.hex || '?'
 }
 
 // `aircraft` to snapshot z blobu, który i tak zapisuje aircraft.js — zero
@@ -124,14 +134,36 @@ export function readAdsbSignals(aircraft) {
     if (ISR_TYPES.has(type)) isr.push(label(ac))
     else if (TANKER_TYPES.has(type)) tankers.push(label(ac))
   }
-  return { ok: true, milOverPoland, isr, tankers }
+  // Bez odsiania powtórek dwa KC-135 bez znaku wywoławczego dałyby powód
+  // „tankowce: Stratotanker, Stratotanker".
+  return { ok: true, milOverPoland, isr: [...new Set(isr)], tankers: [...new Set(tankers)] }
 }
 
-const ISR_POINTS = 20
-const TANKER_POINTS = 10
-const SURGE_POINTS_PER_AIRCRAFT = 4
-const SURGE_CAP = 20
-const ADSB_PART_CAP = 40
+// Wagi dobrane tak, żeby SAM obraz z ADS-B nie potrafił nic podnieść, dopóki
+// nie widać realnej nadwyżki maszyn. Powód z produkcji: przy zupełnie spokojnym
+// niebie i zerowych alarmach w Ukrainie dwa tankowce plus siedem maszyn nad
+// normę zapalały wszystkie sześć województw na „obserwację". Dwa tankowce nad
+// Polską to rutyna, a warstwa, która świeci codziennie, uczy się ignorować.
+//
+// Stąd podział ról: ISR i tankowce POTWIERDZAJĄ, nadwyżka ruchu ALARMUJE.
+// Suma samego ISR i tankowców (8 + 4 = 12) celowo NIE dosięga progu
+// „obserwacji" (15) — bez nadwyżki ruchu albo alarmu w Ukrainie nic się nie
+// zapala. Podlaskie i warmińsko-mazurskie, które nie mają żadnego feedu
+// alarmowego, może więc podnieść wyłącznie realny skok liczby maszyn.
+const ISR_POINTS = 8
+const TANKER_POINTS = 4
+// Pojedynczy tankowiec nad Polską lata praktycznie codziennie — dopiero para
+// jest czymkolwiek wartym odnotowania.
+const TANKER_MIN_COUNT = 2
+
+// Nadwyżka musi być JEDNOCZEŚNIE proporcjonalna i bezwzględna: liczba maszyn
+// w prostokącie obserwacji naturalnie skacze o kilka w obie strony, więc sam
+// warunek „więcej niż norma" łapał zwykłe wahanie popołudnia.
+const SURGE_RATIO = 1.75
+const SURGE_MIN_ABSOLUTE = 4
+const SURGE_POINTS_PER_AIRCRAFT = 2
+const SURGE_CAP = 15
+const ADSB_PART_CAP = 25
 
 // Ile maszyn wojskowych nad Polską to „normalny dzień”. Liczone jako średnia
 // wykładnicza z kolejnych odczytów (patrz updateBaseline) — bez tego nie da się
@@ -139,7 +171,11 @@ const ADSB_PART_CAP = 40
 // wyłącznie za bezpiecznik: przy zimnym starcie wywołujący zasiewa normę
 // pierwszym realnym odczytem (patrz threat.js), żeby nie ogłosić wzmożenia
 // tylko dlatego, że nie mieliśmy jeszcze z czym porównać.
-export const BASELINE_ALPHA = 0.05
+// Wolno, celowo: przy odczycie mniej więcej co minutę alfa 0,05 dawała czas
+// połowicznego zaniku ~14 minut, więc norma doganiała wzmożenie, zanim zdążyło
+// cokolwiek znaczyć. 0,01 to ~69 minut — kilkugodzinny podwyższony ruch nadal
+// w końcu stanie się nową normą, i tak ma być.
+export const BASELINE_ALPHA = 0.01
 export const BASELINE_DEFAULT = 4
 
 export function updateBaseline(prev, milOverPoland) {
@@ -149,17 +185,22 @@ export function updateBaseline(prev, milOverPoland) {
 }
 
 export function scoreAdsb(signals, baseline) {
-  if (!signals?.ok) return { points: 0, surge: 0 }
+  if (!signals?.ok) return { points: 0, surge: 0, excess: 0 }
   const base = Number.isFinite(baseline) ? baseline : BASELINE_DEFAULT
-  const surge = Math.min(
-    SURGE_CAP,
-    Math.max(0, Math.round((signals.milOverPoland - base) * SURGE_POINTS_PER_AIRCRAFT))
-  )
+  const excess = signals.milOverPoland - base
+
+  const isSurge = signals.milOverPoland >= base * SURGE_RATIO && excess >= SURGE_MIN_ABSOLUTE
+  const surge = isSurge
+    ? Math.min(SURGE_CAP, Math.round(excess * SURGE_POINTS_PER_AIRCRAFT))
+    : 0
+
   const points = Math.min(
     ADSB_PART_CAP,
-    (signals.isr.length ? ISR_POINTS : 0) + (signals.tankers.length ? TANKER_POINTS : 0) + surge
+    (signals.isr.length ? ISR_POINTS : 0) +
+    (signals.tankers.length >= TANKER_MIN_COUNT ? TANKER_POINTS : 0) +
+    surge
   )
-  return { points, surge }
+  return { points, surge, excess }
 }
 
 // ── Złożenie całości ──────────────────────────────────────────────────────
@@ -178,7 +219,11 @@ export function buildThreatState({ ua, adsb, baseline, now = Date.now() }) {
     for (const k of front) reasons.push(`alarm w obwodzie ${byKey.get(k).pl} (granica)`)
     for (const k of second) reasons.push(`alarm w obwodzie ${byKey.get(k).pl} (druga linia)`)
     if (adsb?.isr?.length) reasons.push(`rozpoznanie NATO w powietrzu: ${adsb.isr.join(', ')}`)
-    if (adsb?.tankers?.length) reasons.push(`tankowce nad Polską: ${adsb.tankers.join(', ')}`)
+    // Tankowce wymieniamy tylko wtedy, gdy realnie punktowały — inaczej powód
+    // tłumaczyłby poziom czymś, co się do niego nie dołożyło.
+    if (adsb?.tankers?.length >= TANKER_MIN_COUNT) {
+      reasons.push(`tankowce nad Polską: ${adsb.tankers.join(', ')}`)
+    }
     if (surge > 0) {
       const norm = Number.isFinite(baseline) ? Math.round(baseline) : BASELINE_DEFAULT
       reasons.push(`wzmożony ruch wojskowy (${adsb.milOverPoland} maszyn, norma ~${norm})`)

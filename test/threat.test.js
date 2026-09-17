@@ -92,15 +92,47 @@ describe('scoreAdsb', () => {
     expect(scoreAdsb({ ok: true, milOverPoland: 4, isr: [], tankers: [] }, 4).points).toBe(0)
   })
 
-  it('nadwyżka nad normą punktuje, ale z sufitem', () => {
+  it('samo ISR i tankowce nie dosięgają progu obserwacji', () => {
+    // Najważniejsza własność kalibracji: przy spokojnym niebie i braku alarmów
+    // w Ukrainie warstwa ma NIE świecić. 8 + 4 = 12, próg „obserwacji" to 15.
+    const s = scoreAdsb({ ok: true, milOverPoland: 5, isr: ['FORTE12'], tankers: ['A', 'B'] }, 4.6)
+    expect(s.surge).toBe(0)
+    expect(s.points).toBe(12)
+    expect(levelFor(s.points)).toBe('calm')
+  })
+
+  it('pojedynczy tankowiec nie punktuje wcale', () => {
+    const s = scoreAdsb({ ok: true, milOverPoland: 5, isr: [], tankers: ['MMF61'] }, 4.6)
+    expect(s.points).toBe(0)
+  })
+
+  it('zwykłe wahanie liczby maszyn nie jest nadwyżką', () => {
+    // Dokładnie przypadek z produkcji: 7 maszyn przy normie 4,6.
+    // Proporcja 1,52× < 1,75× i nadwyżka 2,4 < 4 — obie bramki zamknięte.
+    const s = scoreAdsb({ ok: true, milOverPoland: 7, isr: [], tankers: ['ae0265', 'MMF61'] }, 4.6)
+    expect(s.surge).toBe(0)
+    expect(s.points).toBe(4)
+    expect(levelFor(s.points)).toBe('calm')
+  })
+
+  it('nadwyżka musi przejść obie bramki naraz', () => {
+    // duża proporcja, ale za mało maszyn bezwzględnie (2 przy normie 1)
+    expect(scoreAdsb({ ok: true, milOverPoland: 3, isr: [], tankers: [] }, 1).surge).toBe(0)
+    // duża liczba bezwzględna, ale za mała proporcja (5 przy normie 30)
+    expect(scoreAdsb({ ok: true, milOverPoland: 35, isr: [], tankers: [] }, 30).surge).toBe(0)
+    // obie spełnione
+    expect(scoreAdsb({ ok: true, milOverPoland: 12, isr: [], tankers: [] }, 5).surge).toBeGreaterThan(0)
+  })
+
+  it('realna nadwyżka punktuje, ale z sufitem', () => {
     const s = scoreAdsb({ ok: true, milOverPoland: 40, isr: [], tankers: [] }, 4)
-    expect(s.surge).toBe(20)
-    expect(s.points).toBe(20)
+    expect(s.surge).toBe(15)
+    expect(s.points).toBe(15)
   })
 
   it('cała część ADS-B jest ograniczona z góry', () => {
-    const s = scoreAdsb({ ok: true, milOverPoland: 40, isr: ['A'], tankers: ['B'] }, 4)
-    expect(s.points).toBe(40)
+    const s = scoreAdsb({ ok: true, milOverPoland: 40, isr: ['A'], tankers: ['B', 'C'] }, 4)
+    expect(s.points).toBe(25)
   })
 
   it('niedostępny snapshot to zero punktów, nie kara', () => {
@@ -177,10 +209,23 @@ describe('buildThreatState', () => {
     expect(lubelskie.reasons).toContain('rozpoznanie NATO w powietrzu: FORTE12')
   })
 
-  it('sam ruch ADS-B potrafi podnieść podlaskie, dla którego nie ma feedu alarmowego', () => {
+  it('samo ISR nad Polską nie podnosi już niczego', () => {
     const st = build([], { ok: true, milOverPoland: 6, isr: ['FORTE12'], tankers: [] })
+    expect(st.level).toBe('calm')
+    expect(st.regions.every(r => r.level === 'calm')).toBe(true)
+  })
+
+  it('realny skok ruchu potrafi podnieść podlaskie, dla którego nie ma feedu alarmowego', () => {
+    const st = build([], { ok: true, milOverPoland: 14, isr: ['FORTE12'], tankers: [] })
     const podlaskie = st.regions.find(r => r.id === 'podlaskie')
     expect(podlaskie.level).toBe('watch')
+    expect(podlaskie.reasons.some(r => r.includes('wzmożony ruch'))).toBe(true)
+  })
+
+  it('tankowce poniżej progu nie trafiają do powodów', () => {
+    const st = build(['Львівська область'], { ok: true, milOverPoland: 5, isr: [], tankers: ['MMF61'] })
+    const lubelskie = st.regions.find(r => r.id === 'lubelskie')
+    expect(lubelskie.reasons.some(r => r.includes('tankowce'))).toBe(false)
   })
 
   it('każdy podniesiony region niesie powód — kolor bez wyjaśnienia to wróżenie', () => {

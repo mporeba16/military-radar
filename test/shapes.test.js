@@ -54,3 +54,22 @@ describe('skala kształtów', () => {
     }
   })
 })
+
+describe('getCommonName — desygnatory ICAO z adsb.fi', () => {
+  // adsb.fi podaje kody ICAO (K35R), nie potoczne oznaczenia (KC-135). Bez tych
+  // wariantów powiadomienie i powód alertu pokazywały surowy kod typu.
+  it('rozpoznaje warianty tankowców i rozpoznania', () => {
+    expect(getCommonName('K35R')).toBe('Stratotanker')
+    expect(getCommonName('K35E')).toBe('Stratotanker')
+    expect(getCommonName('R135')).toBe('Rivet Joint')
+    expect(getCommonName('E3TF')).toBe('Sentry (AWACS)')
+    expect(getCommonName('K46')).toBe('Pegasus')
+    expect(getCommonName('E8C')).toBe('J-STARS')
+  })
+
+  it('nie łapie przy okazji maszyn cywilnych', () => {
+    expect(getCommonName('B738')).toBeNull()
+    expect(getCommonName('A332')).toBeNull()
+    expect(getCommonName('A320')).toBeNull()
+  })
+})
