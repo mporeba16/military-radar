@@ -102,6 +102,7 @@ export default function SettingsPanel({
                   on
                   onToggle={unsubscribe}
                   label={t('PUSH_ROW_LABEL')}
+                  title={t('PUSH_DESCRIPTION')}
                   marker={<span className="toggle-dot" style={{ background: '#00ff88' }} />}
                   state={t('SOUND_ON')}
                   stateColor="#00ff88"
@@ -114,18 +115,18 @@ export default function SettingsPanel({
                 {subscribeError && <p className="err small mt6">✗ {subscribeError}</p>}
               </>
         }
-        <p className="info-text mt6">{t('PUSH_DESCRIPTION')}</p>
-
         {/* Ryzyko dronowe jedzie tym samym kanałem, ale rządzi się czym innym:
             nie pyta o promień ani o kategorie maszyn, tylko o województwo, w
             którym stoisz. Stąd własny przełącznik tuż pod pushem, a nie wiersz
-            w liście kategorii. */}
+            w liście kategorii. Wyjaśnienie siedzi w podpowiedzi — panel ma być
+            listą przełączników, nie instrukcją. */}
         {isSubscribed && (
           <div className="toggle-list mt6">
             <Toggle
               on={threatPush}
               onToggle={() => setThreatPush(v => !v)}
               label={t('THREAT_PUSH_LABEL')}
+              title={t('THREAT_PUSH_DESCRIPTION')}
               marker={<span className="toggle-dot" style={{
                 background: threatPush ? '#ff2d55' : 'transparent',
                 border: '2px solid #ff2d55',
@@ -135,7 +136,6 @@ export default function SettingsPanel({
             />
           </div>
         )}
-        {isSubscribed && <p className="info-text mt6">{t('THREAT_PUSH_DESCRIPTION')}</p>}
       </section>
 
       {/* 4. Sygnały w otwartej aplikacji — osobny mechanizm, osobna sekcja. */}
@@ -166,7 +166,6 @@ export default function SettingsPanel({
       {/* 5. Kategorie — sterują mapą i powiadomieniami naraz. */}
       <section className="cp-section">
         <div className="cp-label">{t('FILTER_LABEL')}</div>
-        <p className="info-text">{t('FILTER_HINT')}</p>
         <div className="toggle-list">
           {KIND_ROWS.map(({ key, labelKey, color }) => (
             <Toggle
@@ -174,6 +173,7 @@ export default function SettingsPanel({
               on={kinds[key]}
               onToggle={() => setKinds(prev => ({ ...prev, [key]: !prev[key] }))}
               label={t(labelKey)}
+              title={t('FILTER_HINT')}
               style={{ opacity: kinds[key] ? 1 : 0.55 }}
               marker={<span className="toggle-dot" style={{
                 background: kinds[key] ? color : 'transparent',
@@ -200,8 +200,8 @@ export default function SettingsPanel({
             </button>
             {gpsOpen && (
               <div className="gps-more">
-                <p className="info-text">{t('GPS_LABEL')}</p>
-                <button className="link-btn" onClick={requestLocation}>{t('GPS_RETRY')}</button>
+                <button className="link-btn" onClick={requestLocation}
+                  title={t('GPS_LABEL')}>{t('GPS_RETRY')}</button>
               </div>
             )}
           </>

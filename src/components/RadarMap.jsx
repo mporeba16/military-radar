@@ -455,7 +455,7 @@ function AircraftLayer({ aircraft, selectedHex, onSelect, zoomScale, dimmedHexes
 
 export default function RadarMap({
   aircraft, hasFetched, trails, serverTrails, center, gpsCenter, radius,
-  selectedHex, onSelect, activeTileId, showBases, showNatoBases, showRanges,
+  selectedHex, onSelect, activeTileId, showBases, showNatoBases, showRanges, showRangeLabels,
   dimmedHexes, threatRegions, recenterRef,
 }) {
   const initialZoom = 6  // S4: was 5, but icons were too small at default view
@@ -586,7 +586,7 @@ export default function RadarMap({
 
         {/* Ryzyko pod bazami i pod samolotami — to tło sytuacyjne, nie treść. */}
         <ThreatLayer regions={threatRegions} />
-        <MilRangesLayer show={showRanges} />
+        <MilRangesLayer show={showRanges} showLabels={showRangeLabels} zoom={zoom} />
 
         {showNatoBases && <BasesLayer zoom={zoom} bases={MIL_BASES_NATO} variant="nato" />}
         {showBases && <BasesLayer zoom={zoom} bases={MIL_BASES_PL} variant="pl" />}

@@ -1,8 +1,13 @@
-import { useEffect, useRef } from 'react'
-import { Polygon } from 'react-leaflet'
+import { useEffect, useMemo, useRef } from 'react'
+import { Marker, Polygon } from 'react-leaflet'
+import L from 'leaflet'
 import { MIL_RANGES_PL } from '../data/milRanges'
 
 export const RANGE_COLOR = '#ff3b30'
+
+// Poligony są duże, więc ich podpisy mają sens wcześniej niż podpisy lotnisk
+// (te pojawiają się od 8). Niżej niż 7 nazwy zlewałyby się w kaszę nad całą Polską.
+const RANGE_LABEL_ZOOM = 7
 
 // Poligony wojskowe — warstwa STAŁA, w odróżnieniu od warstwy ryzyka, która
 // jest wyliczana na bieżąco. Obie bywają czerwone, więc poligon dostaje ukośne
@@ -12,8 +17,18 @@ export const RANGE_COLOR = '#ff3b30'
 //
 // Nieinteraktywne, jak warstwa ryzyka: kliknięcie w mapę ma odznaczać maszynę,
 // a nie trafiać w tło.
-export default function MilRangesLayer({ show }) {
+export default function MilRangesLayer({ show, showLabels, zoom }) {
+  // Środek podpisu liczymy raz: to centroid NAJWIĘKSZEGO płatu, nie całości —
+  // przy poligonie rozbitym na kilka kawałków (Nowa Dęba ma cztery) środek
+  // wszystkich razem potrafi wypaść w polu między nimi.
+  const labels = useMemo(() => MIL_RANGES_PL.map(r => ({
+    name: r.name,
+    km2: r.km2,
+    center: centroid(r.rings.reduce((a, b) => (ringArea(b) > ringArea(a) ? b : a))),
+  })), [])
+
   if (!show) return null
+
   return (
     <>
       {MIL_RANGES_PL.flatMap(range =>
@@ -21,8 +36,53 @@ export default function MilRangesLayer({ show }) {
           <HatchedPolygon key={`${range.name}-${i}`} positions={ring} />
         ))
       )}
+
+      {showLabels && zoom >= RANGE_LABEL_ZOOM && labels.map(l => (
+        <Marker
+          key={l.name}
+          position={l.center}
+          interactive={false}
+          keyboard={false}
+          zIndexOffset={-900}
+          icon={L.divIcon({
+            className: 'range-marker',
+            html: `<span class="range-marker-label">${l.name}<span class="range-marker-km">${l.km2} km²</span></span>`,
+            iconSize: [0, 0],
+            iconAnchor: [0, 0],
+          })}
+        />
+      ))}
     </>
   )
+}
+
+// Pole pierścienia w mierze płaskiej — służy tylko do porównania płatów między
+// sobą, więc nie potrzebuje przeliczenia na kilometry.
+function ringArea(ring) {
+  let s = 0
+  for (let i = 0; i < ring.length; i++) {
+    const [aLat, aLon] = ring[i]
+    const [bLat, bLon] = ring[(i + 1) % ring.length]
+    s += aLon * bLat - bLon * aLat
+  }
+  return Math.abs(s) / 2
+}
+
+// Centroid wielokąta (nie średnia wierzchołków — ta ucieka w stronę gęściej
+// opisanego fragmentu granicy i podpis lądowałby przy krawędzi).
+function centroid(ring) {
+  let a = 0, lat = 0, lon = 0
+  for (let i = 0; i < ring.length - 1; i++) {
+    const [y1, x1] = ring[i]
+    const [y2, x2] = ring[i + 1]
+    const f = x1 * y2 - x2 * y1
+    a += f
+    lon += (x1 + x2) * f
+    lat += (y1 + y2) * f
+  }
+  if (a === 0) return ring[0]
+  a *= 3
+  return [lat / a, lon / a]
 }
 
 // Klasę CSS nadajemy WPROST na elemencie ścieżki, a nie przez

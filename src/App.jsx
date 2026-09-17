@@ -42,6 +42,7 @@ export default function App() {
   const [showBases, setShowBases] = useLocalStorage('radar.bases', true)
   const [showNatoBases, setShowNatoBases] = useLocalStorage('radar.natoBases', true)
   const [showRanges, setShowRanges] = useLocalStorage('radar.ranges', true)
+  const [showRangeLabels, setShowRangeLabels] = useLocalStorage('radar.rangeLabels', true)
   const [showThreat, setShowThreat] = useLocalStorage('radar.threat', true)
   const [threatPush, setThreatPush] = useLocalStorage('radar.threatPush', true)
   const [lastUpdated, setLastUpdated] = useState(null)
@@ -525,6 +526,7 @@ export default function App() {
         showBases={showBases}
         showNatoBases={showNatoBases}
         showRanges={showRanges}
+        showRangeLabels={showRangeLabels}
         dimmedHexes={dimmedHexes}
         threatRegions={showThreat ? threat?.regions : null}
         recenterRef={recenterRef}
@@ -653,6 +655,8 @@ export default function App() {
               setShowNatoBases={setShowNatoBases}
               showRanges={showRanges}
               setShowRanges={setShowRanges}
+              showRangeLabels={showRangeLabels}
+              setShowRangeLabels={setShowRangeLabels}
               showThreat={showThreat}
               setShowThreat={setShowThreat}
               altBands={altBands}

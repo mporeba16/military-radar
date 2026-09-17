@@ -14,6 +14,7 @@ export default function MapsPanel({
   activeTileId, setActiveTileId, showBases, setShowBases,
   showNatoBases, setShowNatoBases,
   showRanges, setShowRanges,
+  showRangeLabels, setShowRangeLabels,
   showThreat, setShowThreat, altBands, setAltBands, bandCounts,
 }) {
   return (
@@ -79,6 +80,21 @@ export default function MapsPanel({
             state={showRanges ? '◉' : '○'}
             stateColor={showRanges ? '#ff3b30' : 'rgba(255,255,255,0.4)'}
           />
+          {/* Podpisy tylko przy włączonej warstwie — przełącznik, który nic nie
+              robi, jest gorszy niż jego brak. */}
+          {showRanges && (
+            <Toggle
+              on={showRangeLabels}
+              onToggle={() => setShowRangeLabels(b => !b)}
+              label={t('RANGE_LABELS_LABEL')}
+              marker={<span className="toggle-swatch" style={{
+                background: 'transparent',
+                border: showRangeLabels ? '2px solid #ff9a92' : '2px solid rgba(255,255,255,0.25)',
+              }} />}
+              state={showRangeLabels ? '◉' : '○'}
+              stateColor={showRangeLabels ? '#ff9a92' : 'rgba(255,255,255,0.4)'}
+            />
+          )}
           <Toggle
             on={showThreat}
             onToggle={() => setShowThreat(v => !v)}
