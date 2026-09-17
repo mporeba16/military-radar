@@ -351,7 +351,10 @@
 .toggle-row__label { flex: 1; }
 .toggle-row__state { font-size: 12px; font-family: var(--font); }
 .toggle-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; box-sizing: border-box; }
-.toggle-swatch { width: 12px; height: 12px; flex-shrink: 0; box-sizing: border-box; border: 1.5px solid #ffb300; }
+/* Obwódka próbki bierze kolor z wiersza (`color` ustawiane inline razem z tłem),
+   zamiast mieć zaszyty bursztyn. Wcześniej każda warstwa miała ten sam żółty
+   kwadracik, niezależnie od tego, czym była na mapie. */
+.toggle-swatch { width: 12px; height: 12px; flex-shrink: 0; box-sizing: border-box; border: 1.5px solid currentColor; }
 .toggle-ico { font-size: 15px; width: 18px; text-align: center; flex-shrink: 0; }
 
 .map-layer-list {

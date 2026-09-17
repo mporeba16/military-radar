@@ -49,11 +49,26 @@
   --bg-card: #112035;
   --accent: #00ff88;
   --accent-dim: #00cc6a;
-  --warning: #ff7043;
+  --warning: #ff4757;
   --text: #dce8f5;
   --text-dim: #6a90b0;
   --border: #1a3350;
   --radar-green: #00ff88;
+
+  /* Paleta — lustro src/lib/palette.js, gdzie opisana jest zasada podziału na
+     osie (ruch / infrastruktura / zagrożenie). Zmiana tu wymaga zmiany tam. */
+  --kind-mil: #00ff88;
+  --kind-heli: #00d9ff;
+  --kind-heavy: #ffb300;
+  --base-pl: #b8933f;
+  --base-nato: #6d95b8;
+  --range: #b06ab3;
+  --range-label: #d9a7dc;
+  --threat-calm: #2f7f5b;
+  --threat-watch: #ffc53d;
+  --threat-elevated: #ff8c1a;
+  --threat-high: #ff4757;
+  --alert: #ff4757;
 
   /* Jedna rodzina na cały interfejs. Zapasowy stos ma podobną szerokość, żeby
      podmiana po doczytaniu kroju nie przesuwała układu. */

@@ -1,6 +1,7 @@
 import { TILE_LAYERS, tileThumbUrl } from './RadarMap'
 import Toggle from './Toggle'
 import { t } from '../i18n'
+import { BASE_PL, BASE_NATO, RANGE, RANGE_LABEL, ALERT } from '../lib/palette'
 import { ALT_BANDS } from '../lib/altBands'
 import { altToColor } from './aircraftShapes'
 
@@ -55,30 +56,33 @@ export default function MapsPanel({
             onToggle={() => setShowBases(b => !b)}
             label={t('BASES_LABEL')}
             marker={<span className="toggle-swatch" style={{
-              background: showBases ? 'rgba(255,179,0,0.2)' : 'transparent',
+              background: showBases ? 'rgba(184,147,63,0.25)' : 'transparent',
+              color: showBases ? BASE_PL : 'rgba(255,255,255,0.3)',
             }} />}
             state={showBases ? '◉' : '○'}
-            stateColor={showBases ? '#ffb300' : 'rgba(255,255,255,0.4)'}
+            stateColor={showBases ? BASE_PL : 'rgba(255,255,255,0.4)'}
           />
           <Toggle
             on={showNatoBases}
             onToggle={() => setShowNatoBases(b => !b)}
             label={t('NATO_BASES_LABEL')}
             marker={<span className="toggle-swatch" style={{
-              background: showNatoBases ? 'rgba(58,168,255,0.2)' : 'transparent',
+              background: showNatoBases ? 'rgba(109,149,184,0.25)' : 'transparent',
+              color: showNatoBases ? BASE_NATO : 'rgba(255,255,255,0.3)',
             }} />}
             state={showNatoBases ? '◉' : '○'}
-            stateColor={showNatoBases ? '#3aa8ff' : 'rgba(255,255,255,0.4)'}
+            stateColor={showNatoBases ? BASE_NATO : 'rgba(255,255,255,0.4)'}
           />
           <Toggle
             on={showRanges}
             onToggle={() => setShowRanges(b => !b)}
             label={t('RANGES_LABEL')}
             marker={<span className="toggle-swatch" style={{
-              background: showRanges ? 'rgba(255,59,48,0.25)' : 'transparent',
+              background: showRanges ? 'rgba(176,106,179,0.28)' : 'transparent',
+              color: showRanges ? RANGE : 'rgba(255,255,255,0.3)',
             }} />}
             state={showRanges ? '◉' : '○'}
-            stateColor={showRanges ? '#ff3b30' : 'rgba(255,255,255,0.4)'}
+            stateColor={showRanges ? RANGE : 'rgba(255,255,255,0.4)'}
           />
           {/* Podpisy tylko przy włączonej warstwie — przełącznik, który nic nie
               robi, jest gorszy niż jego brak. */}
@@ -89,10 +93,10 @@ export default function MapsPanel({
               label={t('RANGE_LABELS_LABEL')}
               marker={<span className="toggle-swatch" style={{
                 background: 'transparent',
-                border: showRangeLabels ? '2px solid #ff9a92' : '2px solid rgba(255,255,255,0.25)',
+                border: showRangeLabels ? `2px solid ${RANGE_LABEL}` : '2px solid rgba(255,255,255,0.25)',
               }} />}
               state={showRangeLabels ? '◉' : '○'}
-              stateColor={showRangeLabels ? '#ff9a92' : 'rgba(255,255,255,0.4)'}
+              stateColor={showRangeLabels ? RANGE_LABEL : 'rgba(255,255,255,0.4)'}
             />
           )}
           <Toggle
@@ -100,10 +104,11 @@ export default function MapsPanel({
             onToggle={() => setShowThreat(v => !v)}
             label={t('THREAT_LAYER_LABEL')}
             marker={<span className="toggle-swatch" style={{
-              background: showThreat ? 'rgba(255,45,85,0.2)' : 'transparent',
+              background: showThreat ? 'rgba(255,71,87,0.2)' : 'transparent',
+              color: showThreat ? ALERT : 'rgba(255,255,255,0.3)',
             }} />}
             state={showThreat ? '◉' : '○'}
-            stateColor={showThreat ? '#ff2d55' : 'rgba(255,255,255,0.4)'}
+            stateColor={showThreat ? ALERT : 'rgba(255,255,255,0.4)'}
           />
         </div>
       </section>

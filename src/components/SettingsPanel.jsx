@@ -3,6 +3,7 @@ import Toggle from './Toggle'
 import RangeSlider from './RangeSlider'
 import { t } from '../i18n'
 import { planeWord } from '../lib/plural'
+import { KIND_COLORS, ALERT } from '../lib/palette'
 
 // iPadOS 13+ reports as "MacIntel" but has a touch screen — catch it too.
 const IS_IOS = typeof navigator !== 'undefined' && (
@@ -26,9 +27,9 @@ function formatAge(ms) {
 }
 
 const KIND_ROWS = [
-  { key: 'mil', labelKey: 'FILTER_MIL', color: '#00ff88' },
-  { key: 'heli', labelKey: 'FILTER_HELI', color: '#00d9ff' },
-  { key: 'heavy', labelKey: 'FILTER_HEAVY', color: '#ffb300' },
+  { key: 'mil', labelKey: 'FILTER_MIL', color: KIND_COLORS.mil },
+  { key: 'heli', labelKey: 'FILTER_HELI', color: KIND_COLORS.heli },
+  { key: 'heavy', labelKey: 'FILTER_HEAVY', color: KIND_COLORS.heavy },
 ]
 
 // Alerty wymagają trzech rzeczy naraz: pozycji, włączonego pusha i choćby
@@ -128,11 +129,11 @@ export default function SettingsPanel({
               label={t('THREAT_PUSH_LABEL')}
               title={t('THREAT_PUSH_DESCRIPTION')}
               marker={<span className="toggle-dot" style={{
-                background: threatPush ? '#ff2d55' : 'transparent',
-                border: '2px solid #ff2d55',
+                background: threatPush ? ALERT : 'transparent',
+                border: `2px solid ${ALERT}`,
               }} />}
               state={threatPush ? '◉' : '○'}
-              stateColor={threatPush ? '#ff2d55' : 'rgba(255,255,255,0.4)'}
+              stateColor={threatPush ? ALERT : 'rgba(255,255,255,0.4)'}
             />
           </div>
         )}

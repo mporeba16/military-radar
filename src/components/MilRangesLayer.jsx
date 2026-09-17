@@ -2,8 +2,9 @@ import { useEffect, useMemo, useRef } from 'react'
 import { Marker, Polygon } from 'react-leaflet'
 import L from 'leaflet'
 import { MIL_RANGES_PL } from '../data/milRanges'
+import { RANGE } from '../lib/palette'
 
-export const RANGE_COLOR = '#ff3b30'
+export const RANGE_COLOR = RANGE
 
 // Poligony są duże, więc ich podpisy mają sens wcześniej niż podpisy lotnisk
 // (te pojawiają się od 8). Niżej niż 7 nazwy zlewałyby się w kaszę nad całą Polską.
@@ -122,8 +123,8 @@ export function MilRangeHatchDefs() {
             intuicja przy oglądaniu całej Polski. */}
         <pattern id="milRangeHatch" width="10" height="10"
           patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-          <rect width="10" height="10" fill="rgba(255, 59, 48, 0.055)" />
-          <line x1="0" y1="0" x2="0" y2="10" stroke="rgba(255, 59, 48, 0.4)" strokeWidth="1.8" />
+          <rect width="10" height="10" fill="rgba(176, 106, 179, 0.07)" />
+          <line x1="0" y1="0" x2="0" y2="10" stroke="rgba(176, 106, 179, 0.45)" strokeWidth="1.8" />
         </pattern>
       </defs>
     </svg>

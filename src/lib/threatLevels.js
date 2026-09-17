@@ -1,12 +1,14 @@
+import { THREAT } from './palette'
+
 // Poziomy ryzyka dronowego — wspólne dla nakładki na mapie i dla plakietki
 // nad mapą, żeby kolor na mapie i kolor w podpisie nie mogły się rozjechać.
 // Progi liczy serwer (netlify/functions/lib/threat.js); tutaj tylko wygląd.
 
 export const THREAT_LEVELS = {
-  calm: { label: 'SPOKÓJ', color: '#2f7f5b', short: 'spokój' },
-  watch: { label: 'OBSERWACJA', color: '#ffb300', short: 'obserwacja' },
-  elevated: { label: 'PODWYŻSZONE', color: '#ff7a00', short: 'podwyższone' },
-  high: { label: 'WYSOKIE', color: '#ff2d55', short: 'wysokie' },
+  calm: { label: 'SPOKÓJ', color: THREAT.calm, short: 'spokój' },
+  watch: { label: 'OBSERWACJA', color: THREAT.watch, short: 'obserwacja' },
+  elevated: { label: 'PODWYŻSZONE', color: THREAT.elevated, short: 'podwyższone' },
+  high: { label: 'WYSOKIE', color: THREAT.high, short: 'wysokie' },
 }
 
 export function threatStyle(level) {

@@ -5,6 +5,7 @@ import 'leaflet/dist/leaflet.css'
 import './RadarMap.css'
 import { SHAPES, getShapeKey, altToColor, ftToM } from './aircraftShapes'
 import { MIL_BASES_PL, MIL_BASES_NATO } from '../airfields'
+import { KIND_COLORS } from '../lib/palette'
 import ThreatLayer from './ThreatLayer'
 import MilRangesLayer, { MilRangeHatchDefs } from './MilRangesLayer'
 import { t } from '../i18n'
@@ -213,7 +214,7 @@ function buildIconSvg(ac, isSelected, zoomScale) {
     : ''
   // Kategorie poza wojskiem dostają kolorową obwódkę, by wyróżniały się na mapie
   // (wojsko = bazowy wygląd bez obwódki). Pomijamy gdy ikona jest zaznaczona.
-  const KIND_RING = { heli: '#00d9ff', heavy: '#ffb300' }
+  const KIND_RING = { heli: KIND_COLORS.heli, heavy: KIND_COLORS.heavy }
   const kindRingColor = !isSelected ? KIND_RING[ac.kind] : null
   const kindRing = kindRingColor
     ? `<circle r="${ringR}" fill="none" stroke="${kindRingColor}" stroke-width="2" opacity="0.85"/>`
