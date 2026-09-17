@@ -76,6 +76,8 @@ const STRINGS = {
     OVERLAYS_LABEL: 'WARSTWY',
     BASES_LABEL: 'Polskie bazy wojskowe',
     THREAT_LAYER_LABEL: 'Ryzyko dronowe (wschód)',
+    THREAT_PUSH_LABEL: 'Alert o ryzyku dronowym',
+    THREAT_PUSH_DESCRIPTION: 'Push, gdy ryzyko w TWOIM województwie skoczy do „podwyższonego” lub „wysokiego”. Działa tylko we wschodnich województwach — dla reszty kraju model nie ma danych. Nie zależy od zasięgu ani kategorii maszyn.',
     THREAT_CAP: 'RYZYKO DRONOWE',
     THREAT_TITLE: 'Szacowane ryzyko dronowe dla wschodnich województw',
     THREAT_UNKNOWN: 'BRAK DANYCH',

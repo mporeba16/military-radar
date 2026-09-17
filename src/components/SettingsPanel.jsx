@@ -45,6 +45,7 @@ export default function SettingsPanel({
   location, accuracy, locationError, requestLocation,
   radius, setRadius, inRangeCount, alertsCount,
   kinds, setKinds,
+  threatPush, setThreatPush,
   permissionState, isSubscribed, isSubscribing, subscribe, unsubscribe, subscribeError,
   soundOn, setSoundOn, vibrateOn, setVibrateOn,
   error,
@@ -114,6 +115,27 @@ export default function SettingsPanel({
               </>
         }
         <p className="info-text mt6">{t('PUSH_DESCRIPTION')}</p>
+
+        {/* Ryzyko dronowe jedzie tym samym kanałem, ale rządzi się czym innym:
+            nie pyta o promień ani o kategorie maszyn, tylko o województwo, w
+            którym stoisz. Stąd własny przełącznik tuż pod pushem, a nie wiersz
+            w liście kategorii. */}
+        {isSubscribed && (
+          <div className="toggle-list mt6">
+            <Toggle
+              on={threatPush}
+              onToggle={() => setThreatPush(v => !v)}
+              label={t('THREAT_PUSH_LABEL')}
+              marker={<span className="toggle-dot" style={{
+                background: threatPush ? '#ff2d55' : 'transparent',
+                border: '2px solid #ff2d55',
+              }} />}
+              state={threatPush ? '◉' : '○'}
+              stateColor={threatPush ? '#ff2d55' : 'rgba(255,255,255,0.4)'}
+            />
+          </div>
+        )}
+        {isSubscribed && <p className="info-text mt6">{t('THREAT_PUSH_DESCRIPTION')}</p>}
       </section>
 
       {/* 4. Sygnały w otwartej aplikacji — osobny mechanizm, osobna sekcja. */}

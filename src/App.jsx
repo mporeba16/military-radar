@@ -41,6 +41,7 @@ export default function App() {
   const [altBandsRaw, setAltBands] = useLocalStorage('radar.altBands', ALL_BANDS_ON)
   const [showBases, setShowBases] = useLocalStorage('radar.bases', true)
   const [showThreat, setShowThreat] = useLocalStorage('radar.threat', true)
+  const [threatPush, setThreatPush] = useLocalStorage('radar.threatPush', true)
   const [lastUpdated, setLastUpdated] = useState(null)
   const [alerts, setAlerts] = useState([])
   const [inRangeCount, setInRangeCount] = useState(0)
@@ -68,7 +69,7 @@ export default function App() {
   const {
     isSubscribed, subResolved, isSubscribing, subscribe, unsubscribe, sendTestPush,
     permissionState, subscribeError, syncError, serverStatus,
-  } = usePushNotifications(location, radius, kinds)
+  } = usePushNotifications(location, radius, kinds, threatPush)
 
   // Ocena ryzyka dronowego jest niezależna od GPS i od filtrów — pobieramy ją
   // zawsze, bo plakietka ma sens także przy wyłączonej nakładce na mapie.
@@ -603,6 +604,8 @@ export default function App() {
               alertsCount={alerts.length}
               kinds={kinds}
               setKinds={setKinds}
+              threatPush={threatPush}
+              setThreatPush={setThreatPush}
               permissionState={permissionState}
               isSubscribed={isSubscribed}
               isSubscribing={isSubscribing}

@@ -1,5 +1,6 @@
 import { getCommonName } from './typeNames'
 import { plForm } from './plural'
+import { threatStyle } from './threatLevels'
 
 // Treść powiadomień — JEDNO miejsce dla pusha z serwera i dla lokalnego
 // powiadomienia klienta. Wcześniej te same napisy składały się w dwóch plikach
@@ -101,4 +102,34 @@ export function groupText(list, kind) {
   const extra = n - names.length
 
   return { title, body: `${names.join(' · ')}${extra > 0 ? ` +${extra}` : ''}` }
+}
+
+// Powiadomienie o ryzyku dronowym. Inny gatunek niż alerty o maszynach: nie ma
+// dystansu ani kursu, jest województwo i powód. Zastrzeżenie „szacunek, nie RCB”
+// jedzie w treści, bo push bywa jedyną rzeczą, jaką człowiek zobaczy — karty
+// w aplikacji może nie otworzyć.
+export function threatText(raised) {
+  const list = Array.isArray(raised) ? raised : []
+  if (!list.length) return null
+
+  // Najwyższy poziom decyduje o tytule — przy dwóch województwach naraz liczy
+  // się to gorsze, nie to pierwsze alfabetycznie.
+  const sorted = [...list].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+  const top = sorted[0]
+  const levelLabel = threatStyle(top.level).short
+
+  const title = sorted.length === 1
+    ? `⚠ Ryzyko dronowe ${levelLabel} · ${top.name}`
+    : `⚠ Ryzyko dronowe ${levelLabel} · ${sorted.length} ${plForm(sorted.length, 'województwo', 'województwa', 'województw')}`
+
+  const where = sorted.length === 1
+    ? null
+    : sorted.map(r => `${r.name} (${threatStyle(r.level).short})`).join(', ')
+  const why = top.reasons?.length ? top.reasons.slice(0, 2).join(' · ') : null
+
+  const body = [where, why, 'Szacunek własny — nie komunikat RCB.']
+    .filter(Boolean)
+    .join('\n')
+
+  return { title, body }
 }

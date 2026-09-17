@@ -213,3 +213,67 @@ export function buildThreatState({ ua, adsb, baseline, now = Date.now() }) {
       'Źródłem ostrzeżeń dla Polski pozostaje RCB.',
   }
 }
+
+// ── Progi dla powiadomień push ────────────────────────────────────────────
+// Push leci przy WZROŚCIE poziomu, nie przy każdym przeliczeniu. Stan „o czym
+// już powiadomiliśmy” trzymamy per województwo: { [regionId]: { level, ts } }.
+export const LEVEL_RANK = { calm: 0, watch: 1, elevated: 2, high: 3 }
+
+// Poniżej tego poziomu nie budzimy nikogo. „Obserwacja” zapala się już przy
+// samym rozpoznaniu NATO w powietrzu, co nad wschodnią Polską zdarza się
+// regularnie — push o tym byłby szumem, a szum uczy ignorować alerty.
+export const PUSH_MIN_LEVEL = 'elevated'
+
+// Spadek poziomu zapisujemy dopiero po tym czasie. Bez tego histereza nie
+// istnieje: alarm w obwodzie lwowskim gaszony i wznawiany co kilka minut
+// (a tak to wygląda podczas nalotu) wysyłałby push za każdym nawrotem.
+export const DEESCALATION_DELAY_MS = 20 * 60 * 1000
+
+function rankOf(level) {
+  return LEVEL_RANK[level] ?? 0
+}
+
+// Zwraca województwa, które WŁAŚNIE przekroczyły próg, oraz nowy stan do zapisu.
+// `prevNotified` bierzemy z bloba; pusty (pierwszy przebieg po deployu) znaczy
+// „nic jeszcze nie ogłoszone” — jeśli w tym momencie coś jest podniesione,
+// powiadomienie pójdzie, i tak ma być: ktoś, kto właśnie włączył push podczas
+// realnego zagrożenia, ma się o nim dowiedzieć.
+export function diffThreatForPush(prevNotified, state, now = Date.now()) {
+  const prev = (prevNotified && typeof prevNotified === 'object') ? prevNotified : {}
+  const minRank = rankOf(PUSH_MIN_LEVEL)
+  const raised = []
+  const next = {}
+
+  for (const region of state?.regions || []) {
+    const rank = rankOf(region.level)
+    const before = prev[region.id]
+    const beforeRank = rankOf(before?.level)
+
+    if (rank > beforeRank) {
+      next[region.id] = { level: region.level, ts: now }
+      if (rank >= minRank) {
+        raised.push({
+          id: region.id,
+          name: region.name,
+          level: region.level,
+          score: region.score,
+          reasons: region.reasons || [],
+        })
+      }
+    } else if (rank < beforeRank && now - (before?.ts || 0) < DEESCALATION_DELAY_MS) {
+      next[region.id] = before          // histereza — jeszcze nie schodzimy
+    } else if (rank < beforeRank) {
+      next[region.id] = { level: region.level, ts: now }
+    } else {
+      next[region.id] = before || { level: region.level, ts: now }
+    }
+  }
+
+  // Wpisy „calm” nie niosą informacji (brak wpisu znaczy to samo), a blob ma
+  // zostać mały i czytelny w diagnostyce.
+  for (const [id, rec] of Object.entries(next)) {
+    if (rankOf(rec?.level) === 0) delete next[id]
+  }
+
+  return { raised, next }
+}
