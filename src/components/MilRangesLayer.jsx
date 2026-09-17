@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { Polygon } from 'react-leaflet'
 import { MIL_RANGES_PL } from '../data/milRanges'
 
@@ -17,20 +18,33 @@ export default function MilRangesLayer({ show }) {
     <>
       {MIL_RANGES_PL.flatMap(range =>
         range.rings.map((ring, i) => (
-          <Polygon
-            key={`${range.name}-${i}`}
-            positions={ring}
-            interactive={false}
-            pathOptions={{
-              className: 'mil-range',
-              color: RANGE_COLOR,
-              weight: 1.2,
-              opacity: 0.85,
-            }}
-          />
+          <HatchedPolygon key={`${range.name}-${i}`} positions={ring} />
         ))
       )}
     </>
+  )
+}
+
+// Klasę CSS nadajemy WPROST na elemencie ścieżki, a nie przez
+// `pathOptions.className`. Ta druga droga działała na serwerze deweloperskim i
+// cicho przestawała w buildzie produkcyjnym — react-leaflet nie przekazywał
+// `className` do Leafletu, więc poligony wychodziły pełną czerwienią zamiast
+// kreskowania. Efekt bez tablicy zależności odtwarza klasę także wtedy, gdy
+// Leaflet przebuduje ścieżkę (zmiana renderera, powrót warstwy).
+function HatchedPolygon({ positions }) {
+  const ref = useRef(null)
+
+  useEffect(() => {
+    ref.current?.getElement?.()?.classList.add('mil-range')
+  })
+
+  return (
+    <Polygon
+      ref={ref}
+      positions={positions}
+      interactive={false}
+      pathOptions={{ color: RANGE_COLOR, weight: 1.2, opacity: 0.85 }}
+    />
   )
 }
 
