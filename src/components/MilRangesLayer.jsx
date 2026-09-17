@@ -10,6 +10,12 @@ export const RANGE_COLOR = RANGE
 // (te pojawiają się od 8). Niżej niż 7 nazwy zlewałyby się w kaszę nad całą Polską.
 const RANGE_LABEL_ZOOM = 7
 
+// Powyżej tego przybliżenia kafelki OSM rysują już własną nazwę ośrodka i oba
+// napisy nachodziły na siebie. Dotyczy wyłącznie podkładów, które faktycznie
+// podpisują obszary — na satelicie i płótnach Esri nasz podpis zostaje, bo
+// tam nie ma żadnej alternatywy.
+const RANGE_LABEL_MAX_ZOOM = 10
+
 // Poligony wojskowe — warstwa STAŁA, w odróżnieniu od warstwy ryzyka, która
 // jest wyliczana na bieżąco. Obie bywają czerwone, więc poligon dostaje ukośne
 // kreskowanie (tak mapy lotnicze znaczą strefy niebezpieczne), a województwo
@@ -18,7 +24,7 @@ const RANGE_LABEL_ZOOM = 7
 //
 // Nieinteraktywne, jak warstwa ryzyka: kliknięcie w mapę ma odznaczać maszynę,
 // a nie trafiać w tło.
-export default function MilRangesLayer({ show, showLabels, zoom }) {
+export default function MilRangesLayer({ show, showLabels, zoom, basemapLabelsAreas }) {
   // Środek podpisu liczymy raz: to centroid NAJWIĘKSZEGO płatu, nie całości —
   // przy poligonie rozbitym na kilka kawałków (Nowa Dęba ma cztery) środek
   // wszystkich razem potrafi wypaść w polu między nimi.
@@ -30,6 +36,10 @@ export default function MilRangesLayer({ show, showLabels, zoom }) {
 
   if (!show) return null
 
+  const labelsVisible = showLabels
+    && zoom >= RANGE_LABEL_ZOOM
+    && !(basemapLabelsAreas && zoom > RANGE_LABEL_MAX_ZOOM)
+
   return (
     <>
       {MIL_RANGES_PL.flatMap(range =>
@@ -38,7 +48,7 @@ export default function MilRangesLayer({ show, showLabels, zoom }) {
         ))
       )}
 
-      {showLabels && zoom >= RANGE_LABEL_ZOOM && labels.map(l => (
+      {labelsVisible && labels.map(l => (
         <Marker
           key={l.name}
           position={l.center}

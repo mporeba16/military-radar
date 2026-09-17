@@ -14,9 +14,14 @@ import { t } from '../i18n'
 // so the default marker/shadow images are never used (removing it also drops
 // the only hardcoded unpkg CDN dependency).
 
+// `ownAreaLabels` — czy dany podkład sam podpisuje obszary (kafelki OSM rysują
+// nazwy poligonów przy dużym przybliżeniu). Tam nasz podpis przestaje być
+// potrzebny i zaczyna przeszkadzać, więc powyżej progu ustępuje miejsca.
+// Podkłady Esri tego nie robią, więc na nich zostaje na każdym przybliżeniu.
 export const TILE_LAYERS = [
   {
     id: 'osm-adsbx',
+    ownAreaLabels: true,
     name: 'OSM ADSBx',
     label: 'Ciemna',
     sub: 'OpenStreetMap, przyciemniona',
@@ -27,6 +32,7 @@ export const TILE_LAYERS = [
   },
   {
     id: 'osm',
+    ownAreaLabels: true,
     name: 'OpenStreetMap',
     label: 'Klasyczna',
     sub: 'OpenStreetMap',
@@ -71,6 +77,7 @@ export const TILE_LAYERS = [
   },
   {
     id: 'opentopo',
+    ownAreaLabels: true,
     name: 'OpenTopoMap',
     label: 'Teren',
     sub: 'OpenTopoMap',
@@ -587,7 +594,12 @@ export default function RadarMap({
 
         {/* Ryzyko pod bazami i pod samolotami — to tło sytuacyjne, nie treść. */}
         <ThreatLayer regions={threatRegions} />
-        <MilRangesLayer show={showRanges} showLabels={showRangeLabels} zoom={zoom} />
+        <MilRangesLayer
+          show={showRanges}
+          showLabels={showRangeLabels}
+          zoom={zoom}
+          basemapLabelsAreas={!!tileLayer.ownAreaLabels}
+        />
 
         {showNatoBases && <BasesLayer zoom={zoom} bases={MIL_BASES_NATO} variant="nato" />}
         {showBases && <BasesLayer zoom={zoom} bases={MIL_BASES_PL} variant="pl" />}
