@@ -13,6 +13,7 @@ import { altToColor } from './aircraftShapes'
 export default function MapsPanel({
   activeTileId, setActiveTileId, showBases, setShowBases,
   showNatoBases, setShowNatoBases,
+  showRanges, setShowRanges,
   showThreat, setShowThreat, altBands, setAltBands, bandCounts,
 }) {
   return (
@@ -67,6 +68,16 @@ export default function MapsPanel({
             }} />}
             state={showNatoBases ? '◉' : '○'}
             stateColor={showNatoBases ? '#3aa8ff' : 'rgba(255,255,255,0.4)'}
+          />
+          <Toggle
+            on={showRanges}
+            onToggle={() => setShowRanges(b => !b)}
+            label={t('RANGES_LABEL')}
+            marker={<span className="toggle-swatch" style={{
+              background: showRanges ? 'rgba(255,59,48,0.25)' : 'transparent',
+            }} />}
+            state={showRanges ? '◉' : '○'}
+            stateColor={showRanges ? '#ff3b30' : 'rgba(255,255,255,0.4)'}
           />
           <Toggle
             on={showThreat}

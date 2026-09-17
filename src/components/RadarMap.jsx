@@ -6,6 +6,7 @@ import './RadarMap.css'
 import { SHAPES, getShapeKey, altToColor, ftToM } from './aircraftShapes'
 import { MIL_BASES_PL, MIL_BASES_NATO } from '../airfields'
 import ThreatLayer from './ThreatLayer'
+import MilRangesLayer, { MilRangeHatchDefs } from './MilRangesLayer'
 import { t } from '../i18n'
 
 // Note: no L.Icon.Default config — every marker here is a custom L.divIcon,
@@ -454,8 +455,8 @@ function AircraftLayer({ aircraft, selectedHex, onSelect, zoomScale, dimmedHexes
 
 export default function RadarMap({
   aircraft, hasFetched, trails, serverTrails, center, gpsCenter, radius,
-  selectedHex, onSelect, activeTileId, showBases, showNatoBases, dimmedHexes, threatRegions,
-  recenterRef,
+  selectedHex, onSelect, activeTileId, showBases, showNatoBases, showRanges,
+  dimmedHexes, threatRegions, recenterRef,
 }) {
   const initialZoom = 6  // S4: was 5, but icons were too small at default view
   const [zoom, setZoom] = useState(initialZoom)
@@ -557,6 +558,7 @@ export default function RadarMap({
 
   return (
     <div style={{ position: 'absolute', inset: 0 }}>
+      <MilRangeHatchDefs />
       {showLoading && (
         <div className="map-empty-state" role="status">
           {t('LOADING_AIRCRAFT')}
@@ -584,6 +586,7 @@ export default function RadarMap({
 
         {/* Ryzyko pod bazami i pod samolotami — to tło sytuacyjne, nie treść. */}
         <ThreatLayer regions={threatRegions} />
+        <MilRangesLayer show={showRanges} />
 
         {showNatoBases && <BasesLayer zoom={zoom} bases={MIL_BASES_NATO} variant="nato" />}
         {showBases && <BasesLayer zoom={zoom} bases={MIL_BASES_PL} variant="pl" />}

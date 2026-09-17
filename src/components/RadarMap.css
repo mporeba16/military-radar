@@ -121,3 +121,11 @@
 .alt-legend-labels span:last-child {
   transform: translateX(-100%);
 }
+
+/* Poligony wojskowe — kreskowanie zamiast gładkiego wypełnienia. Leaflet
+   ustawia `fill` ATRYBUTEM, więc ta reguła go nadpisuje (CSS bije atrybut
+   prezentacyjny) i wzór trafia na każdy płat warstwy. */
+.mil-range {
+  fill: url(#milRangeHatch);
+  fill-opacity: 1;
+}
