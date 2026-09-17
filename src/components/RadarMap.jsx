@@ -5,6 +5,7 @@ import 'leaflet/dist/leaflet.css'
 import './RadarMap.css'
 import { SHAPES, getShapeKey, altToColor, ftToM } from './aircraftShapes'
 import { MIL_BASES_PL } from '../airfields'
+import ThreatLayer from './ThreatLayer'
 import { t } from '../i18n'
 
 // Note: no L.Icon.Default config — every marker here is a custom L.divIcon,
@@ -444,7 +445,7 @@ function AircraftLayer({ aircraft, selectedHex, onSelect, zoomScale, dimmedHexes
 
 export default function RadarMap({
   aircraft, hasFetched, trails, serverTrails, center, gpsCenter, radius,
-  selectedHex, onSelect, activeTileId, showBases, dimmedHexes,
+  selectedHex, onSelect, activeTileId, showBases, dimmedHexes, threatRegions,
 }) {
   const initialZoom = 6  // S4: was 5, but icons were too small at default view
   const [zoom, setZoom] = useState(initialZoom)
@@ -552,6 +553,9 @@ export default function RadarMap({
         <MapClickHandler onSelect={onSelect} />
         <TileFilter filter={tileLayer.filter} />
         <ZoomTracker onZoomChange={setZoom} />
+
+        {/* Ryzyko pod bazami i pod samolotami — to tło sytuacyjne, nie treść. */}
+        <ThreatLayer regions={threatRegions} />
 
         {showBases && <BasesLayer zoom={zoom} />}
 

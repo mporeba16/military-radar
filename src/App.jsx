@@ -4,8 +4,10 @@ import { MapMark, MapPanelButtons } from './components/MapChrome'
 import AircraftInfoPanel from './components/AircraftInfoPanel'
 import SettingsPanel from './components/SettingsPanel'
 import MapsPanel from './components/MapsPanel'
+import ThreatBadge from './components/ThreatBadge'
 import { useGeolocation } from './hooks/useGeolocation'
 import { usePushNotifications } from './hooks/usePushNotifications'
+import { useThreat } from './hooks/useThreat'
 import { useLocalStorage } from './hooks/useLocalStorage'
 import { fetchMilitaryAircraft } from './api'
 import { haversine, bearing } from './lib/geo'
@@ -38,6 +40,7 @@ export default function App() {
   const [activeTileId, setActiveTileId] = useLocalStorage('radar.tile', 'osm-adsbx')
   const [altBandsRaw, setAltBands] = useLocalStorage('radar.altBands', ALL_BANDS_ON)
   const [showBases, setShowBases] = useLocalStorage('radar.bases', true)
+  const [showThreat, setShowThreat] = useLocalStorage('radar.threat', true)
   const [lastUpdated, setLastUpdated] = useState(null)
   const [alerts, setAlerts] = useState([])
   const [inRangeCount, setInRangeCount] = useState(0)
@@ -66,6 +69,10 @@ export default function App() {
     isSubscribed, subResolved, isSubscribing, subscribe, unsubscribe, sendTestPush,
     permissionState, subscribeError, syncError, serverStatus,
   } = usePushNotifications(location, radius, kinds)
+
+  // Ocena ryzyka dronowego jest niezależna od GPS i od filtrów — pobieramy ją
+  // zawsze, bo plakietka ma sens także przy wyłączonej nakładce na mapie.
+  const { threat, threatError } = useThreat()
 
   // Gdy aktywny jest push serwerowy, NIE strzelamy też lokalnym powiadomieniem
   // systemowym — inaczej (w foreground) ten sam samolot daje dwa komunikaty.
@@ -511,9 +518,11 @@ export default function App() {
         activeTileId={activeTileId}
         showBases={showBases}
         dimmedHexes={dimmedHexes}
+        threatRegions={showThreat ? threat?.regions : null}
       />
 
       <MapMark isLoading={isLoading} error={error} lastUpdated={lastUpdated} />
+      <ThreatBadge threat={threat} error={threatError} />
       <MapPanelButtons activePanel={activePanel} onTogglePanel={togglePanel} />
 
       {/* Karta maszyny — pływający panel przy lewej krawędzi, pod paskiem
@@ -622,6 +631,8 @@ export default function App() {
               setActiveTileId={setActiveTileId}
               showBases={showBases}
               setShowBases={setShowBases}
+              showThreat={showThreat}
+              setShowThreat={setShowThreat}
               altBands={altBands}
               setAltBands={setAltBands}
               bandCounts={bandCounts}

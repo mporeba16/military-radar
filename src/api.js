@@ -29,3 +29,12 @@ export async function subscribePush(subscription) {
   if (!res.ok) throw new Error('Subskrypcja push nie powiodła się')
   return res.json()
 }
+
+// Szacunek ryzyka dronowego dla wschodnich województw. Endpoint cache'uje stan
+// w Blobs na minutę, więc częstszy polling niczego nie przyspieszy — a przy
+// błędzie wolimy zostawić na mapie ostatnią znaną ocenę niż migać pustką.
+export async function fetchThreat(signal) {
+  const res = await fetch(`${API_BASE}/threat`, { signal })
+  if (!res.ok) throw new Error(`Ocena ryzyka niedostępna (HTTP ${res.status})`)
+  return res.json()
+}

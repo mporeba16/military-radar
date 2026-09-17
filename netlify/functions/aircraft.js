@@ -67,6 +67,14 @@ function passesTypeNoise(a) {
 // Wspólny cache live-snapshotu (redukuje zapytania do adsb.fi → mniej 429)
 const SNAPSHOT_TTL_MS = 9000
 
+// Klucz snapshotu w Blobs. Eksportowany, bo czyta go też `threat` — model
+// ryzyka korzysta z tego samego, już pobranego zdjęcia ruchu zamiast odpytywać
+// adsb.fi po raz kolejny. Jeden kształt klucza w jednym miejscu, żeby oba
+// końce nie rozjechały się po cichu.
+export function snapshotKey(lat, lon, radiusKm) {
+  return `live-${Number(lat).toFixed(2)}_${Number(lon).toFixed(2)}_${radiusKm}`
+}
+
 const TRAIL_MAX_AGE_MS = 4 * 60 * 60 * 1000  // 4 godziny historii
 const TRAIL_MIN_INTERVAL_MS = 15_000           // min. 15s między punktami
 // Gdy w trasie pojawia się przerwa dłuższa niż FLIGHT_SPLIT_GAP_MS, traktujemy
@@ -347,7 +355,7 @@ export const handler = async (event) => {
   // bez cache zapytanie geo (drugie po /mil) ciągle dostaje 429 i znikają
   // helikoptery/heavy. Trzymamy wspólny snapshot ~9 s, więc adsb.fi jest pytane
   // najwyżej raz na ~9 s niezależnie od liczby klientów.
-  const snapKey = `live-${latN.toFixed(2)}_${lonN.toFixed(2)}_${radiusKm}`
+  const snapKey = snapshotKey(latN, lonN, radiusKm)
   let snapStore = null
   try { snapStore = getStore('aircraft-snapshot') } catch {}
   if (snapStore) {
