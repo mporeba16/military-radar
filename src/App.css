@@ -70,11 +70,14 @@
   flex-shrink: 0;
 }
 
+/* Tytuł panelu — ta sama zasada co przy nagłówkach sekcji: nazwa, nie krzyk.
+   Większy stopień niesie hierarchię lepiej niż rozstrzelone wersaliki. */
 .side-panel-title {
-  font-family: 'Courier New', monospace;
-  font-size: 11px;
-  letter-spacing: 2.5px;
-  color: rgba(255, 255, 255, 0.75);
+  font-family: var(--font);
+  font-size: var(--t-lead);
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .side-panel-close {
@@ -112,13 +115,27 @@
   margin-bottom: 20px;
 }
 
+/* Nagłówek sekcji niesie informację (do której grupy należy kontrolka), więc
+   zostaje — ale jako podpis, nie jako krzyk. Rozstrzelone wersaliki nad każdą
+   sekcją to najczęstszy odruch szablonu; grupę wyznacza teraz cienka kreska
+   i odstęp, a tekst schodzi do roli etykiety. */
 .cp-label {
-  font-family: 'Courier New', monospace;
-  font-size: 10px;
-  letter-spacing: 2.5px;
-  color: rgba(255, 255, 255, 0.55);
-  margin-bottom: 9px;
-  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font);
+  font-size: var(--t-small);
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 10px;
+}
+
+.cp-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .btn-group {
@@ -134,7 +151,7 @@
   border: none;
   color: var(--accent);
   cursor: pointer;
-  font-family: 'Courier New', monospace;
+  font-family: var(--font);
   font-size: 11px;
   /* Tekstowy link, ale to realna akcja (wypis z push / ponów GPS) — dajemy
      pełnowymiarowy tap-target 44px wysokości bez przesuwania layoutu. */
@@ -182,7 +199,7 @@
 .range-marks {
   display: flex;
   justify-content: space-between;
-  font-family: 'Courier New', monospace;
+  font-family: var(--font);
   font-size: 10px;
   color: var(--text-dim);
   margin-top: 5px;
@@ -200,7 +217,7 @@
   border: 1px solid rgba(255, 255, 255, 0.25);
   color: #ffffff;
   cursor: pointer;
-  font-family: 'Courier New', monospace;
+  font-family: var(--font);
   font-size: 12px;
   transition: all 0.15s;
   border-radius: 3px;
@@ -219,7 +236,7 @@
   border: 1px solid #00ff88;
   color: #00ff88;
   cursor: pointer;
-  font-family: 'Courier New', monospace;
+  font-family: var(--font);
   font-size: 12px;
   letter-spacing: 1px;
   transition: all 0.15s;
@@ -237,7 +254,7 @@
 }
 
 .info-text {
-  font-family: 'Courier New', monospace;
+  font-family: var(--font);
   font-size: 11px;
   color: rgba(255, 255, 255, 0.5);
   line-height: 1.6;
@@ -263,7 +280,7 @@
   border-color: rgba(255, 255, 255, 0.15);
 }
 .gps-wait-text {
-  font-family: 'Courier New', monospace;
+  font-family: var(--font);
   font-size: 12.5px;
   color: rgba(255, 255, 255, 0.75);
   margin: 0;
@@ -274,7 +291,7 @@
   50%      { opacity: 1; }
 }
 .gps-alarm-head {
-  font-family: 'Courier New', monospace;
+  font-family: var(--font);
   font-size: 12.5px;
   font-weight: bold;
   letter-spacing: 1.5px;
@@ -282,7 +299,7 @@
   margin-bottom: 6px;
 }
 .gps-alarm-text {
-  font-family: 'Courier New', monospace;
+  font-family: var(--font);
   font-size: 11px;
   color: rgba(255, 255, 255, 0.7);
   line-height: 1.55;
@@ -295,7 +312,7 @@
   border: 1px solid rgba(255, 100, 70, 0.6);
   color: #ff8a66;
   cursor: pointer;
-  font-family: 'Courier New', monospace;
+  font-family: var(--font);
   font-size: 12px;
   letter-spacing: 1px;
   border-radius: 5px;
@@ -332,7 +349,7 @@
 .toggle-row[aria-pressed="true"] { background: rgba(255, 255, 255, 0.08); }
 .toggle-row:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.5); outline-offset: 2px; }
 .toggle-row__label { flex: 1; }
-.toggle-row__state { font-size: 12px; font-family: 'Courier New', monospace; }
+.toggle-row__state { font-size: 12px; font-family: var(--font); }
 .toggle-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; box-sizing: border-box; }
 .toggle-swatch { width: 12px; height: 12px; flex-shrink: 0; box-sizing: border-box; border: 1.5px solid #ffb300; }
 .toggle-ico { font-size: 15px; width: 18px; text-align: center; flex-shrink: 0; }
@@ -351,7 +368,7 @@
   background: var(--bg-card);
   border: 1px solid var(--border);
   color: var(--text);
-  font-family: 'Courier New', monospace;
+  font-family: var(--font);
   font-size: 12px;
   cursor: pointer;
   border-radius: 3px;
@@ -418,7 +435,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Courier New', monospace;
+  font-family: var(--font);
   font-size: 22px;
   line-height: 1;
   color: #00ff88;
@@ -498,7 +515,7 @@
   border-left-width: 3px;
   border-radius: 4px;
   padding: 10px 14px;
-  font-family: 'Courier New', monospace;
+  font-family: var(--font);
   color: #fff;
   cursor: pointer;
   pointer-events: auto;
@@ -603,7 +620,7 @@
 }
 
 .alert-toast-overflow {
-  font-family: 'Courier New', monospace;
+  font-family: var(--font);
   font-size: 10px;
   letter-spacing: 0.5px;
   color: rgba(255, 180, 160, 0.8);
@@ -638,7 +655,7 @@
 /* ══ Suwak zasięgu ════════════════════════════════════════════════════════ */
 .range-block { display: flex; flex-direction: column; }
 .range-head { display: flex; align-items: baseline; gap: 7px; }
-.range-head__label { font-size: 10px; letter-spacing: 2.5px; color: rgba(255, 255, 255, 0.55); text-transform: uppercase; }
+.range-head__label { font-size: var(--t-small); letter-spacing: 0.2px; color: rgba(255, 255, 255, 0.55); }
 .range-head__value { margin-left: auto; font-size: 26px; line-height: 1; color: #ffffff; font-variant-numeric: tabular-nums; }
 .range-head__unit { font-size: 12px; color: var(--text-dim); }
 .range-track { position: relative; height: 24px; display: flex; align-items: center; margin-top: 6px; }
@@ -711,7 +728,7 @@
   padding-top: 14px;
   border-top: 1px dashed rgba(255, 255, 255, 0.12);
 }
-.diag { font-size: 11px; font-family: 'Courier New', monospace; line-height: 1.7; }
+.diag { font-size: 11px; font-family: var(--font); line-height: 1.7; }
 .diag__row { color: rgba(255, 255, 255, 0.55); }
 .diag__v { color: #ffffff; }
 .diag__ts { color: rgba(255, 255, 255, 0.7); font-size: 10px; }
@@ -825,7 +842,7 @@
   left: calc(12px + env(safe-area-inset-left, 0px));
   z-index: 1000;
   max-width: min(320px, calc(100vw - 24px));
-  font-family: 'Courier New', monospace;
+  font-family: var(--font);
   /* column-reverse: rozwinięcie wychodzi w GÓRĘ, nad czip — w dół nie ma
      miejsca i panel wyjeżdżałby poza ekran. */
   display: flex;
