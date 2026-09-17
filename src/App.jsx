@@ -40,6 +40,7 @@ export default function App() {
   const [activeTileId, setActiveTileId] = useLocalStorage('radar.tile', 'osm-adsbx')
   const [altBandsRaw, setAltBands] = useLocalStorage('radar.altBands', ALL_BANDS_ON)
   const [showBases, setShowBases] = useLocalStorage('radar.bases', true)
+  const [showNatoBases, setShowNatoBases] = useLocalStorage('radar.natoBases', true)
   const [showThreat, setShowThreat] = useLocalStorage('radar.threat', true)
   const [threatPush, setThreatPush] = useLocalStorage('radar.threatPush', true)
   const [lastUpdated, setLastUpdated] = useState(null)
@@ -518,6 +519,7 @@ export default function App() {
         onSelect={handleSelect}
         activeTileId={activeTileId}
         showBases={showBases}
+        showNatoBases={showNatoBases}
         dimmedHexes={dimmedHexes}
         threatRegions={showThreat ? threat?.regions : null}
       />
@@ -634,6 +636,8 @@ export default function App() {
               setActiveTileId={setActiveTileId}
               showBases={showBases}
               setShowBases={setShowBases}
+              showNatoBases={showNatoBases}
+              setShowNatoBases={setShowNatoBases}
               showThreat={showThreat}
               setShowThreat={setShowThreat}
               altBands={altBands}

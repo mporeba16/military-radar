@@ -61,6 +61,21 @@ describe('isSuspiciousHex', () => {
     expect(isSuspiciousHex('000000')).toBe(true)
     expect(isSuspiciousHex('zzzzzz')).toBe(true)
   })
+  it('flags block-boundary addresses ending in 000', () => {
+    // 480000 = początek puli holenderskiej. Tym adresem przyszedł do nas
+    // „SPOTR": MLAT-owy znak wywoławczy doklejony do adresu domyślnego, a baza
+    // adsb.fi mapuje go na cywilnego Fokkera 70 i oznacza jako wojskowy.
+    expect(isSuspiciousHex('480000')).toBe(true)
+    expect(isSuspiciousHex('3c0000')).toBe(true)
+    expect(isSuspiciousHex('484000')).toBe(true)
+  })
+  it('accepts real addresses seen in the live military feed', () => {
+    // Kontrola, że reguła 000 nie zabiera prawdziwych maszyn — to hexy
+    // zaobserwowane w /mil (C-17, KC-135, AT-802).
+    for (const hex of ['ae144e', 'ae0137', 'af37c4', '48c0d1', '4b1234']) {
+      expect(isSuspiciousHex(hex)).toBe(false)
+    }
+  })
   it('accepts a normal ICAO address', () => {
     expect(isSuspiciousHex('3c6444')).toBe(false)
   })

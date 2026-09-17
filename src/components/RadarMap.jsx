@@ -4,7 +4,7 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import './RadarMap.css'
 import { SHAPES, getShapeKey, altToColor, ftToM } from './aircraftShapes'
-import { MIL_BASES_PL } from '../airfields'
+import { MIL_BASES_PL, MIL_BASES_NATO } from '../airfields'
 import ThreatLayer from './ThreatLayer'
 import { t } from '../i18n'
 
@@ -278,7 +278,10 @@ function MapClickHandler({ onSelect }) {
 // samolotami (zIndexOffset ujemny), bursztynowym kwadratem. Nazwa pokazuje się
 // dopiero od zoomu LABEL_ZOOM, żeby przy oddaleniu nie zaśmiecać mapy napisami.
 const BASE_LABEL_ZOOM = 8
-function BasesLayer({ zoom }) {
+// Jedna warstwa, dwa zbiory: polskie bazy i bazy NATO. `variant` decyduje
+// tylko o kolorze kwadratu i etykiety — reszta zachowania jest wspólna, żeby
+// obie warstwy nie zaczęły żyć własnym życiem.
+function BasesLayer({ zoom, bases, variant }) {
   const map = useMap()
   const groupRef = useRef(null)
 
@@ -294,13 +297,15 @@ function BasesLayer({ zoom }) {
     if (!group) return
     group.clearLayers()
     const showLabel = zoom >= BASE_LABEL_ZOOM
-    for (const ap of MIL_BASES_PL) {
+    const mod = variant === 'nato' ? ' base-marker-sq--nato' : ''
+    const labelMod = variant === 'nato' ? ' base-marker-label--nato' : ''
+    for (const ap of bases) {
       const label = showLabel
-        ? `<span class="base-marker-label">${ap.name}<span class="base-marker-icao">${ap.icao}</span></span>`
+        ? `<span class="base-marker-label${labelMod}">${ap.name}<span class="base-marker-icao">${ap.icao}</span></span>`
         : ''
       const icon = L.divIcon({
         className: 'base-marker',
-        html: `<span class="base-marker-sq"></span>${label}`,
+        html: `<span class="base-marker-sq${mod}"></span>${label}`,
         iconSize: [12, 12],
         iconAnchor: [6, 6],
       })
@@ -308,7 +313,7 @@ function BasesLayer({ zoom }) {
       m.bindTooltip(`${ap.name} · ${ap.icao}`, { direction: 'top', offset: [0, -8], className: 'base-tooltip' })
       group.addLayer(m)
     }
-  }, [zoom])
+  }, [zoom, bases, variant])
 
   return null
 }
@@ -445,7 +450,7 @@ function AircraftLayer({ aircraft, selectedHex, onSelect, zoomScale, dimmedHexes
 
 export default function RadarMap({
   aircraft, hasFetched, trails, serverTrails, center, gpsCenter, radius,
-  selectedHex, onSelect, activeTileId, showBases, dimmedHexes, threatRegions,
+  selectedHex, onSelect, activeTileId, showBases, showNatoBases, dimmedHexes, threatRegions,
 }) {
   const initialZoom = 6  // S4: was 5, but icons were too small at default view
   const [zoom, setZoom] = useState(initialZoom)
@@ -557,7 +562,8 @@ export default function RadarMap({
         {/* Ryzyko pod bazami i pod samolotami — to tło sytuacyjne, nie treść. */}
         <ThreatLayer regions={threatRegions} />
 
-        {showBases && <BasesLayer zoom={zoom} />}
+        {showNatoBases && <BasesLayer zoom={zoom} bases={MIL_BASES_NATO} variant="nato" />}
+        {showBases && <BasesLayer zoom={zoom} bases={MIL_BASES_PL} variant="pl" />}
 
         {radius && gpsCenter && (
           <Circle center={gpsCenter} radius={radius * 1000} pathOptions={{

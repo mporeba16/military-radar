@@ -98,6 +98,15 @@ export function isSuspiciousHex(hex) {
   if (b1 === b2 && b2 === b3) return true
   if (b2 - b1 === b3 - b2 && b1 !== b2) return true
   if ((n & 0xFFF) === 0xFFF) return true
+  // Adresy kończące się na 000 to początki bloków ICAO przydzielonych krajom
+  // (480000 = start puli holenderskiej) — praktycznie nigdy nie przypisywane
+  // maszynie, za to chętnie używane jako wartość domyślna. Przez taki rekord
+  // trafiał do nas „SPOTR": MLAT zgadł znak wywoławczy, doczepił go do 480000,
+  // a baza adsb.fi na tym adresie ma cywilnego Fokkera 70 (PH-KZH) i flagę
+  // wojskową — czyli sam feed /mil podawał nam śmieć. Pomiar na żywym ruchu:
+  // w 435 rekordach /mil i 270 nad Polską taki adres miał DOKŁADNIE ten jeden
+  // rekord, więc reguła nie zabiera niczego prawdziwego. Symetryczna do FFF wyżej.
+  if ((n & 0xFFF) === 0x000) return true
   return false
 }
 

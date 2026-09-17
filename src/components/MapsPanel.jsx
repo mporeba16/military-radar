@@ -12,6 +12,7 @@ import { altToColor } from './aircraftShapes'
 // tego samego szablonu URL, z nałożonym tym samym filtrem CSS co na mapie.
 export default function MapsPanel({
   activeTileId, setActiveTileId, showBases, setShowBases,
+  showNatoBases, setShowNatoBases,
   showThreat, setShowThreat, altBands, setAltBands, bandCounts,
 }) {
   return (
@@ -56,6 +57,16 @@ export default function MapsPanel({
             }} />}
             state={showBases ? '◉' : '○'}
             stateColor={showBases ? '#ffb300' : 'rgba(255,255,255,0.4)'}
+          />
+          <Toggle
+            on={showNatoBases}
+            onToggle={() => setShowNatoBases(b => !b)}
+            label={t('NATO_BASES_LABEL')}
+            marker={<span className="toggle-swatch" style={{
+              background: showNatoBases ? 'rgba(58,168,255,0.2)' : 'transparent',
+            }} />}
+            state={showNatoBases ? '◉' : '○'}
+            stateColor={showNatoBases ? '#3aa8ff' : 'rgba(255,255,255,0.4)'}
           />
           <Toggle
             on={showThreat}

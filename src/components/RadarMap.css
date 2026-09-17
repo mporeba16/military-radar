@@ -23,6 +23,13 @@
   border: 1.5px solid #ffb300;
 }
 
+/* Bazy NATO — chłodny błękit, żeby jednym spojrzeniem odróżnić je od
+   bursztynowych baz polskich. */
+.base-marker-sq--nato {
+  background: rgba(0, 170, 255, 0.16);
+  border-color: #3aa8ff;
+}
+
 /* Etykieta absolutnie obok kwadratu — nie wpływa na kotwicę markera */
 .base-marker-label {
   position: absolute;
@@ -35,6 +42,10 @@
   letter-spacing: 0.3px;
   color: #ffd27a;
   text-shadow: 0 1px 3px rgba(0,0,0,0.95), 0 0 2px rgba(0,0,0,0.9);
+}
+
+.base-marker-label--nato {
+  color: #9ed4ff;
 }
 
 .base-marker-icao {
