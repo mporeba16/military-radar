@@ -39,7 +39,21 @@ export function MapMark({ isLoading, error, lastUpdated }) {
   )
 }
 
-export function MapPanelButtons({ activePanel, onTogglePanel }) {
+// Celownik — powrót do widoku startowego. Bez niego odjechanie mapą było
+// jednokierunkowe: zoomControl jest wyłączony, więc jedynym sposobem na powrót
+// nad Polskę było przeładowanie aplikacji.
+function IconCrosshair() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="6.5" />
+      <path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3" />
+      <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+export function MapPanelButtons({ activePanel, onTogglePanel, onRecenter, hasGps }) {
   return (
     <div className="map-ctrl-btns">
       <button
@@ -57,6 +71,13 @@ export function MapPanelButtons({ activePanel, onTogglePanel }) {
         title={t('NAV_MAPS_A11Y')}
         onClick={() => onTogglePanel('mapy')}>
         <IconLayers />
+      </button>
+      <button
+        className="icon-btn"
+        aria-label={hasGps ? t('NAV_RECENTER_GPS_A11Y') : t('NAV_RECENTER_PL_A11Y')}
+        title={hasGps ? t('NAV_RECENTER_GPS_A11Y') : t('NAV_RECENTER_PL_A11Y')}
+        onClick={onRecenter}>
+        <IconCrosshair />
       </button>
     </div>
   )

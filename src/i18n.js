@@ -32,6 +32,8 @@ const STRINGS = {
     DEBUG_TOGGLE: 'Diagnostyka',
     NAV_SETTINGS_A11Y: 'Ustawienia',
     NAV_MAPS_A11Y: 'Mapy i warstwy',
+    NAV_RECENTER_GPS_A11Y: 'Wyśrodkuj na mojej pozycji',
+    NAV_RECENTER_PL_A11Y: 'Wróć do widoku Polski',
     REFRESHED_AT: 'odświeżono',
     MAP_BASE_LABEL: 'PODKŁAD',
     ALT_FILTER_LABEL: 'WYSOKOŚĆ — DOTKNIJ, ABY PRZYGASIĆ',

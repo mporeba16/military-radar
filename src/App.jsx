@@ -13,7 +13,7 @@ import { fetchMilitaryAircraft } from './api'
 import { haversine, bearing } from './lib/geo'
 import { ALL_BANDS_ON, bandForAltM, normalizeBands, ALT_BANDS } from './lib/altBands'
 import { ftToM } from './components/aircraftShapes'
-import { alertText, CLOSE_RANGE_KM } from './lib/notifyText'
+import { alertText, shortTypeName, CLOSE_RANGE_KM } from './lib/notifyText'
 import { t } from './i18n'
 import { version } from '../package.json'
 import './App.css'
@@ -51,6 +51,9 @@ export default function App() {
     try { return new URLSearchParams(window.location.search).has('debug') } catch { return false }
   })
   const versionTapsRef = useRef({ count: 0, timer: null })
+  // Akcję centrowania mapy wystawia RadarMap (tam mieszka instancja Leafletu),
+  // a wywołuje ją przycisk w chrome nad mapą.
+  const recenterRef = useRef(null)
 
   // Ref tak, aby fetchData (zależne tylko od radius/location) widziało aktualne
   // filtry bez przepinania interwału przy każdym przełączeniu kategorii.
@@ -522,11 +525,17 @@ export default function App() {
         showNatoBases={showNatoBases}
         dimmedHexes={dimmedHexes}
         threatRegions={showThreat ? threat?.regions : null}
+        recenterRef={recenterRef}
       />
 
       <MapMark isLoading={isLoading} error={error} lastUpdated={lastUpdated} />
       <ThreatBadge threat={threat} error={threatError} />
-      <MapPanelButtons activePanel={activePanel} onTogglePanel={togglePanel} />
+      <MapPanelButtons
+        activePanel={activePanel}
+        onTogglePanel={togglePanel}
+        onRecenter={() => recenterRef.current?.()}
+        hasGps={!!location}
+      />
 
       {/* Karta maszyny — pływający panel przy lewej krawędzi, pod paskiem
           górnym. Na wąskim ekranie rozciąga się na całą szerokość od góry. */}
@@ -564,7 +573,9 @@ export default function App() {
                       : isNear ? t('ALERT_TAG_NEAR') : t('ALERT_TAG')}
                   </span>
                   <span className="alert-toast-call">{ac.flight?.trim() || ac.hex}</span>
-                  <span className="alert-toast-detail">{ac.t || '?'} · {Math.round(dist)} km</span>
+                  {/* Ta sama nazwa, co w powiadomieniu systemowym — wcześniej
+                      push mówił „Hercules", a toast obok „C130". */}
+                  <span className="alert-toast-detail">{shortTypeName(ac) || '?'} · {Math.round(dist)} km</span>
                 </div>
                 <button className="alert-toast-close"
                   aria-label={t('DISMISS_NOTIFICATION')}

@@ -278,6 +278,10 @@ function MapClickHandler({ onSelect }) {
 // samolotami (zIndexOffset ujemny), bursztynowym kwadratem. Nazwa pokazuje się
 // dopiero od zoomu LABEL_ZOOM, żeby przy oddaleniu nie zaśmiecać mapy napisami.
 const BASE_LABEL_ZOOM = 8
+
+// Przybliżenie po wyśrodkowaniu na GPS — region, nie ulica: chodzi o „co lata
+// koło mnie", a nie o to, nad którym budynkiem.
+const RECENTER_GPS_ZOOM = 9
 // Jedna warstwa, dwa zbiory: polskie bazy i bazy NATO. `variant` decyduje
 // tylko o kolorze kwadratu i etykiety — reszta zachowania jest wspólna, żeby
 // obie warstwy nie zaczęły żyć własnym życiem.
@@ -451,12 +455,31 @@ function AircraftLayer({ aircraft, selectedHex, onSelect, zoomScale, dimmedHexes
 export default function RadarMap({
   aircraft, hasFetched, trails, serverTrails, center, gpsCenter, radius,
   selectedHex, onSelect, activeTileId, showBases, showNatoBases, dimmedHexes, threatRegions,
+  recenterRef,
 }) {
   const initialZoom = 6  // S4: was 5, but icons were too small at default view
   const [zoom, setZoom] = useState(initialZoom)
   const tileLayer = TILE_LAYERS.find(l => l.id === activeTileId) || TILE_LAYERS[0]
   const zoomScale = useMemo(() => iconScaleForZoom(zoom), [zoom])
   const mapRef = useRef(null)
+
+  // Akcja „wróć do widoku" wystawiona przez ref, bo przycisk mieszka w chrome
+  // nad mapą (MapChrome), a instancja Leafletu tylko tutaj. Osobny stos
+  // przycisków wewnątrz RadarMap rozjeżdżałby się z tamtym przy każdej zmianie
+  // odstępów, więc wolę jeden stos i jedną referencję.
+  //
+  // Z GPS-em lecimy na pozycję użytkownika, bez niego na widok startowy —
+  // „wyśrodkuj" ma zawsze coś znaczyć, także zanim GPS zdąży złapać fixa.
+  useEffect(() => {
+    if (!recenterRef) return
+    recenterRef.current = () => {
+      const map = mapRef.current
+      if (!map) return
+      if (gpsCenter) map.flyTo(gpsCenter, RECENTER_GPS_ZOOM, { duration: 0.6 })
+      else map.flyTo(center, initialZoom, { duration: 0.6 })
+    }
+    return () => { recenterRef.current = null }
+  }, [recenterRef, gpsCenter, center, initialZoom])
 
   // Trail polylines for the selected aircraft only.
   // - T2: dedup by proximity (50 m / 30 s) instead of exact ts match
