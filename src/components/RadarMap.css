@@ -38,7 +38,7 @@
   transform: translateY(-50%);
   white-space: nowrap;
   pointer-events: none;
-  font: 10px/1.1 'Courier New', monospace;
+  font: 10px/1.1 var(--font);
   letter-spacing: 0.3px;
   color: #ffd27a;
   text-shadow: 0 1px 3px rgba(0,0,0,0.95), 0 0 2px rgba(0,0,0,0.9);
@@ -60,7 +60,7 @@
   color: #ffd27a;
   border: 1px solid rgba(255, 179, 0, 0.45);
   border-radius: 4px;
-  font: 11px 'Courier New', monospace;
+  font: 11px var(--font);
   box-shadow: 0 2px 8px rgba(0,0,0,0.5);
 }
 .base-tooltip.leaflet-tooltip-top::before {
@@ -75,7 +75,7 @@
   transform: translate(-50%, -50%);
   z-index: 999;
   pointer-events: none;
-  font-family: 'Courier New', monospace;
+  font-family: var(--font);
   font-size: 12px;
   letter-spacing: 1.5px;
   color: rgba(255, 255, 255, 0.55);
@@ -89,7 +89,7 @@
 /* Altitude legend — colour key for aircraft markers. Lives in the "Maps"
    settings panel (it used to float over the map's bottom-left corner). */
 .alt-legend {
-  font-family: 'Courier New', monospace;
+  font-family: var(--font);
   width: 100%;
 }
 
@@ -152,7 +152,7 @@
   align-items: center;
   white-space: nowrap;
   pointer-events: none;
-  font: 11px/1.2 'Courier New', monospace;
+  font: 11px/1.2 var(--font);
   letter-spacing: 0.6px;
   color: #ff9a92;
   text-shadow:

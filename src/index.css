@@ -1,3 +1,42 @@
+/* Barlow Semi Condensed — hostowany lokalnie, nie z CDN. To PWA: link do
+   fonts.googleapis.com blokowałby render i przestawał działać offline, czyli
+   dokładnie wtedy, kiedy aplikacja ma się przydać. Dwa kroje (zwykły i
+   półgruby) w dwóch podzbiorach; latin-ext niesie polskie znaki diakrytyczne.
+   `font-display: swap` — lepiej pokazać tekst systemowym krojem przez ułamek
+   sekundy niż trzymać pusty ekran. */
+@font-face {
+  font-family: 'Barlow Semi Condensed';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/barlow-sc-400-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Barlow Semi Condensed';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/barlow-sc-400-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Barlow Semi Condensed';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/barlow-sc-600-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Barlow Semi Condensed';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/barlow-sc-600-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -15,6 +54,19 @@
   --text-dim: #6a90b0;
   --border: #1a3350;
   --radar-green: #00ff88;
+
+  /* Jedna rodzina na cały interfejs. Zapasowy stos ma podobną szerokość, żeby
+     podmiana po doczytaniu kroju nie przesuwała układu. */
+  --font: 'Barlow Semi Condensed', 'Roboto Condensed', 'Helvetica Neue', system-ui, sans-serif;
+
+  /* Skala typograficzna, krok ~1.25 od bazy 13 px. Aplikacja żyje w małych
+     rozmiarach, więc gęsto na dole i rzadko na górze. */
+  --t-micro: 10px;
+  --t-small: 11px;
+  --t-base: 13px;
+  --t-lead: 16px;
+  --t-head: 21px;
+  --t-hero: 28px;
 }
 
 html, body, #root {
@@ -27,7 +79,8 @@ html, body, #root {
 }
 
 body {
-  font-family: 'Courier New', Courier, monospace;
+  font-family: var(--font);
+  font-size: var(--t-base);
   background: var(--bg-deep);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
@@ -43,4 +96,23 @@ button, a, [role="button"], .alert-toast {
 /* Leaflet overrides */
 .leaflet-container {
   background: #060e1a;
+}
+
+/* Cyfry tabelaryczne wszędzie, gdzie liczba odświeża się w miejscu: wysokość,
+   prędkość, dystans, zasięg, pozycja GPS, poziom zagrożenia. Courier dawał
+   stałą szerokość znaku za darmo — krój proporcjonalny musi dostać to jawnie,
+   inaczej odczyt drga przy każdym cyklu odświeżenia (co 5 s). */
+.ac-info-val,
+.alert-toast-detail,
+.range-head__value,
+.range-marks,
+.gps-slim__coord,
+.gps-slim__meta,
+.threat-badge__level,
+.range-marker-km,
+.diag__v,
+.count-live,
+.count-idle {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
 }
