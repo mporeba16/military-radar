@@ -13,6 +13,7 @@ import {
   buildThreatState,
   updateBaseline,
   BASELINE_DEFAULT,
+  BASELINE_VERSION,
 } from './threat.js'
 
 const UBILLING_URL = 'https://ubilling.net.ua/aerialalerts/'
@@ -97,7 +98,9 @@ export async function resolveThreatState({
   // Zimny start: normą jest to, co widzimy teraz. Inaczej pierwsze wywołanie po
   // deployu porównywałoby realny ruch ze sztywną stałą i ogłaszało „wzmożenie”
   // przy zupełnie zwyczajnym popołudniu.
-  const prevBaseline = Number.isFinite(baselineRec?.value)
+  // Rekord zapisany starszą definicją licznika odrzucamy — patrz BASELINE_VERSION.
+  const usableBaseline = baselineRec?.v === BASELINE_VERSION && Number.isFinite(baselineRec.value)
+  const prevBaseline = usableBaseline
     ? baselineRec.value
     : (adsb.ok ? adsb.milOverPoland : BASELINE_DEFAULT)
 
@@ -112,7 +115,9 @@ export async function resolveThreatState({
     // i przy następnym odczycie każdy normalny ruch wyglądałby na wzmożony.
     if (adsb.ok && aircraft?.length) {
       const next = updateBaseline(prevBaseline, adsb.milOverPoland)
-      writes.push(store.set('baseline', JSON.stringify({ value: next, at: Date.now() })).catch(() => {}))
+      writes.push(store.set('baseline', JSON.stringify({
+        value: next, at: Date.now(), v: BASELINE_VERSION,
+      })).catch(() => {}))
     }
     await Promise.all(writes)
   }

@@ -50,12 +50,26 @@ describe('parseUbilling', () => {
 describe('readAdsbSignals', () => {
   const overWarsaw = { hex: 'abc123', t: 'F16', lat: 52.2, lon: 21.0, kind: 'mil' }
 
-  it('liczy wojsko w prostokącie obserwacji', () => {
+  it('liczy wojsko w granicach Polski', () => {
     const s = readAdsbSignals([
       overWarsaw,
       { hex: 'd1', t: 'F16', lat: 40.0, lon: 3.0, kind: 'mil' },   // Hiszpania — poza
     ])
     expect(s.milOverPoland).toBe(1)
+  })
+
+  it('nie wlicza sąsiadów — to był realny błąd, nie hipoteza', () => {
+    // Te trzy maszyny naprawdę wpadły do licznika i plakietka mówiła
+    // „5 maszyn nad Polską", gdy na mapie widać było dwie.
+    const s = readAdsbSignals([
+      { hex: 'c1', flight: 'DPHIN43', t: 'A319', lat: 50.00, lon: 14.61, kind: 'mil' }, // Praga
+      { hex: 'c2', flight: 'HAF354M', t: 'C27J', lat: 49.11, lon: 15.22, kind: 'mil' }, // Czechy
+      { hex: 'c3', t: 'SU27', lat: 54.71, lon: 20.51, kind: 'mil' },                    // Kaliningrad
+      { hex: 'c4', t: 'SU25', lat: 49.84, lon: 24.03, kind: 'mil' },                    // Lwów
+      { hex: 'p1', flight: 'RRR1411', t: 'F900', lat: 51.09, lon: 17.37, kind: 'mil' }, // Wrocław
+      { hex: 'p2', flight: 'PLF693', t: 'W3', lat: 54.56, lon: 18.55, kind: 'mil' },    // Gdynia
+    ])
+    expect(s.milOverPoland).toBe(2)
   })
 
   it('pomija kategorie niewojskowe i maszyny na ziemi', () => {

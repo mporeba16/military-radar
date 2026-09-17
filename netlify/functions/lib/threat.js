@@ -1,4 +1,5 @@
 import { getCommonName } from '../../../src/lib/typeNames.js'
+import { isInPoland } from './poland.js'
 
 // Model ryzyka „dron / rakieta nad wschodnią Polską”.
 //
@@ -73,10 +74,12 @@ export function parseUbilling(json) {
 }
 
 // ── 2. Sygnał z ADS-B ─────────────────────────────────────────────────────
-// Prostokąt „Polska + pas przygraniczny”. Świadomie prostokąt, nie wielokąt
-// granic: maszyna krążąca 40 km za granicą jest tu tak samo istotna jak nad
-// Zamościem, a ostrość obrysu niczego by nie poprawiła.
-export const POLAND_WATCH_BOX = { latMin: 48.8, latMax: 55.2, lonMin: 14.0, lonMax: 24.8 }
+// Liczymy maszyny w GRANICACH Polski, wielokątem współdzielonym z aircraft.js.
+// Wcześniej był tu prostokąt 48,8–55,2°N / 14–24,8°E „bo pogranicze też jest
+// istotne" — w praktyce wliczał trzy samoloty nad Czechami i plakietka mówiła
+// „5 maszyn nad Polską", gdy na mapie widać było dwie. Liczba pokazywana
+// użytkownikowi ma się zgadzać z tym, co widzi; sprawdzalność jest tu warta
+// więcej niż czulszy, ale nieszczery wskaźnik.
 
 // Typy ICAO, które w praktyce znaczą „NATO patrzy”. Sprawdzamy je wyłącznie na
 // maszynach już zaklasyfikowanych jako wojskowe (kind === 'mil'), więc cywilne
@@ -100,12 +103,6 @@ function normType(t) {
   return (t || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
 }
 
-function inWatchBox(lat, lon) {
-  if (lat == null || lon == null) return false
-  const b = POLAND_WATCH_BOX
-  return lat >= b.latMin && lat <= b.latMax && lon >= b.lonMin && lon <= b.lonMax
-}
-
 // Powód alertu czyta człowiek, więc surowy adres ICAO („ae0265") jest tu bez
 // wartości. Kolejność: znak wywoławczy, nazwa własna typu, kod typu, a hex
 // dopiero na końcu, gdy nie wiadomo zupełnie nic.
@@ -127,7 +124,7 @@ export function readAdsbSignals(aircraft) {
   const tankers = []
   for (const ac of aircraft) {
     if ((ac.kind || 'mil') !== 'mil') continue
-    if (!inWatchBox(ac.lat, ac.lon)) continue
+    if (!isInPoland(ac.lat, ac.lon)) continue
     if (ac.on_ground) continue
     milOverPoland++
     const type = normType(ac.t)
@@ -176,7 +173,14 @@ const ADSB_PART_CAP = 25
 // cokolwiek znaczyć. 0,01 to ~69 minut — kilkugodzinny podwyższony ruch nadal
 // w końcu stanie się nową normą, i tak ma być.
 export const BASELINE_ALPHA = 0.01
-export const BASELINE_DEFAULT = 4
+export const BASELINE_DEFAULT = 3
+
+// Norma zapisana starą definicją „maszyn nad Polską" (prostokąt łapiący Czechy
+// i Kaliningrad) była mniej więcej dwukrotnie zawyżona, więc po zmianie na
+// granice nie znaczy już nic. Zmiana wersji unieważnia stary rekord i każe
+// zasiać normę od nowa pierwszym realnym odczytem — bez ręcznego grzebania
+// w blobach. Przy KAŻDEJ kolejnej zmianie definicji licznika podbij tę stałą.
+export const BASELINE_VERSION = 2
 
 export function updateBaseline(prev, milOverPoland) {
   if (!Number.isFinite(milOverPoland)) return prev ?? BASELINE_DEFAULT
