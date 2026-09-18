@@ -44,7 +44,6 @@ export default function App() {
   const [showBases, setShowBases] = useLocalStorage('radar.bases', true)
   const [showNatoBases, setShowNatoBases] = useLocalStorage('radar.natoBases', true)
   const [showRanges, setShowRanges] = useLocalStorage('radar.ranges', true)
-  const [showRangeLabels, setShowRangeLabels] = useLocalStorage('radar.rangeLabels', true)
   const [lastUpdated, setLastUpdated] = useState(null)
   const [alerts, setAlerts] = useState([])
   const [inRangeCount, setInRangeCount] = useState(0)
@@ -533,7 +532,6 @@ export default function App() {
         showBases={showBases}
         showNatoBases={showNatoBases}
         showRanges={showRanges}
-        showRangeLabels={showRangeLabels}
         dimmedHexes={dimmedHexes}
         recenterRef={recenterRef}
       />
@@ -659,8 +657,6 @@ export default function App() {
               setShowNatoBases={setShowNatoBases}
               showRanges={showRanges}
               setShowRanges={setShowRanges}
-              showRangeLabels={showRangeLabels}
-              setShowRangeLabels={setShowRangeLabels}
               altBands={altBands}
               setAltBands={setAltBands}
               bandCounts={bandCounts}

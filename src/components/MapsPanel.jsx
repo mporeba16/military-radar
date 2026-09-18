@@ -2,7 +2,7 @@ import { TILE_LAYERS, tileThumbUrl } from './RadarMap'
 import { useState } from 'react'
 import Toggle from './Toggle'
 import { t } from '../i18n'
-import { BASE_PL, BASE_NATO, RANGE, RANGE_LABEL } from '../lib/palette'
+import { BASE_PL, BASE_NATO, RANGE } from '../lib/palette'
 import { ALT_BANDS } from '../lib/altBands'
 import { altToColor } from './aircraftShapes'
 
@@ -16,7 +16,6 @@ export default function MapsPanel({
   activeTileId, setActiveTileId, showBases, setShowBases,
   showNatoBases, setShowNatoBases,
   showRanges, setShowRanges,
-  showRangeLabels, setShowRangeLabels,
   altBands, setAltBands, bandCounts,
 }) {
   const [baseOpen, setBaseOpen] = useState(false)
@@ -79,7 +78,7 @@ export default function MapsPanel({
             onToggle={() => setShowBases(b => !b)}
             label={t('BASES_LABEL')}
             marker={<span className="toggle-swatch" style={{
-              background: showBases ? 'rgba(184,147,63,0.25)' : 'transparent',
+              background: showBases ? 'rgba(47, 95, 208,0.25)' : 'transparent',
               color: showBases ? BASE_PL : 'rgba(255,255,255,0.3)',
             }} />}
             state={showBases ? '◉' : '○'}
@@ -101,27 +100,12 @@ export default function MapsPanel({
             onToggle={() => setShowRanges(b => !b)}
             label={t('RANGES_LABEL')}
             marker={<span className="toggle-swatch" style={{
-              background: showRanges ? 'rgba(176,106,179,0.28)' : 'transparent',
+              background: showRanges ? 'rgba(232, 116, 28,0.28)' : 'transparent',
               color: showRanges ? RANGE : 'rgba(255,255,255,0.3)',
             }} />}
             state={showRanges ? '◉' : '○'}
             stateColor={showRanges ? RANGE : 'rgba(255,255,255,0.4)'}
           />
-          {/* Podpisy tylko przy włączonej warstwie — przełącznik, który nic nie
-              robi, jest gorszy niż jego brak. */}
-          {showRanges && (
-            <Toggle
-              on={showRangeLabels}
-              onToggle={() => setShowRangeLabels(b => !b)}
-              label={t('RANGE_LABELS_LABEL')}
-              marker={<span className="toggle-swatch" style={{
-                background: 'transparent',
-                border: showRangeLabels ? `2px solid ${RANGE_LABEL}` : '2px solid rgba(255,255,255,0.25)',
-              }} />}
-              state={showRangeLabels ? '◉' : '○'}
-              stateColor={showRangeLabels ? RANGE_LABEL : 'rgba(255,255,255,0.4)'}
-            />
-          )}
         </div>
       </section>
 

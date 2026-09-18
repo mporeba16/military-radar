@@ -72,7 +72,6 @@ const STRINGS = {
     BASES_LABEL: 'Polskie bazy wojskowe',
     NATO_BASES_LABEL: 'Główne bazy NATO',
     RANGES_LABEL: 'Poligony wojskowe',
-    RANGE_LABELS_LABEL: 'Podpisy poligonów',
     INFO_LANDING: 'Prawdopodobnie ląduje',
     INFO_LANDING_APPROACH: 'Na podejściu do',
     ALERT_TAG: '⚠ W ZASIĘGU',

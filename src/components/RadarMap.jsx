@@ -5,8 +5,9 @@ import 'leaflet/dist/leaflet.css'
 import './RadarMap.css'
 import { SHAPES, getShapeKey, altToColor, ftToM } from './aircraftShapes'
 import { MIL_BASES_PL, MIL_BASES_NATO } from '../airfields'
-import { KIND_COLORS } from '../lib/palette'
-import MilRangesLayer, { MilRangeHatchDefs } from './MilRangesLayer'
+import { KIND_COLORS, BASE_PL, BASE_NATO } from '../lib/palette'
+import MilRangesLayer, { MilRangeHatchDefs, HatchedPolygon } from './MilRangesLayer'
+import { MIL_AIRFIELD_AREAS } from '../data/milAirfieldAreas'
 import { t } from '../i18n'
 
 // Note: no L.Icon.Default config — every marker here is a custom L.divIcon,
@@ -335,6 +336,19 @@ function BasesLayer({ zoom, bases, variant }) {
   return null
 }
 
+// Teren lotniska — kreskowany obrys jak poligon. Kwadrat z BasesLayer zostaje
+// na wierzchu: przy oddaleniu obrys ma kilka pikseli i tylko kwadrat mówi, że
+// tam jest baza.
+function BaseAreasLayer({ bases, variant }) {
+  const className = `base-area--${variant}`
+  const color = variant === 'nato' ? BASE_NATO : BASE_PL
+  return bases.flatMap(ap =>
+    (MIL_AIRFIELD_AREAS[ap.icao] || []).map((ring, i) => (
+      <HatchedPolygon key={`${ap.icao}-${i}`} positions={ring} className={className} color={color} />
+    ))
+  )
+}
+
 function TileFilter({ filter }) {
   const map = useMap()
   useEffect(() => {
@@ -467,7 +481,7 @@ function AircraftLayer({ aircraft, selectedHex, onSelect, zoomScale, dimmedHexes
 
 export default function RadarMap({
   aircraft, hasFetched, trails, serverTrails, center, gpsCenter, radius,
-  selectedHex, onSelect, activeTileId, showBases, showNatoBases, showRanges, showRangeLabels,
+  selectedHex, onSelect, activeTileId, showBases, showNatoBases, showRanges,
   dimmedHexes, recenterRef,
 }) {
   const initialZoom = 6  // S4: was 5, but icons were too small at default view
@@ -598,10 +612,12 @@ export default function RadarMap({
 
         <MilRangesLayer
           show={showRanges}
-          showLabels={showRangeLabels}
           zoom={zoom}
           basemapLabelsAreas={!!tileLayer.ownAreaLabels}
         />
+
+        {showNatoBases && <BaseAreasLayer bases={MIL_BASES_NATO} variant="nato" />}
+        {showBases && <BaseAreasLayer bases={MIL_BASES_PL} variant="pl" />}
 
         {showNatoBases && <BasesLayer zoom={zoom} bases={MIL_BASES_NATO} variant="nato" />}
         {showBases && <BasesLayer zoom={zoom} bases={MIL_BASES_PL} variant="pl" />}

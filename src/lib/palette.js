@@ -21,17 +21,15 @@ export const KIND_COLORS = {
 }
 
 // ── 2. Infrastruktura ─────────────────────────────────────────────────────
-// Złoto baz jest wyraźnie stłumione względem bursztynu dużych samolotów, bo
-// wcześniej był to ten sam kolor i kwadrat bazy mrugał tak samo mocno jak
-// lecący An-124.
-export const BASE_PL = '#b8933f'
+// Polskie lotniska wojskowe: ciemny niebieski (decyzja użytkownika). Kwadrat
+// i obrys terenu lotniska mają ten sam kolor.
+export const BASE_PL = '#2f5fd0'
 export const BASE_NATO = '#6d95b8'
 
-// Poligony: magenta. To konwencja map lotniczych dla stref ograniczonych, a
-// przy okazji jedyna barwa nieużywana nigdzie indziej — czerwień odpadła, bo
-// poligon jest terenem stałym, nie zdarzeniem, i nie ma udawać alarmu.
-export const RANGE = '#b06ab3'
-export const RANGE_LABEL = '#d9a7dc'
+// Poligony: pomarańcz (decyzja użytkownika). Wyraźnie czerwieńszy od bursztynu
+// dużych samolotów (#ffb300), a czerwień alarmu zostaje dla zdarzeń.
+export const RANGE = '#e8741c'
+export const RANGE_LABEL = '#f5b27a'
 
 // ── 3. Stan ───────────────────────────────────────────────────────────────
 // Z rampy alarmowej warstwy ryzyka dronowego zostały po jej usunięciu dwie

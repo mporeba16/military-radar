@@ -24,7 +24,8 @@ const RANGE_LABEL_MAX_ZOOM = 10
 //
 // Nieinteraktywne, jak warstwa ryzyka: kliknięcie w mapę ma odznaczać maszynę,
 // a nie trafiać w tło.
-export default function MilRangesLayer({ show, showLabels, zoom, basemapLabelsAreas }) {
+// Podpisy nie mają osobnego przełącznika — idą razem z warstwą.
+export default function MilRangesLayer({ show, zoom, basemapLabelsAreas }) {
   // Środek podpisu liczymy raz: to centroid NAJWIĘKSZEGO płatu, nie całości —
   // przy poligonie rozbitym na kilka kawałków (Nowa Dęba ma cztery) środek
   // wszystkich razem potrafi wypaść w polu między nimi.
@@ -36,8 +37,7 @@ export default function MilRangesLayer({ show, showLabels, zoom, basemapLabelsAr
 
   if (!show) return null
 
-  const labelsVisible = showLabels
-    && zoom >= RANGE_LABEL_ZOOM
+  const labelsVisible = zoom >= RANGE_LABEL_ZOOM
     && !(basemapLabelsAreas && zoom > RANGE_LABEL_MAX_ZOOM)
 
   return (
@@ -102,11 +102,13 @@ function centroid(ring) {
 // `className` do Leafletu, więc poligony wychodziły pełną czerwienią zamiast
 // kreskowania. Efekt bez tablicy zależności odtwarza klasę także wtedy, gdy
 // Leaflet przebuduje ścieżkę (zmiana renderera, powrót warstwy).
-function HatchedPolygon({ positions }) {
+// Ten sam mechanizm rysuje teren lotnisk (MilAirfieldAreasLayer) — inna klasa
+// i kolor obrysu, reszta wspólna.
+export function HatchedPolygon({ positions, className = 'mil-range', color = RANGE_COLOR }) {
   const ref = useRef(null)
 
   useEffect(() => {
-    ref.current?.getElement?.()?.classList.add('mil-range')
+    ref.current?.getElement?.()?.classList.add(className)
   })
 
   return (
@@ -114,7 +116,7 @@ function HatchedPolygon({ positions }) {
       ref={ref}
       positions={positions}
       interactive={false}
-      pathOptions={{ color: RANGE_COLOR, weight: 1.2, opacity: 0.85 }}
+      pathOptions={{ color, weight: 1.2, opacity: 0.85 }}
     />
   )
 }
@@ -133,8 +135,20 @@ export function MilRangeHatchDefs() {
             intuicja przy oglądaniu całej Polski. */}
         <pattern id="milRangeHatch" width="10" height="10"
           patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-          <rect width="10" height="10" fill="rgba(176, 106, 179, 0.07)" />
-          <line x1="0" y1="0" x2="0" y2="10" stroke="rgba(176, 106, 179, 0.45)" strokeWidth="1.8" />
+          <rect width="10" height="10" fill="rgba(232, 116, 28, 0.07)" />
+          <line x1="0" y1="0" x2="0" y2="10" stroke="rgba(232, 116, 28, 0.45)" strokeWidth="1.8" />
+        </pattern>
+        {/* Teren lotnisk: to samo kreskowanie w kolorach warstw baz. Lotnisko
+            jest małe, więc kreska gęściej niż na poligonie. */}
+        <pattern id="baseAreaHatchPl" width="6" height="6"
+          patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <rect width="6" height="6" fill="rgba(47, 95, 208, 0.10)" />
+          <line x1="0" y1="0" x2="0" y2="6" stroke="rgba(47, 95, 208, 0.6)" strokeWidth="1.6" />
+        </pattern>
+        <pattern id="baseAreaHatchNato" width="6" height="6"
+          patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <rect width="6" height="6" fill="rgba(109, 149, 184, 0.08)" />
+          <line x1="0" y1="0" x2="0" y2="6" stroke="rgba(109, 149, 184, 0.5)" strokeWidth="1.6" />
         </pattern>
       </defs>
     </svg>
