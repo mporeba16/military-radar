@@ -6,7 +6,7 @@ import './RadarMap.css'
 import { SHAPES, getShapeKey, altToColor, ftToM } from './aircraftShapes'
 import { MIL_BASES_PL, MIL_BASES_NATO } from '../airfields'
 import { KIND_COLORS, BASE_PL, BASE_NATO } from '../lib/palette'
-import MilRangesLayer, { MilRangeHatchDefs, HatchedPolygon } from './MilRangesLayer'
+import MilRangesLayer, { MilRangeHatchDefs, HatchedPolygon, AREA_LABEL_ZOOM } from './MilRangesLayer'
 import { MIL_AIRFIELD_AREAS } from '../data/milAirfieldAreas'
 import { t } from '../i18n'
 
@@ -289,9 +289,8 @@ function MapClickHandler({ onSelect }) {
 }
 
 // Statyczna warstwa polskich baz wojskowych (Łask, Krzesiny…). Rysowana POD
-// samolotami (zIndexOffset ujemny). Nazwa pokazuje się
-// dopiero od zoomu LABEL_ZOOM, żeby przy oddaleniu nie zaśmiecać mapy napisami.
-const BASE_LABEL_ZOOM = 8
+// samolotami (zIndexOffset ujemny). Nazwa pokazuje się od tego samego
+// przybliżenia co nazwy poligonów (AREA_LABEL_ZOOM).
 
 // Przybliżenie po wyśrodkowaniu na GPS — region, nie ulica: chodzi o „co lata
 // koło mnie", a nie o to, nad którym budynkiem.
@@ -315,7 +314,7 @@ function BasesLayer({ zoom, bases, variant }) {
     const group = groupRef.current
     if (!group) return
     group.clearLayers()
-    const showLabel = zoom >= BASE_LABEL_ZOOM
+    const showLabel = zoom >= AREA_LABEL_ZOOM
     const labelMod = variant === 'nato' ? ' base-marker-label--nato' : ''
     for (const ap of bases) {
       const label = showLabel

@@ -6,9 +6,11 @@ import { RANGE } from '../lib/palette'
 
 export const RANGE_COLOR = RANGE
 
-// Poligony są duże, więc ich podpisy mają sens wcześniej niż podpisy lotnisk
-// (te pojawiają się od 8). Niżej niż 7 nazwy zlewałyby się w kaszę nad całą Polską.
-const RANGE_LABEL_ZOOM = 7
+// Od tego przybliżenia podpisujemy WSZYSTKIE obszary wojskowe — poligony
+// i lotniska (polskie i NATO) razem, żeby na jednym widoku nie było tak, że
+// poligon ma nazwę, a baza obok nie. Niżej niż 7 nazwy zlewałyby się w kaszę
+// nad całą Polską.
+export const AREA_LABEL_ZOOM = 7
 
 // Powyżej tego przybliżenia kafelki OSM rysują już własną nazwę ośrodka i oba
 // napisy nachodziły na siebie. Dotyczy wyłącznie podkładów, które faktycznie
@@ -36,7 +38,7 @@ export default function MilRangesLayer({ show, zoom, basemapLabelsAreas }) {
 
   if (!show) return null
 
-  const labelsVisible = zoom >= RANGE_LABEL_ZOOM
+  const labelsVisible = zoom >= AREA_LABEL_ZOOM
     && !(basemapLabelsAreas && zoom > RANGE_LABEL_MAX_ZOOM)
 
   return (
