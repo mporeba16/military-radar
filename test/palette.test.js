@@ -52,6 +52,20 @@ describe('paleta', () => {
     }
   })
 
+  it('składowe rgb zgadzają się ze swoimi barwami', () => {
+    // Tinty alertów budują się z --alert-rgb itd., bo rgba() nie przyjmie
+    // zmiennej z '#'. Gdyby te liczby rozjechały się z barwą, tło karty miałoby
+    // inny odcień niż jej obwódka — i nikt by tego nie zauważył od razu.
+    const rgbToken = name => {
+      const m = css.match(new RegExp(`--${name}:\\s*([0-9]+,\\s*[0-9]+,\\s*[0-9]+)`))
+      return m ? m[1].split(',').map(x => Number(x.trim())) : null
+    }
+    const hexToRgb = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16))
+    expect(rgbToken('alert-rgb')).toEqual(hexToRgb(ALERT))
+    expect(rgbToken('watch-rgb')).toEqual(hexToRgb(THREAT.watch))
+    expect(rgbToken('mil-rgb')).toEqual(hexToRgb(KIND_COLORS.mil))
+  })
+
   it('jedna czerwień alarmowa', () => {
     expect(ALERT).toBe(THREAT.high)
   })

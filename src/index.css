@@ -70,6 +70,15 @@
   --threat-high: #ff4757;
   --alert: #ff4757;
 
+  /* Składowe do przezroczystości. rgba() nie przyjmie zmiennej z '#', więc
+     tinty alertów (tło karty, poświata, obwódka) budują się z tych trzech
+     liczb zamiast z przepisywanych ręcznie wartości — wcześniej każde miejsce
+     miało własną czerwień: rgba(200,40,0), rgba(255,60,40), rgba(255,80,50),
+     rgba(255,100,40), #ff6b4a. Pięć odcieni na jedno znaczenie. */
+  --alert-rgb: 255, 71, 87;
+  --watch-rgb: 255, 197, 61;
+  --mil-rgb: 0, 255, 136;
+
   /* Jedna rodzina na cały interfejs. Zapasowy stos ma podobną szerokość, żeby
      podmiana po doczytaniu kroju nie przesuwała układu. */
   --font: 'Barlow Semi Condensed', 'Roboto Condensed', 'Helvetica Neue', system-ui, sans-serif;

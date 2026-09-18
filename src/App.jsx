@@ -24,6 +24,9 @@ const TRAIL_MIN_INTERVAL_MS = 10_000
 const TRAIL_MAX_AGE_MS = 60 * 60 * 1000  // 60 min — aligned closer to server's 4h cache
 const TRAIL_FLIGHT_SPLIT_GAP_MS = 10 * 60 * 1000  // gap → reset client trail (new flight)
 const SELECTION_GRACE_CYCLES = 2
+// Przyciemniona czerwień alarmowa — pasek stanu systemu ma sygnalizować, nie
+// świecić. Wyprowadzona z --alert, żeby nie była szóstym odcieniem czerwieni.
+const EMERGENCY_THEME_COLOR = '#8a2028'
 
 export default function App() {
   const [aircraft, setAircraft] = useState([])
@@ -461,7 +464,7 @@ export default function App() {
     if (!meta) return
     // Wartość spoczynkowa musi się zgadzać z <meta theme-color> w index.html,
     // inaczej pasek stanu zmienia odcień w chwili zamontowania aplikacji.
-    meta.setAttribute('content', hasEmergency ? '#a01818' : '#080f1c')
+    meta.setAttribute('content', hasEmergency ? EMERGENCY_THEME_COLOR : '#080f1c')
   }, [hasEmergency])
 
   async function handleTestPush() {

@@ -108,13 +108,13 @@
 }
 
 .ac-info-squawk-critical {
-  background: rgba(255, 30, 30, 0.18);
+  background: rgba(var(--alert-rgb), 0.2);
   border: 1px solid #ff3030;
   color: #ff7070;
 }
 
 .ac-info-squawk-warn {
-  background: rgba(255, 170, 0, 0.15);
+  background: rgba(var(--watch-rgb), 0.16);
   border: 1px solid #ffaa00;
   color: #ffcc55;
 }
