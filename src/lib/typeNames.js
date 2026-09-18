@@ -120,7 +120,9 @@ export function getCommonName(t) {
     [/MI8|MI17/, 'Hip'],
     [/MI28/, 'Havoc'],
     [/KA50|KA52/, 'Alligator'],
-    [/C295|CN295/, 'CN-295'],
+    // W polskim lotnictwie ta maszyna to po prostu „Casa" — nazwa wytwórni
+    // przylgnęła mocniej niż oznaczenie, więc stoi w etykiecie przed nim.
+    [/C295|CN295/, 'CASA CN-295'],
     [/C212/, 'Aviocar'],
     [/C12$/, 'Huron'],
     [/B744|B747|B748/, 'Jumbo Jet'],
@@ -152,8 +154,13 @@ export function typeLabel(t) {
   const common = getCommonName(code)
   if (!common) return code
   const first = common.split('/')[0].trim()
-  // Nazwa zaczynająca się od członu z cyfrą (M28, A310, C-390, RQ-4) sama
+  // Nazwa zawierająca człon z cyfrą (M28, A310, C-390, RQ-4, CASA CN-295) sama
   // niesie oznaczenie typu — kod przed nią byłby powtórzeniem.
-  if (/^[A-Za-z]{1,3}-?\d/.test(first)) return first
+  //
+  // Człon nie musi stać na początku. Gdy reguła patrzyła wyłącznie tam, nazwa
+  // z wytwórnią z przodu gubiła zwolnienie i karta pisała „M339 · Aermacchi
+  // MB-339" czy „F2 · Mitsubishi F-2" — czyli dokładnie to powtórzenie,
+  // któremu ta reguła miała zapobiegać.
+  if (/(^|\s)[A-Za-z]{1,3}-?\d/.test(first)) return first
   return `${code} · ${first}`
 }

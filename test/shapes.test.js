@@ -104,6 +104,16 @@ describe('typeLabel — etykieta typu na karcie', () => {
     expect(typeLabel('RQ4')).toBe('RQ-4 Global Hawk')
   })
 
+  it('oznaczenie zwalnia z kodu także wtedy, gdy nie stoi na początku', () => {
+    // Nazwa z wytwórnią z przodu też niesie oznaczenie typu — inaczej karta
+    // pisała „MIRF · Mirage F1" i powtarzała to, co i tak widać obok.
+    expect(typeLabel('C295')).toBe('CASA CN-295')
+    expect(typeLabel('M339')).toBe('Aermacchi MB-339')
+    expect(typeLabel('F2')).toBe('Mitsubishi F-2')
+    // Nazwa bez oznaczenia dalej dostaje kod — „Bell 407" nie jest typem.
+    expect(typeLabel('B407')).toBe('B407 · Bell 407')
+  })
+
   it('dokłada kod, gdy nazwa własna go nie niesie', () => {
     expect(typeLabel('C17')).toBe('C17 · Globemaster III')
     expect(typeLabel('E3TF')).toBe('E3TF · Sentry (AWACS)')
