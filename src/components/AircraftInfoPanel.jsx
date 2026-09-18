@@ -158,10 +158,7 @@ export default function AircraftInfoPanel({ ac, onClose }) {
   // Typ i operator to dane stałe przez cały lot — schodzą do jednej cichej
   // linijki pod spodem. Wcześniej wszystkie cztery były wierszami tabelki
   // tej samej wagi i nic nie wygrywało.
-  const identity = [
-    ac.t ? (commonName ? `${ac.t} · ${commonName}` : ac.t) : null,
-    operator,
-  ].filter(Boolean).join('  ·  ')
+  const identity = [commonName, operator].filter(Boolean).join('  ·  ')
 
   const photoSrc = photo?.thumbnail_large?.src || photo?.thumbnail?.src
   const showPhoto = !!(photo && photoSrc && !imgError)
@@ -177,6 +174,10 @@ export default function AircraftInfoPanel({ ac, onClose }) {
           <span className="ac-info-callsign" style={{ color }}>
             {ac.flight?.trim() || ac.hex}
           </span>
+          {/* Kod typu przy znaku wywoławczym, nie na dole karty: razem
+              odpowiadają na pytanie „co to jest", więc mają stać obok siebie.
+              Na dole zostaje to, co ten kod rozwija — nazwa własna i operator. */}
+          {ac.t && <span className="ac-info-type">{ac.t}</span>}
         </span>
         <button className="ac-info-close" onClick={onClose} aria-label={t('CLOSE_AIRCRAFT_PANEL')}>✕</button>
       </div>

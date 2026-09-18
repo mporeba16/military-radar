@@ -291,3 +291,16 @@
   line-height: 1.4;
   color: rgba(255, 255, 255, 0.62);
 }
+
+/* Kod typu obok znaku wywoławczego — przygaszony, bo to uzupełnienie nazwy,
+   a nie druga nazwa. Ramka oddziela go od znaku, żeby przy długim callsignie
+   nie zlały się w jeden ciąg znaków. */
+.ac-info-type {
+  flex: none;
+  padding: 1px 5px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 3px;
+  font-size: var(--t-micro);
+  letter-spacing: 0.4px;
+  color: rgba(255, 255, 255, 0.72);
+}
