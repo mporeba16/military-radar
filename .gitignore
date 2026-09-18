@@ -4,3 +4,6 @@ dist/
 .env.local
 .netlify/
 *.local
+
+# Zrzuty i logi z narzędzi przeglądarkowych
+.playwright-mcp/

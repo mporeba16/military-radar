@@ -1,4 +1,0 @@
-[   70097ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4179/.netlify/functions/aircraft?lat=52&lon=15&radius=2800:0
-[   75098ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4179/.netlify/functions/aircraft?lat=52&lon=15&radius=2800:0
-[   80097ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4179/.netlify/functions/aircraft?lat=52&lon=15&radius=2800:0
-[   85099ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4179/.netlify/functions/aircraft?lat=52&lon=15&radius=2800:0
