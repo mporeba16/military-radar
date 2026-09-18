@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { altToColor, ftToM, knToKmh, getCommonName, countryFromHex, countryFlag } from './aircraftShapes'
 import { findLikelyLanding } from '../airfields'
-import { scorePhotoMatch, photoHasMatchSignal } from '../lib/photoMatch'
+import { scorePhotoMatch, photoHasMatchSignal, canVerifyPhotoMatch } from '../lib/photoMatch'
 import { t } from '../i18n'
 import './AircraftInfoPanel.css'
 
@@ -71,11 +71,20 @@ function useAircraftPhoto(hex, reg, ac) {
 
         unique.sort((a, b) => scorePhotoMatch(b, ac) - scorePhotoMatch(a, ac))
         const best = unique[0]
-        // Gdy jest kilku kandydatów, a zwycięzca nie ma ŻADNEGO sygnału
-        // identyfikującego (typ/operator), nie zgadujemy — kolejność z API jest
-        // wtedy przypadkowa względem płatowca, więc lepiej pokazać „brak
-        // zdjęcia" niż mylące. Pojedynczy kandydat zostaje (nie ma z czym mylić).
-        if (unique.length > 1 && !photoHasMatchSignal(best, ac)) {
+        // Zwycięzca bez ŻADNEGO sygnału identyfikującego (typ/operator) nie
+        // trafia na kartę. Odrzucamy w dwóch sytuacjach:
+        //
+        //   kilku kandydatów — kolejność z API jest wtedy przypadkowa
+        //     względem płatowca, więc wybór najwyżej punktowanego to zgadywanie;
+        //   jeden kandydat, ale MAMY czym go zweryfikować — bo pojedyncze
+        //     trafienie wcale nie znaczy trafne.
+        //
+        // Ten drugi przypadek był dziurą: polski C-130 „HEREC01" ma rejestrację
+        // 1510, planespotters rozwija ją na niemiecki numer 15+10 i zwraca
+        // JEDNO zdjęcie — Airbusa A321 Luftwaffe. Karta pokazywała je jako
+        // zdjęcie polskiego Herculesa. Złe zdjęcie jest gorsze niż żadne:
+        // brak informuje, że nie wiemy, a cudze wprowadza w błąd.
+        if (!photoHasMatchSignal(best, ac) && (unique.length > 1 || canVerifyPhotoMatch(ac))) {
           setPhoto(null); setState('not-found')
           return
         }

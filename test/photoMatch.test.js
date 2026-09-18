@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { scorePhotoMatch, photoHasMatchSignal, typeSlugCandidates } from '../src/lib/photoMatch.js'
+import { scorePhotoMatch, photoHasMatchSignal, typeSlugCandidates, canVerifyPhotoMatch } from '../src/lib/photoMatch.js'
 
 const photo = (link, src = 'hex') => ({ link, _src: src })
 
@@ -53,5 +53,41 @@ describe('photoHasMatchSignal', () => {
   })
   it('false when nothing identifies the airframe (reg bonus alone is not a signal)', () => {
     expect(photoHasMatchSignal(photo('https://x/photo/1/605-unknown', 'reg'), { t: 'ZZZZ', flight: 'XXXX01' })).toBe(false)
+  })
+})
+
+// Dwa realne przypadki z produkcji, oba z tego samego dnia.
+describe('cudze zdjęcie kontra brak zdjęcia', () => {
+  const a321Luftwaffe = { link: 'https://www.planespotters.net/photo/1973085/15-10-luftwaffe-german-air-force-airbus-a321-251nx' }
+  const ec135Lpr = { link: 'https://www.planespotters.net/photo/1897798/sp-hxm-lpr-polish-medical-air-rescue-eurocopter-ec135-p3' }
+
+  it('polski Hercules nie dostaje zdjęcia niemieckiego Airbusa', () => {
+    // HEREC01 ma rejestrację 1510; planespotters rozwija ją na niemiecki numer
+    // 15+10 i zwraca JEDNO zdjęcie — A321 Luftwaffe. Jedno trafienie nie znaczy
+    // trafne, więc karta ma zostać bez zdjęcia.
+    const herec = { t: 'C130', flight: 'HEREC01' }
+    expect(canVerifyPhotoMatch(herec)).toBe(true)
+    expect(photoHasMatchSignal(a321Luftwaffe, herec)).toBe(false)
+  })
+
+  it('śmigłowiec pogotowia dostaje swoje zdjęcie', () => {
+    // adsb.fi podaje desygnator ICAO EC35, a slug zawiera nazwę handlową
+    // ec135 — bez aliasu poprawne zdjęcie było odrzucane razem ze złymi.
+    const lpr = { t: 'EC35', flight: 'LPR13' }
+    expect(canVerifyPhotoMatch(lpr)).toBe(true)
+    expect(photoHasMatchSignal(ec135Lpr, lpr)).toBe(true)
+  })
+
+  it('desygnatory ICAO śmigłowców trafiają w nazwy handlowe', () => {
+    expect(typeSlugCandidates('EC35')).toContain('ec135')
+    expect(typeSlugCandidates('EC45')).toContain('ec145')
+    expect(typeSlugCandidates('A139')).toContain('aw139')
+  })
+
+  it('bez typu i bez rozpoznanego operatora nie ma czym weryfikować', () => {
+    // Wtedy brak sygnału nic nie znaczy i nie wolno na tej podstawie odrzucać —
+    // inaczej zgubilibyśmy poprawne zdjęcia maszyn bez kodu typu.
+    expect(canVerifyPhotoMatch({ t: '', flight: 'XYZ99' })).toBe(false)
+    expect(canVerifyPhotoMatch({ t: null, flight: '' })).toBe(false)
   })
 })

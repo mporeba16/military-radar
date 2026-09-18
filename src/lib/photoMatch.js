@@ -36,6 +36,9 @@ export const OPERATOR_HINT_BY_CALLSIGN = [
   [/^RIMC/, 'italian'],
   [/^SRA/, 'saudi'],
   [/^HAF/, 'hellenic'],
+  // Lotnicze Pogotowie Ratunkowe — slug planespotters brzmi
+  // „lpr-polish-medical-air-rescue", więc sam skrót wystarczy.
+  [/^(LPR|RATOWNIK)/, 'lpr'],
 ]
 
 // ICAO type code → list of slug substrings planespotters uses in URLs.
@@ -97,6 +100,17 @@ export const TYPE_SLUG_ALIASES = {
   MI2: ['mi-2'], MI8: ['mi-8'], MI17: ['mi-17'], MI24: ['mi-24'], MI28: ['mi-28'],
   W3: ['w-3', 'sokol'], W3A: ['w-3', 'sokol'],
   EC135: ['ec135', 'ec-135'], EC145: ['ec145', 'ec-145'], EC725: ['ec725', 'caracal'],
+  // UWAGA: adsb.fi podaje DESYGNATORY ICAO (EC35, EC45), nie nazwy handlowe.
+  // Tablica miała tylko te drugie, więc EC135 pogotowia nie dopasowywał się do
+  // własnego zdjęcia i karta pokazywała „brak zdjęcia" mimo trafienia w API.
+  EC35: ['ec135', 'ec-135', 'h135'], EC45: ['ec145', 'ec-145', 'h145'],
+  EC20: ['ec120'], EC30: ['ec130'], EC55: ['ec155'], EC75: ['ec725', 'h225'],
+  H135: ['h135', 'ec135'], H145: ['h145', 'ec145'], H125: ['h125', 'as350'],
+  H160: ['h160'], H175: ['h175'],
+  A109: ['a109'], A139: ['aw139', 'a139'], A169: ['aw169'], A189: ['aw189'],
+  A119: ['aw119', 'koala'], A149: ['aw149'], A129: ['a129', 'mangusta'],
+  S76: ['s-76'], S92: ['s-92'], B407: ['bell-407'], B429: ['bell-429'],
+  B06: ['bell-206', 'jetranger'], B412: ['bell-412'], BK17: ['bk-117'],
   AS332: ['as332', 'super-puma'], AS532: ['as532', 'cougar'],
   // UAVs
   MQ9: ['mq-9', 'reaper'], MQ1: ['mq-1'], RQ4: ['rq-4'],
@@ -154,6 +168,15 @@ export function scorePhotoMatch(photo, ac) {
 // tożsamości: rejestracje wojskowe nie są globalnie unikalne (reg „018" =
 // polski C-295 i grecki F-16), więc bez tego sygnału kandydaci są nieodróżnialni
 // i wybór pierwszego z listy bywa po prostu złym płatowcem.
+// Czy w ogóle MAMY czym zweryfikować zdjęcie. Bez kodu typu i bez rozpoznanego
+// operatora nie ma o co oprzeć porównania — wtedy brak sygnału nic nie znaczy
+// i odrzucanie na tej podstawie gubiłoby poprawne zdjęcia.
+export function canVerifyPhotoMatch(ac) {
+  if (typeSlugCandidates(ac?.t).length) return true
+  const callsign = (ac?.flight || '').toUpperCase()
+  return OPERATOR_HINT_BY_CALLSIGN.some(([re]) => re.test(callsign))
+}
+
 export function photoHasMatchSignal(photo, ac) {
   const link = (photo.link || '').toLowerCase()
   if (!link) return false
