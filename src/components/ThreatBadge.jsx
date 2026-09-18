@@ -27,17 +27,14 @@ export default function ThreatBadge({ threat, error }) {
         className="threat-badge__chip"
         aria-expanded={open}
         onClick={() => setOpen(o => !o)}
-        title={t('THREAT_TITLE')}
-        style={level === 'calm' || error ? undefined : {
-          background: `color-mix(in srgb, ${color} 22%, rgba(4, 10, 20, 0.95))`,
-          borderTopColor: color,
-        }}>
+        title={t('THREAT_TITLE')}>
         <span className="threat-badge__dot" style={{ background: color, boxShadow: `0 0 8px ${color}` }} />
-        <span className="threat-badge__cap">{t('THREAT_CAP')}</span>
-        <span className="threat-badge__level" style={{ color }}>
-          {error ? t('THREAT_UNKNOWN') : label}
+        <span className="threat-badge__text">
+          <span className="threat-badge__cap">{t('THREAT_CAP')}</span>
+          <span className="threat-badge__level" style={{ color }}>
+            {error ? t('THREAT_UNKNOWN') : label}
+          </span>
         </span>
-        <span className="threat-badge__chev">{open ? '⌄' : '⌃'}</span>
       </button>
 
       {open && (

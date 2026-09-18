@@ -417,7 +417,10 @@
     gap: 5px;
   }
 
-  .threat-badge__chip { padding-top: 7px; }
+  .threat-badge {
+    bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    left: calc(8px + env(safe-area-inset-left, 0px));
+  }
 }
 
 /* ══ Chrome nad mapą ══════════════════════════════════════════════════════
@@ -816,7 +819,7 @@
      plakietkę: obie rzeczy zostają widoczne. */
   .info-open .alert-stack {
     top: auto;
-    bottom: calc(10px + var(--threat-bar-h) + env(safe-area-inset-bottom, 0px));
+    bottom: calc(12px + var(--threat-badge-h) + env(safe-area-inset-bottom, 0px));
   }
 }
 
@@ -825,29 +828,26 @@
    Pod znacznikiem aplikacji, w tej samej kolumnie. Zwinięta to jeden wiersz
    (kropka + poziom); rozwinięta wypisuje, co ten poziom podniosło, i wprost
    mówi, że to szacunek, a nie komunikat RCB. */
-/* Ile miejsca przy dolnej krawędzi zajmuje pasek ryzyka. Umowa wiąże trzy
-   rzeczy: sam pasek, alerty spychane na dół przy otwartej karcie oraz
-   atrybucję Leafletu — wszystkie muszą się nad nim zmieścić, a trzy niezależne
-   liczby rozjechałyby się przy pierwszej zmianie paddingu. */
-:root { --threat-bar-h: 36px; }
+/* Ile miejsca przy dolnej krawędzi zajmuje plakietka (czip + odstęp). Trzyma
+   się tu jako zmienna, bo drugą stroną umowy jest `.info-open .alert-stack`,
+   które musi się nad nią zmieścić — a dwie niezależne liczby rozjechałyby się
+   przy pierwszej zmianie paddingu czipa. */
+:root { --threat-badge-h: 49px; }
 
-/* Atrybucja mapy siedzi w prawym dolnym rogu, czyli dokładnie pod paskiem. */
-.leaflet-control-attribution {
-  margin-bottom: calc(var(--threat-bar-h) + env(safe-area-inset-bottom, 0px)) !important;
-}
-
-/* ── Pasek ryzyka ─────────────────────────────────────────────────────────
-   Pełna szerokość przy dolnej krawędzi, nie czip w rogu. To jedyna rzecz w
-   aplikacji, która mówi „uważaj", więc przy podniesionym poziomie ma prawo
-   zabrać całą krawędź ekranu; przy spokoju jest ciemnym paskiem stanu i nie
-   zabiera uwagi. Rozwinięcie wychodzi w GÓRĘ — w dół nie ma miejsca. */
 .threat-badge {
   position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  /* Lewy DOLNY róg, nie górny. W górnym karta maszyny (250-290 px szeroka,
+     z-index 1100, od samej krawędzi) przykrywała plakietkę w całości, więc
+     zaznaczenie czegokolwiek na mapie gasiło wskaźnik zagrożenia. Na dole jest
+     pusto — atrybucja Leafletu siedzi po prawej — a plakietka i tak zachowuje
+     się jak pasek stanu, nie jak kontrolka. */
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  left: calc(12px + env(safe-area-inset-left, 0px));
   z-index: 1000;
+  max-width: min(320px, calc(100vw - 24px));
   font-family: var(--font);
+  /* column-reverse: rozwinięcie wychodzi w GÓRĘ, nad czip — w dół nie ma
+     miejsca i panel wyjeżdżałby poza ekran. */
   display: flex;
   flex-direction: column-reverse;
 }
@@ -856,20 +856,16 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  width: 100%;
-  padding: 8px calc(12px + env(safe-area-inset-right, 0px))
-           calc(8px + env(safe-area-inset-bottom, 0px))
-           calc(12px + env(safe-area-inset-left, 0px));
-  background: rgba(4, 10, 20, 0.95);
-  border: none;
-  border-top: 2px solid rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(8px);
+  width: auto;
+  padding: 6px 10px;
+  background: rgba(4, 10, 20, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 4px;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
   cursor: pointer;
   color: inherit;
-  text-align: left;
 }
-
-.threat-badge__chev { margin-left: auto; color: rgba(255, 255, 255, 0.45); }
 
 .threat-badge__dot {
   width: 8px;
@@ -878,25 +874,27 @@
   flex: none;
 }
 
-/* W pasku wszystko leży w jednym wierszu: podpis mówi, czego dotyczy poziom,
-   a poziom jest jedyną rzeczą wyróżnioną wagą i kolorem. */
+.threat-badge__text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.15;
+}
+
 .threat-badge__cap {
-  font-size: var(--t-small);
-  color: rgba(255, 255, 255, 0.5);
+  font-size: 8px;
+  letter-spacing: 1.4px;
+  color: rgba(255, 255, 255, 0.45);
 }
 
 .threat-badge__level {
-  font-size: var(--t-base);
-  font-weight: 600;
-  letter-spacing: 0.4px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
 }
 
 .threat-badge__body {
-  margin: 0;
-  border-radius: 0;
-  border-left: none;
-  border-right: none;
-  border-bottom: none;
+  margin-bottom: 6px;
   padding: 10px;
   background: rgba(4, 10, 20, 0.95);
   border: 1px solid rgba(255, 255, 255, 0.15);
