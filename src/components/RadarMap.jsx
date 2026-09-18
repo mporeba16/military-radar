@@ -88,11 +88,16 @@ export const TILE_LAYERS = [
   },
 ]
 
-// Miniatura podkładu do wyboru mapy: jeden prawdziwy kafelek nad południową
-// Polską, wyciągnięty z tego samego szablonu URL, którego używa mapa. Dzięki
-// temu podgląd pokazuje realny wygląd warstwy, a nie jej imitację — a filtr
-// przyciemniający nakłada się na miniaturę tak samo jak na mapę.
-const THUMB_TILE = { z: 6, x: 35, y: 21 }
+// Miniatura podkładu: jeden prawdziwy kafelek, wyciągnięty z tego samego
+// szablonu URL, którego używa mapa. Dzięki temu podgląd pokazuje realny wygląd
+// warstwy, a nie jej imitację — a filtr przyciemniający nakłada się na
+// miniaturę tak samo jak na mapę.
+//
+// Kafelek pokazuje Zatokę Gdańską, nie południową Polskę. Poprzedni był samym
+// lądem i w zwiniętym wierszu (54 px) wyglądał jak jednolita breja; morze
+// obok lądu daje kontrast, który czyta się nawet w tym rozmiarze, a o to
+// w miniaturze chodzi — rozpoznać podkład, nie geografię.
+const THUMB_TILE = { z: 6, x: 35, y: 20 }
 export function tileThumbUrl(layer, which = 'url') {
   const tpl = layer[which]
   if (!tpl) return null

@@ -152,12 +152,13 @@ export default function AircraftInfoPanel({ ac, onClose }) {
   // Dystans, prędkość pionowa, czas na radarze i długość śladu zniknęły —
   // dystans niesie i tak alert, a resztę widać na mapie. Kraj też nie ma
   // własnego wiersza: mówi go flaga w nagłówku (nazwa została w podpowiedzi).
-  const rows = [
-    [t('INFO_TYPE'),       ac.t ? (commonName ? `${ac.t} · ${commonName}` : ac.t) : '—'],
-    operator ? [t('INFO_OPERATOR'),  operator] : null,
-    [t('INFO_ALTITUDE'), altM != null ? `${altM.toLocaleString()} m` : '—'],
-    [t('INFO_SPEED'), kmh != null ? `${kmh} km/h` : '—'],
-  ].filter(Boolean)
+  //
+  // Układ: dwie liczby, które NAPRAWDĘ się zmieniają (wysokość i prędkość),
+  // dostają stopień pisma odpowiadający temu, jak często się na nie patrzy.
+  // Typ i operator to dane stałe przez cały lot — schodzą do jednej cichej
+  // linijki pod spodem. Wcześniej wszystkie cztery były wierszami tabelki
+  // tej samej wagi i nic nie wygrywało.
+  const identity = operator
 
   const photoSrc = photo?.thumbnail_large?.src || photo?.thumbnail?.src
   const showPhoto = !!(photo && photoSrc && !imgError)
@@ -173,6 +174,17 @@ export default function AircraftInfoPanel({ ac, onClose }) {
           <span className="ac-info-callsign" style={{ color }}>
             {ac.flight?.trim() || ac.hex}
           </span>
+          {/* Kod typu WRAZ z nazwą własną przy znaku wywoławczym: razem
+              odpowiadają na pytanie „co to jest", więc stoją obok siebie.
+              Na dole zostaje sam operator — czyje to jest, a nie co to jest.
+              Nagłówek może się zawinąć (patrz .ac-info-title), bo przy wąskiej
+              karcie „E3TF · Sentry (AWACS)" nie zmieści się w jednej linii
+              obok znaku wywoławczego, a skracanie zjadałoby właśnie nazwę. */}
+          {ac.t && (
+            <span className="ac-info-type">
+              {commonName ? `${ac.t} · ${commonName}` : ac.t}
+            </span>
+          )}
         </span>
         <button className="ac-info-close" onClick={onClose} aria-label={t('CLOSE_AIRCRAFT_PANEL')}>✕</button>
       </div>
@@ -218,16 +230,22 @@ export default function AircraftInfoPanel({ ac, onClose }) {
         </div>
       )}
 
-      <table className="ac-info-table">
-        <tbody>
-          {rows.map(([label, val]) => (
-            <tr key={label}>
-              <td className="ac-info-label">{label}</td>
-              <td className="ac-info-val">{val}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="ac-info-readout">
+        <div className="ac-info-metric">
+          <span className="ac-info-metric__val">
+            {altM != null ? altM.toLocaleString('pl-PL') : '—'}
+          </span>
+          <span className="ac-info-metric__unit">m</span>
+          <span className="ac-info-metric__label">{t('INFO_ALTITUDE')}</span>
+        </div>
+        <div className="ac-info-metric">
+          <span className="ac-info-metric__val">{kmh != null ? kmh : '—'}</span>
+          <span className="ac-info-metric__unit">km/h</span>
+          <span className="ac-info-metric__label">{t('INFO_SPEED')}</span>
+        </div>
+      </div>
+
+      {identity && <p className="ac-info-identity">{identity}</p>}
 
       <a
         className="ac-info-ext-link"
