@@ -7,14 +7,16 @@
     <meta name="description" content="Radar wojskowych samolotów nad Polską i Europą — alerty push, mapa, historia tras." />
     <meta name="color-scheme" content="dark" />
 
-    <!-- iOS PWA (dodane do ekranu głównego): tryb standalone.
-         'apple-mobile-web-app-status-bar-style: black-translucent' USUNIĘTE.
-         Miało wpychać treść pod pasek stanu, ale na iPhonie 17 pod spodem
-         zostawał pusty pas nad paskiem gestu, którego nie dało się zasłonić ani
-         pozycjonowaniem, ani wysokością. Bez tej deklaracji iOS układa webview
-         w obszarze bezpiecznym, wcięcia schodzą do zera, a pasek stanu bierze
-         kolor z 'theme-color' poniżej — jednolity granat zamiast pustki. -->
+    <!-- iOS PWA: standalone + treść POD paskiem stanu i Dynamic Island.
+         'black-translucent' było już raz usunięte w poszukiwaniu pustego pasa
+         u dołu i WRACA, bo pomiar z urządzenia pokazał, że nie o nie chodziło:
+         bez niego okno kurczy się do 812 px (874 minus pasek stanu), więc mapa
+         przestaje sięgać góry, a pas i tak zostaje.
+         Winowajcą było `-webkit-fill-available` na <html> (usunięte osobno):
+         skracało blok zawierający o dolne wcięcie, przez co element `fixed`
+         kończył się nad paskiem gestu. -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <!-- Standardowy odpowiednik powyższego. Chrome od dawna zgłasza wariant
          'apple-' jako przestarzały; bez tej linii konsola sypie ostrzeżeniem
          przy każdym wejściu. -->
