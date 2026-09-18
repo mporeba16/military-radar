@@ -38,6 +38,11 @@ export function readViewportReport() {
     || window.navigator.standalone === true
   return {
     standalone,
+    // Przesunięcie okna względem ekranu. To jedyna liczba, która rozstrzyga,
+    // czy niewykorzystane piksele ekranu leżą NAD oknem (pasek stanu), czy POD
+    // nim (pasek gestu) — z samej wysokości nie da się tego wywnioskować.
+    screenY: window.screenY ?? window.screenTop ?? null,
+    outerH: window.outerHeight ?? null,
     innerH: window.innerHeight,
     screenH: window.screen?.height ?? null,
     visualH: window.visualViewport ? Math.round(window.visualViewport.height) : null,

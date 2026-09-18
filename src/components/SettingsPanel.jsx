@@ -57,6 +57,8 @@ function ViewportDiag() {
       <div className="cp-label">Okno</div>
       <div className="diag">
         {wiersz('standalone', rep.standalone ? 'tak' : 'NIE')}
+        {wiersz('screenY', rep.screenY)}
+        {wiersz('outerHeight', rep.outerH)}
         {wiersz('innerHeight', rep.innerH)}
         {wiersz('screen.height', rep.screenH)}
         {wiersz('visualViewport', rep.visualH)}
