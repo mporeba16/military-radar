@@ -9,10 +9,19 @@
 // wyłącznie aerokluby: szybowce, skoki), NPZ to strefa bez znaczenia dla nas.
 export const ZONE_TYPES = new Set(['TSA', 'TRA', 'D', 'R', 'MRT', 'ADHOC'])
 
-// Jednostki rezerwujące, które oznaczają wojsko lub służby niezależnie od
-// lotniska. COP — Centrum Operacji Powietrznych, OAT — ruch operacyjny
-// (wojskowy), ZZSG — Straż Graniczna (drony przy granicy).
-const MIL_UNITS = new Set(['MIL', 'OAT', 'COP', 'ZZSG'])
+// Jednostki rezerwujące, które oznaczają wojsko niezależnie od lotniska.
+// COP — Centrum Operacji Powietrznych, OAT — ruch operacyjny (wojskowy).
+// Straż Graniczna (ZZSG) rezerwuje wyłącznie strefy dla dronów — pomijamy.
+const MIL_UNITS = new Set(['MIL', 'OAT', 'COP'])
+
+// Strefy dla dronów (BSP/UAV) nie interesują użytkownika (decyzja
+// użytkownika): to kilkadziesiąt całodobowych pasów przy wschodniej granicy,
+// a aplikacja pokazuje załogowe maszyny.
+const DRONE_TOKENS = /(^|[/\s])(BSP|UAV|UAS)([/\s]|$)/i
+
+export function isDroneReservation(r) {
+  return DRONE_TOKENS.test(r?.remarks || '')
+}
 
 // Lotniska, z których latają wojskowe szkoły i śmigłowce, choć nie ma ich na
 // warstwie baz: Radom (Orliki, M-346), Leźnica Wielka (Mi-8, Mi-17).
@@ -24,7 +33,16 @@ export function milUnitSet(milBases) {
 
 export function isMilitaryReservation(r, milIcao) {
   const unit = (r?.unit || '').toUpperCase()
+  if (isDroneReservation(r)) return false
   return MIL_UNITS.has(unit) || milIcao.has(unit)
+}
+
+// Rezerwacja na pół doby i dłużej (typowo 06:00–06:00 albo 06:00–23:59) to
+// blok „na wszelki wypadek”, a nie zaplanowane loty — nie mówi, że coś się
+// dzieje. Loty szkolne rezerwują strefę na 1–4 godziny.
+const ALL_DAY_MS = 12 * 60 * 60 * 1000
+export function isAllDay(r) {
+  return r.e - r.s >= ALL_DAY_MS
 }
 
 // Pułap z AUP: „GND”, „A035” (wysokość 3500 ft), „F095” (poziom lotu 95,
@@ -50,8 +68,8 @@ export function formatAltRange(lo, hi) {
   return `${fmt(a)}–${fmt(b)} m`
 }
 
-// Uwagi rezerwacji to skrótowiec: „F35/CLN/W”, „OATC/SUP09/26/BSP/UAV”,
-// „NOT.D6513/26/ORZEL”. Zostawiamy to, co mówi, KTO lata: typy maszyn, drony
+// Uwagi rezerwacji to skrótowiec: „F35/CLN/W”, „HUSAR/W”,
+// „NOT.D6513/26/ORZEL”. Zostawiamy to, co mówi, KTO lata: typy maszyn
 // i nazwy ćwiczeń. Odrzucamy znaczniki proceduralne (W, CLN), numery NOTAM
 // i suplementów AIP.
 const TYPE_NAMES = {
@@ -66,15 +84,12 @@ const DROP = /^(W|CLN|OATC|DS|NOT\..*|SUP\d+|\d+|ACSL|LAW)$/
 export function describeRemarks(remarks) {
   if (!remarks) return []
   const out = []
-  let drones = false
   for (const raw of String(remarks).toUpperCase().split(/[/\s,]+/)) {
     const tok = raw.trim()
     if (!tok || DROP.test(tok)) continue
-    if (tok === 'BSP' || tok === 'UAV' || tok === 'UAS') { drones = true; continue }
     const name = TYPE_NAMES[tok] || tok
     if (!out.includes(name)) out.push(name)
   }
-  if (drones) out.unshift('drony')
   return out
 }
 
@@ -91,7 +106,6 @@ const UNIT_LABELS = {
   MIL: 'wojsko',
   OAT: 'ruch wojskowy (OAT)',
   COP: 'Centrum Operacji Powietrznych',
-  ZZSG: 'Straż Graniczna',
   EPRA: 'Radom',
   EPLY: 'Leźnica Wielka',
 }
@@ -121,6 +135,8 @@ export function shortName(designator) {
 
 // Surowa odpowiedź PAŻP (tablica Feature GeoJSON) → lekkie strefy do mapy.
 // UUP zastępuje AUP dla struktur, które obejmuje; reszta zostaje z AUP.
+// Zostają tylko rezerwacje na konkretne godziny — całodobowe nic nie mówią
+// o tym, czy coś się dzieje (decyzja użytkownika: tylko „gdy coś się dzieje”).
 export function trimZones(aupFeatures, uupFeatures, milIcao) {
   const byId = new Map()
   for (const f of aupFeatures || []) {
@@ -147,7 +163,7 @@ export function trimZones(aupFeatures, uupFeatures, milIcao) {
         unit: r.unit || null,
         rem: r.remarks || null,
       }))
-      .filter(r => Number.isFinite(r.s) && Number.isFinite(r.e))
+      .filter(r => Number.isFinite(r.s) && Number.isFinite(r.e) && !isAllDay(r))
     if (!res.length) continue
     const rings = geometryRings(f.geometry)
     if (!rings.length) continue

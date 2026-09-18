@@ -12,23 +12,12 @@ import { t } from '../i18n'
 
 const AIRFIELD_NAMES = Object.fromEntries(MIL_BASES_PL.map(b => [b.icao, b.name]))
 
-// Rezerwacja na prawie całą dobę (typowo 06:00–06:00) to tło — strefa dronów
-// przy granicy albo blok zarezerwowany „na wszelki wypadek”. Rysujemy ją
-// bledziej niż rezerwację na konkretne godziny, która znaczy, że tam i teraz
-// coś zaplanowano.
-const ALL_DAY_MS = 20 * 60 * 60 * 1000
-// Całodobowych jest w dzień i w nocy kilkadziesiąt (same strefy dronów SG na
-// wschodzie to ponad 30) — ich podpisy przy widoku na Polskę zakrywały
-// wszystko inne, więc dopiero z bliska.
-const ALL_DAY_LABEL_ZOOM = 9
-const isAllDay = r => r.e - r.s >= ALL_DAY_MS
 
 const timeFmt = new Intl.DateTimeFormat('pl-PL', {
   hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw',
 })
 
 function formatSpan(r) {
-  if (isAllDay(r)) return t('AIRSPACE_ALL_DAY')
   return `${timeFmt.format(r.s)}–${timeFmt.format(r.e)}`
 }
 
@@ -38,8 +27,9 @@ function whoLabel(r) {
 
 // Strefy aktywne w chwili `now`. Obrysy są nieinteraktywne jak poligony —
 // kliknięcie w mapę ma odznaczać maszynę, a strefy TSA potrafią przykryć pół
-// województwa. Szczegóły są pod podpisem grupy (od AREA_LABEL_ZOOM, dla
-// rezerwacji całodobowych od ALL_DAY_LABEL_ZOOM).
+// województwa. Szczegóły są pod podpisem grupy (od AREA_LABEL_ZOOM).
+// Serwer oddaje tylko rezerwacje na konkretne godziny, bez dronów — na mapie
+// jest więc wyłącznie to, gdzie teraz coś zaplanowano.
 export default function AirspaceLayer({ zones, now, zoom }) {
   const active = useMemo(() => (zones || [])
     .map(z => ({ ...z, cur: activeReservation(z.res, now) }))
@@ -62,35 +52,28 @@ export default function AirspaceLayer({ zones, now, zoom }) {
       name: members[0].type === 'MRT' ? 'MRT' : shortName(key),
       members: members.sort((a, b) => a.id.localeCompare(b.id)),
       center: meanCenter(members),
-      allDay: members.every(z => isAllDay(z.cur)),
     }))
   }, [active])
 
-  const labelMinZoom = g => (g.allDay ? ALL_DAY_LABEL_ZOOM : AREA_LABEL_ZOOM)
-
   return (
     <>
-      {active.flatMap(z => z.rings.map((ring, i) => {
-        const allDay = isAllDay(z.cur)
-        return (
-          <Polygon
-            key={`${z.id}-${i}`}
-            positions={ring}
-            interactive={false}
-            pathOptions={{
-              color: AIRSPACE,
-              weight: allDay ? 1 : 1.8,
-              opacity: allDay ? 0.35 : 0.9,
-              dashArray: allDay ? '3 5' : '6 4',
-              fill: !allDay,
-              fillColor: AIRSPACE,
-              fillOpacity: 0.08,
-            }}
-          />
-        )
-      }))}
+      {active.flatMap(z => z.rings.map((ring, i) => (
+        <Polygon
+          key={`${z.id}-${i}`}
+          positions={ring}
+          interactive={false}
+          pathOptions={{
+            color: AIRSPACE,
+            weight: 1.8,
+            opacity: 0.9,
+            dashArray: '6 4',
+            fillColor: AIRSPACE,
+            fillOpacity: 0.08,
+          }}
+        />
+      )))}
 
-      {groups.filter(g => zoom >= labelMinZoom(g)).map(g => {
+      {zoom >= AREA_LABEL_ZOOM && groups.map(g => {
         const first = g.members[0].cur
         const who = describeRemarks(first.rem)[0]
         const text = who ? `${g.name} · ${who}` : g.name

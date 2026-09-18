@@ -75,7 +75,6 @@ const STRINGS = {
     AIRSPACE_LABEL: 'Strefy aktywne teraz (AUP)',
     AIRSPACE_HINT: 'Plan użycia przestrzeni PAŻP, odświeżany co 10 min. Rezerwacja to plan — nie znaczy, że ktoś akurat tam leci. Mapa ma charakter informacyjny.',
     AIRSPACE_ERROR: 'Plan PAŻP chwilowo niedostępny.',
-    AIRSPACE_ALL_DAY: 'cała doba',
     AIRSPACE_NEXT: 'Dalej dziś:',
     AIRSPACE_SOURCE: 'Plan PAŻP (AUP/UUP) — informacyjnie. Rezerwacja to plan, nie lot.',
     INFO_LANDING: 'Prawdopodobnie ląduje',

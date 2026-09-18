@@ -42,7 +42,7 @@ Each category can be switched off — it then disappears from the map and stops 
 - **Flight trail** — up to 4 hours of history stored server-side, recorded even when nobody has the app open
 - **Push notifications** — an alert when an aircraft enters a chosen radius around your position, even with the app closed (on iPhone after adding it to the home screen)
 - **Overlays** — Polish military airfield grounds (red), major NATO bases (purple) and 12 military training areas (orange, hatched)
-- **Airspace active now** — military zones (TSA, TRA, D, R) reserved right now in the Polish airspace use plan, with hours, altitudes, the reserving base and aircraft type (e.g. *TS7 · F-35 · Łask · 10:00–11:00*)
+- **Airspace active now** — military zones (TSA, TRA, D, R) reserved for specific hours right now in the Polish airspace use plan (drone corridors and all-day blanket reservations are left out), with hours, altitudes, the reserving base and aircraft type (e.g. *TS7 · F-35 · Łask · 10:00–11:00*)
 - **Six base maps** — dark, classic, satellite, neutral dark, neutral light, terrain
 - **PWA** — installs like a native app on phone and desktop
 

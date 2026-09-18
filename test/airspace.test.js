@@ -41,8 +41,7 @@ describe('describeRemarks', () => {
     expect(describeRemarks('HUSAR/W')).toEqual(['HUSAR'])
   })
 
-  it('collapses drone markers into one word, first', () => {
-    expect(describeRemarks('OATC/SUP09/26/BSP/UAV/')).toEqual(['drony'])
+  it('handles empty remarks', () => {
     expect(describeRemarks(null)).toEqual([])
   })
 })
@@ -54,6 +53,13 @@ describe('isMilitaryReservation', () => {
     expect(isMilitaryReservation({ unit: 'EPRA' }, MIL)).toBe(true)
     expect(isMilitaryReservation({ unit: 'EPBC' }, MIL)).toBe(false)
     expect(isMilitaryReservation({ unit: 'ZZZZ' }, MIL)).toBe(false)
+  })
+
+  it('rejects drone zones, whoever reserves them', () => {
+    expect(isMilitaryReservation({ unit: 'ZZSG', remarks: 'BSP/UAV' }, MIL)).toBe(false)
+    expect(isMilitaryReservation({ unit: 'OAT', remarks: 'OATC/SUP09/26/BSP/UAV/' }, MIL)).toBe(false)
+    expect(isMilitaryReservation({ unit: 'MIL', remarks: 'SUP127/26/BSP/UAV' }, MIL)).toBe(false)
+    expect(isMilitaryReservation({ unit: 'EPLK', remarks: 'F35/W' }, MIL)).toBe(true)
   })
 })
 
@@ -77,6 +83,18 @@ describe('trimZones', () => {
     )
     expect(zones).toHaveLength(1)
     expect(zones[0].res[0].rem).toBe('HUSAR')
+  })
+
+  it('drops all-day blanket reservations', () => {
+    const zones = trimZones([
+      feature('EPD21', 'D', [res('MIL', null, '2026-09-18T06:00:00Z', '2026-09-19T06:00:00Z')]),
+      feature('EPTS6A', 'TSA', [
+        res('EPLK', 'F35', '2026-09-18T06:00:00Z', '2026-09-19T06:00:00Z'),
+        res('EPLK', 'F35'),
+      ]),
+    ], [], MIL)
+    expect(zones.map(z => z.id)).toEqual(['EPTS6A'])
+    expect(zones[0].res).toHaveLength(1)
   })
 
   it('survives missing fields', () => {
