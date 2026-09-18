@@ -7,16 +7,18 @@
     <meta name="description" content="Radar wojskowych samolotów nad Polską i Europą — alerty push, mapa, historia tras." />
     <meta name="color-scheme" content="dark" />
 
-    <!-- iOS PWA (dodane do ekranu głównego): standalone + treść POD status barem
-         / Dynamic Island. Bez 'black-translucent' iOS układa webview poniżej
-         nieprzezroczystego status baru, przez co env(safe-area-inset-top) ≈ 0 i
-         cała obsługa notcha (paddingi safe-area) nic by nie robiła. -->
+    <!-- iOS PWA (dodane do ekranu głównego): tryb standalone.
+         'apple-mobile-web-app-status-bar-style: black-translucent' USUNIĘTE.
+         Miało wpychać treść pod pasek stanu, ale na iPhonie 17 pod spodem
+         zostawał pusty pas nad paskiem gestu, którego nie dało się zasłonić ani
+         pozycjonowaniem, ani wysokością. Bez tej deklaracji iOS układa webview
+         w obszarze bezpiecznym, wcięcia schodzą do zera, a pasek stanu bierze
+         kolor z 'theme-color' poniżej — jednolity granat zamiast pustki. -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <!-- Standardowy odpowiednik powyższego. Chrome od dawna zgłasza wariant
          'apple-' jako przestarzały; bez tej linii konsola sypie ostrzeżeniem
          przy każdym wejściu. -->
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Radar PL" />
 
     <!-- Open Graph -->
