@@ -45,6 +45,13 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
         importScripts: ['/push-handler.js'],
+        // Nowa wersja przejmuje sterowanie NATYCHMIAST, a nie przy kolejnym
+        // uruchomieniu. Bez tego PWA po zbiciu i otwarciu ładowała się jeszcze
+        // ze starego cache'u i dopiero drugie otwarcie pokazywało zmiany —
+        // przy diagnozowaniu układu oznaczało to, że nigdy nie było wiadomo,
+        // czy telefon ogląda poprawkę, czy wersję sprzed niej.
+        skipWaiting: true,
+        clientsClaim: true,
         runtimeCaching: [
           {
             // OSM uses subdomains a/b/c — earlier regex didn't include them,
