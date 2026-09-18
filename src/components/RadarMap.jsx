@@ -328,7 +328,7 @@ function BasesLayer({ zoom, bases, variant }) {
         iconAnchor: [6, 6],
       })
       const m = L.marker([ap.lat, ap.lon], { icon, zIndexOffset: -1000, keyboard: false })
-      m.bindTooltip(`${ap.name} · ${ap.icao}`, { direction: 'top', offset: [0, -8], className: 'base-tooltip' })
+      m.bindTooltip(`${ap.name} · ${ap.icao}`, { direction: 'top', offset: [0, -8], className: `base-tooltip base-tooltip--${variant}` })
       group.addLayer(m)
     }
   }, [zoom, bases, variant])
@@ -344,7 +344,7 @@ function BaseAreasLayer({ bases, variant }) {
   return bases.flatMap(ap =>
     (MIL_AIRFIELD_AREAS[ap.icao] || []).map((ring, i) => (
       <HatchedPolygon key={`${ap.icao}-${i}`} positions={ring} className={className} color={color}
-        weight={variant === 'nato' ? 1.2 : 2.2} />
+        weight={2.2} />
     ))
   )
 }

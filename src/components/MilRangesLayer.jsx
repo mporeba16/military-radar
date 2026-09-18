@@ -146,8 +146,8 @@ export function MilRangeHatchDefs() {
         </pattern>
         <pattern id="baseAreaHatchNato" width="6" height="6"
           patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-          <rect width="6" height="6" fill="rgba(109, 149, 184, 0.08)" />
-          <line x1="0" y1="0" x2="0" y2="6" stroke="rgba(109, 149, 184, 0.5)" strokeWidth="1.6" />
+          <rect width="6" height="6" fill="rgba(155, 93, 229, 0.22)" />
+          <line x1="0" y1="0" x2="0" y2="6" stroke="rgba(155, 93, 229, 0.85)" strokeWidth="1.8" />
         </pattern>
       </defs>
     </svg>

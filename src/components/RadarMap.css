@@ -30,10 +30,10 @@
 }
 
 .base-marker-label--nato {
-  color: #a9c6de;
+  color: #cfb0ff;
 }
 .base-marker-label--nato .base-marker-icao {
-  color: rgba(169, 198, 222, 0.6);
+  color: rgba(207, 176, 255, 0.65);
 }
 
 .base-marker-icao {
@@ -50,6 +50,11 @@
   border-radius: 4px;
   font: 11px var(--font);
   box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+}
+
+.base-tooltip--nato.leaflet-tooltip {
+  color: #cfb0ff;
+  border-color: rgba(155, 93, 229, 0.55);
 }
 .base-tooltip.leaflet-tooltip-top::before {
   border-top-color: rgba(255, 179, 0, 0.45);
