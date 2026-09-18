@@ -1,6 +1,7 @@
 {
   "name": "military-radar",
   "private": true,
+  "license": "MIT",
   "version": "2.3.0",
   "type": "module",
   "scripts": {

@@ -2,9 +2,9 @@
 
 <img src="public/radar-icon.svg" width="88" alt="" />
 
-# Radar Wojskowy
+# Military Radar
 
-**Samoloty wojskowe, służbowe śmigłowce i największe transportowce nad Polską — na żywo, z powiadomieniem, gdy któryś pojawi się blisko Ciebie.**
+**Live military aircraft, emergency-service helicopters and the largest transports over Poland — with a push alert when one comes close to you.**
 
 [**radar-wojskowy.netlify.app**](https://radar-wojskowy.netlify.app)
 
@@ -12,97 +12,106 @@
 ![Vite 5](https://img.shields.io/badge/Vite-5-20232a?logo=vite&logoColor=ffd62e)
 ![Leaflet](https://img.shields.io/badge/Leaflet-1.9-20232a?logo=leaflet&logoColor=a3d977)
 ![Netlify](https://img.shields.io/badge/Netlify-Functions%20%2B%20Blobs-20232a?logo=netlify&logoColor=32e6e2)
-![PWA](https://img.shields.io/badge/PWA-instalowalna-20232a?logo=pwa&logoColor=a78bfa)
+![PWA](https://img.shields.io/badge/PWA-installable-20232a?logo=pwa&logoColor=a78bfa)
+![License: MIT](https://img.shields.io/badge/license-MIT-20232a)
 
 </div>
 
 <p align="center">
-  <img src="docs/screenshot-desktop.jpg" width="72%" alt="Mapa Europy Środkowej z samolotami wojskowymi, poligonami i lotniskami" />
+  <img src="docs/screenshot-desktop.jpg" width="72%" alt="Map of Central Europe with military aircraft, training areas and airfields" />
   &nbsp;
-  <img src="docs/screenshot-mobile.jpg" width="22%" alt="Karta C-17 Globemaster III na telefonie" />
+  <img src="docs/screenshot-mobile.jpg" width="22%" alt="C-17 Globemaster III card on a phone" />
 </p>
 
-## Co pokazuje
+> The app itself is in Polish.
+
+## What it shows
 
 | | |
 |---|---|
-| **Wojsko** | maszyny oznaczone jako wojskowe w adsb.fi oraz rozpoznane samodzielnie — po blokach adresów ICAO, znakach wywoławczych (RCH, SAVER, DUKE…) i squawkach 7777 / 7400 |
-| **Śmigłowce służbowe** | LPR, Policja, Straż Graniczna i zagraniczne służby ratunkowe — tylko potwierdzone wiropłaty |
-| **Duże samoloty** | Boeing 747, An-124, An-225 |
+| **Military** | aircraft tagged as military by adsb.fi, plus ones the app identifies itself — by ICAO address blocks, callsigns (RCH, SAVER, DUKE…) and squawks 7777 / 7400 |
+| **Service helicopters** | air ambulance (LPR), police, border guard and foreign rescue services — confirmed rotorcraft only |
+| **Heavy aircraft** | Boeing 747, An-124, An-225 |
 
-Każdą kategorię można wyłączyć — znika wtedy z mapy i przestaje wysyłać alerty.
+Each category can be switched off — it then disappears from the map and stops sending alerts.
 
-## Funkcje
+## Features
 
-- **Mapa na żywo** — odświeżanie co 5 s, płynny ruch ikon, ponad 40 sylwetek (myśliwce, tankowce, transportowce, śmigłowce, drony) w kolorze pułapu
-- **Karta maszyny** — zdjęcie z Planespotters, typ, kraj, wysokość z trendem, prędkość, czas lotu i przewidywane lotnisko lądowania
-- **Trasa lotu** — do 4 godzin historii zapisywanej po stronie serwera, także gdy nikt nie ma otwartej aplikacji
-- **Powiadomienia push** — alert, gdy maszyna wleci w wybrany promień od Twojej pozycji, nawet przy zamkniętej aplikacji (na iPhonie po dodaniu do ekranu głównego)
-- **Warstwy** — teren polskich lotnisk wojskowych (czerwony), główne bazy NATO (fioletowy) i 12 poligonów (pomarańczowy, kreskowany)
-- **Sześć podkładów** — ciemny, klasyczny, satelita, neutralne ciemny i jasny, teren
-- **PWA** — instaluje się jak aplikacja, działa na telefonie i komputerze
+- **Live map** — refreshed every 5 s with smooth icon movement; 40+ silhouettes (fighters, tankers, transports, helicopters, drones) coloured by altitude
+- **Aircraft card** — photo from Planespotters, type, country, altitude with climb/descent trend, speed, flight time and likely landing airfield
+- **Flight trail** — up to 4 hours of history stored server-side, recorded even when nobody has the app open
+- **Push notifications** — an alert when an aircraft enters a chosen radius around your position, even with the app closed (on iPhone after adding it to the home screen)
+- **Overlays** — Polish military airfield grounds (red), major NATO bases (purple) and 12 military training areas (orange, hatched)
+- **Six base maps** — dark, classic, satellite, neutral dark, neutral light, terrain
+- **PWA** — installs like a native app on phone and desktop
 
-## Skąd dane
+## Data sources
 
-| Źródło | Do czego |
+| Source | Used for |
 |---|---|
-| [adsb.fi](https://opendata.adsb.fi) `/v2/mil` | globalna lista maszyn wojskowych |
-| [adsb.fi](https://opendata.adsb.fi) `/v2/lat/…/lon/…/dist/250` | cały ruch nad Polską — stąd wyłapywane są maszyny, których `/mil` nie oznacza |
-| [OpenSky Network](https://opensky-network.org) | zapas, gdy adsb.fi nie odpowiada (bez typu i rejestracji) |
-| [Planespotters.net](https://www.planespotters.net) | zdjęcia maszyn |
-| [OpenStreetMap](https://www.openstreetmap.org) | obrysy lotnisk i poligonów (ODbL) |
+| [adsb.fi](https://opendata.adsb.fi) `/v2/mil` | global list of military aircraft |
+| [adsb.fi](https://opendata.adsb.fi) `/v2/lat/…/lon/…/dist/250` | all traffic over Poland — catches military aircraft that `/mil` does not tag |
+| [OpenSky Network](https://opensky-network.org) | fallback when adsb.fi is down (no type or registration) |
+| [Planespotters.net](https://www.planespotters.net) | aircraft photos |
+| [OpenStreetMap](https://www.openstreetmap.org) | airfield and training-area outlines |
 
-ADS-B nie podaje godziny startu, więc **czas lotu** to czas od pierwszego punktu trasy, jaki zna serwer — dolna granica, nie dokładna wartość.
+ADS-B does not carry a take-off time, so **flight time** counts from the earliest trail point the server knows — a lower bound, not an exact value.
 
-## Jak to działa
+## How it works
 
 ```mermaid
 flowchart LR
-  A[adsb.fi / OpenSky] --> F[aircraft<br/>co 5 s na żądanie]
-  A --> C[collect<br/>cron co 2 min]
-  F --> B[(Netlify Blobs<br/>trasy 4 h)]
+  A[adsb.fi / OpenSky] --> F[aircraft<br/>on request, every 5 s]
+  A --> C[collect<br/>cron every 2 min]
+  F --> B[(Netlify Blobs<br/>4 h trails)]
   C --> B
   F --> P[PWA<br/>React + Leaflet]
   B --> P
-  A --> N[notify<br/>cron co 1 min]
+  A --> N[notify<br/>cron every 1 min]
   N -->|Web Push| P
 ```
 
-| Funkcja | Rola |
+| Function | Role |
 |---|---|
-| `aircraft` | pobiera i klasyfikuje ruch, zwraca trasę wybranej maszyny |
-| `collect` | co 2 minuty zapisuje trasy w tle |
-| `notify` | co minutę sprawdza zasięg subskrybentów i wysyła push |
-| `subscribe` / `status` / `test-push` | zapis subskrypcji, diagnostyka, testowy push |
+| `aircraft` | fetches and classifies traffic, returns the trail of a selected aircraft |
+| `collect` | records trails in the background every 2 minutes |
+| `notify` | checks every subscriber's radius each minute and sends push alerts |
+| `subscribe` / `status` / `test-push` | subscription storage, diagnostics, test push |
 
-## Uruchomienie lokalne
+## Running locally
 
 ```bash
 npm install
 npx netlify dev      # Vite + Netlify Functions
 ```
 
-Sam `npm run dev` uruchomi interfejs bez funkcji — mapa zostanie pusta, a znacznik w rogu zaświeci na czerwono.
+Plain `npm run dev` starts only the UI — the map stays empty and the status mark in the corner turns red.
 
-Powiadomienia wymagają kluczy VAPID (`npx web-push generate-vapid-keys`) — wzór w [`.env.example`](.env.example).
+Push notifications need VAPID keys (`npx web-push generate-vapid-keys`) — see [`.env.example`](.env.example).
 
 ```bash
 npm test             # vitest
 npm run lint         # eslint
-npm run build        # produkcja do dist/
+npm run build        # production build to dist/
 ```
 
-Wdrożenie: każdy push na `main` buduje się automatycznie na Netlify.
+Deployment: every push to `main` is built automatically on Netlify.
 
-## Struktura
+## Project structure
 
 ```
 netlify/functions/   aircraft, collect, notify, subscribe, status, test-push
-  lib/               klasyfikacja wojska, granice Polski, bezpieczeństwo
+  lib/               military classification, Poland boundary, security
 src/
-  components/        mapa, karta maszyny, panele, sylwetki SVG
-  data/              obrysy lotnisk i poligonów
-  lib/               paleta, geometria, nazwy typów, dopasowanie zdjęć
-  airfields.js       lotniska: polskie wojskowe, cywilne, bazy NATO
-test/                testy vitest
+  components/        map, aircraft card, panels, SVG silhouettes
+  data/              airfield and training-area outlines
+  lib/               palette, geometry, type names, photo matching
+  airfields.js       airfields: Polish military, civil, NATO bases
+test/                vitest tests
 ```
+
+## License
+
+Code: [MIT](LICENSE) © 2026 Maciej Poręba.
+
+Map data and the airfield and training-area outlines in `src/data/` come from © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors and are available under the [ODbL](https://opendatacommons.org/licenses/odbl/). Aircraft data belongs to adsb.fi and OpenSky Network, photos to their authors on Planespotters.net — each under its own terms.
