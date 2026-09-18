@@ -2,16 +2,18 @@
    wysokość #root bywa liczona bez paska stanu (-webkit-fill-available), przez
    co mapa zaczynała się dopiero pod zegarkiem i u góry zostawał ciemny pas tła.
    `fixed` + `inset: 0` odnosi się do okna, więc mapa sięga samej krawędzi. */
+/* `inset: 0`, nie `height: 100dvh`. Element `fixed` rozpięty na wszystkie
+   cztery krawędzie wypełnia DOKŁADNIE widoczne okno — także wtedy, gdy Safari
+   chowa i pokazuje dolny pasek narzędzi. `100dvh` jest liczone niezależnie od
+   górnej krawędzi elementu, więc przy przypięciu do `top: 0` potrafiło skończyć
+   się wyżej niż dół okna i zostawiało czarny pas. Widać go było także w samym
+   Safari, co wykluczyło tryb PWA jako przyczynę.
+
+   Wcześniejsze zastrzeżenie do `inset: 0` (skrócony blok zawierający) straciło
+   ważność razem z usunięciem `-webkit-fill-available` z <html>. */
 .app {
-  /* Wysokość z `dvh`, nie z `inset: 0`. Gdyby blok zawierający okazał się
-     skrócony, `inset: 0` odziedziczyłoby to skrócenie; `100dvh` odnosi się do
-     widocznego okna, więc daje pełny ekran niezależnie od tego, co iOS zgłosi
-     jako wysokość dokumentu. */
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100dvh;
+  inset: 0;
   overflow: hidden;
 }
 

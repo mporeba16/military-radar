@@ -93,6 +93,12 @@
   --t-hero: 28px;
 }
 
+/* Tło na <html>, nie tylko na <body>. Przy `color-scheme: dark` przeglądarka
+   maluje obszar poza kanwą dokumentu na czarno — i to była ta czerń, wyraźnie
+   ciemniejsza od granatu aplikacji. Jeśli mimo `inset: 0` gdzieś zostanie
+   pasek, będzie w kolorze interfejsu zamiast pustej czerni. */
+html { background: #080f1c; }
+
 html, body, #root {
   /* Bez `-webkit-fill-available`. Na iOS w trybie standalone ta wartość zwraca
      wysokość POMNIEJSZONĄ o wcięcia bezpieczne, a że dotyczy elementu <html>,
