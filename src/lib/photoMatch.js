@@ -97,7 +97,13 @@ export const TYPE_SLUG_ALIASES = {
   UH60: ['uh-60', 'black-hawk', 'blackhawk'],
   S70: ['s-70', 'black-hawk', 'blackhawk'], V22: ['v-22', 'osprey'],
   MV22: ['mv-22'], CV22: ['cv-22'],
-  MI2: ['mi-2'], MI8: ['mi-8'], MI17: ['mi-17'], MI24: ['mi-24'], MI28: ['mi-28'],
+  // Rodzina Mi-8/Mi-17 chodzi pod jednym kodem: adsb.fi podaje MI8 również dla
+  // Mi-17 (eksportowy Mi-8MT), a planespotters pisze w adresie „mil-mi-17".
+  // Bez wzajemnych aliasów poprawne zdjęcie polskiego Mi-17 wyglądałoby na cudze.
+  MI2: ['mi-2'],
+  MI8: ['mi-8', 'mi-17', 'mi-171', 'mi-8mt', 'hip'],
+  MI17: ['mi-17', 'mi-8', 'mi-171', 'mi-8mt', 'hip'],
+  MI24: ['mi-24'], MI28: ['mi-28'],
   // PZL M28 Bryza. adsb.fi podaje AN28 (rodowód An-28), a planespotters pisze
   // „pzl-mielec-m-28b-pt" — bez tego aliasu poprawne zdjęcie było odrzucane.
   AN28: ['m-28', 'm28', 'bryza', 'skytruck', 'an-28'],
@@ -184,7 +190,16 @@ export function canVerifyPhotoMatch(ac) {
 
 // Czy adres zdjęcia zaczyna się od TEJ rejestracji. Slug planespotters ma
 // postać /photo/{id}/{rejestracja}-{operator}-{model}, więc pierwszy człon jest
-// twardym dowodem tożsamości płatowca — mocniejszym niż zgadywanie po typie.
+// twardym dowodem tożsamości płatowca — ale TYLKO wtedy, gdy sama rejestracja
+// jest dowodem.
+//
+// Musi zawierać literę. Cywilny znak (SP-HXW, LX-N90447, N601AL) jest globalnie
+// unikalny i pierwszy człon adresu rozstrzyga sprawę. Goły numer seryjny nie
+// jest — i to jest dokładnie ta kolizja, przed którą ostrzega nagłówek tego
+// pliku. Polski Mi-17 „630" dostawał zdjęcie izraelskiej Fougi Magister, bo jej
+// adres też zaczyna się od „630-”; wcześniej ten sam mechanizm kazałby uznać
+// greckiego F-16 „018" za polskiego C-295. Numer seryjny musi się obronić
+// typem albo operatorem, tak jak każdy inny kandydat.
 //
 // Porównujemy rejestrację DOSŁOWNIE, bez usuwania myślników. To nie przeoczenie:
 // polski Hercules ma numer 1510, a niemiecki Airbus 15+10 zapisany w adresie
@@ -193,6 +208,7 @@ export function canVerifyPhotoMatch(ac) {
 function slugStartsWithReg(link, reg) {
   const r = (reg || '').trim().toLowerCase()
   if (r.length < 3) return false
+  if (!/[a-z]/.test(r)) return false
   const m = link.match(/\/photo\/\d+\/([^/?#]+)/)
   return !!m && m[1].startsWith(r + '-')
 }

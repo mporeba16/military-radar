@@ -107,6 +107,28 @@ describe('rejestracja w adresie zdjęcia', () => {
     expect(photoHasMatchSignal(foto, { t: 'C130', reg: '1510', flight: 'HEREC01' })).toBe(false)
   })
 
+  it('goły numer seryjny nie jest dowodem tożsamości', () => {
+    // Polski Mi-17 „630" (hex 48DA46, callsign 10630) dostawał na kartę zdjęcie
+    // izraelskiej Fougi Magister — bo jej adres też zaczyna się od „630-".
+    // planespotters nie ma tego płatowca ani pod hexem, ani pod rejestracją,
+    // więc jedyną poprawną odpowiedzią jest „brak zdjęcia".
+    const fouga = { link: 'https://www.planespotters.net/photo/734720/630-israeli-air-force-fouga-cm-170-magister' }
+    const mi17 = { t: 'MI8', reg: '630', flight: '10630' }
+    expect(photoHasMatchSignal(fouga, mi17)).toBe(false)
+
+    // A gdyby planespotters kiedyś oddał właściwą maszynę — ma ją przyjąć,
+    // mimo że kod typu mówi MI8, a adres Mi-17.
+    const polski = { link: 'https://www.planespotters.net/photo/243536/605-polish-air-force-mil-mi-17' }
+    expect(photoHasMatchSignal(polski, mi17)).toBe(true)
+  })
+
+  it('cywilny znak dalej rozstrzyga sam z siebie', () => {
+    // Zaostrzenie dotyczy wyłącznie numerów seryjnych: znak z literą jest
+    // globalnie unikalny i pierwszy człon adresu wciąż wystarcza za dowód.
+    const foto = { link: 'https://www.planespotters.net/photo/1/sp-hxw-lpr-jakis-smiglowiec' }
+    expect(photoHasMatchSignal(foto, { t: 'ZZZZ', reg: 'SP-HXW', flight: 'RATOWNIK21' })).toBe(true)
+  })
+
   it('krótka rejestracja nie wystarcza za dowód', () => {
     const foto = { link: 'https://www.planespotters.net/photo/1/22-jakis-samolot' }
     expect(photoHasMatchSignal(foto, { t: 'XXXX', reg: '22', flight: 'TEST1' })).toBe(false)
