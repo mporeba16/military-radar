@@ -39,7 +39,7 @@ export const handler = async (event) => {
     }
   }
 
-  const { subscription, lat, lon, radius, deviceId, kinds, threatPush } = body
+  const { subscription, lat, lon, radius, deviceId, kinds } = body
 
   if (!subscription?.endpoint) {
     return { statusCode: 400, headers, body: JSON.stringify({ error: 'missing-endpoint' }) }
@@ -108,10 +108,6 @@ export const handler = async (event) => {
     // wysyła je razem z pozycją; starszy klient nie wysyła nic i wtedy zostaje
     // to, co już zapisano, a w ostateczności komplet włączonych kategorii.
     kinds: normalizeKinds(kinds ?? existing?.kinds),
-    // Push o ryzyku dronowym — osobny przełącznik, bo to inny gatunek alertu
-    // niż maszyna w promieniu: nie ma dystansu, nie zależy od kategorii i budzi
-    // rzadko, ale głośno. `??`, a nie `||` — jawne `false` ma przetrwać zapis.
-    threatPush: threatPush ?? existing?.threatPush ?? true,
   }
 
   let serialized

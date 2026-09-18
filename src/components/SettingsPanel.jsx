@@ -3,7 +3,7 @@ import Toggle from './Toggle'
 import RangeSlider from './RangeSlider'
 import { t } from '../i18n'
 import { planeWord } from '../lib/plural'
-import { KIND_COLORS, ALERT } from '../lib/palette'
+import { KIND_COLORS } from '../lib/palette'
 import { readViewportReport } from '../lib/viewportProbe'
 
 // iPadOS 13+ reports as "MacIntel" but has a touch screen — catch it too.
@@ -77,7 +77,6 @@ export default function SettingsPanel({
   location, accuracy, locationError, requestLocation,
   radius, setRadius, inRangeCount, alertsCount,
   kinds, setKinds,
-  threatPush, setThreatPush,
   permissionState, isSubscribed, isSubscribing, subscribe, unsubscribe, subscribeError,
   soundOn, setSoundOn, vibrateOn, setVibrateOn,
   error,
@@ -147,27 +146,6 @@ export default function SettingsPanel({
                 {subscribeError && <p className="err small mt6">✗ {subscribeError}</p>}
               </>
         }
-        {/* Ryzyko dronowe jedzie tym samym kanałem, ale rządzi się czym innym:
-            nie pyta o promień ani o kategorie maszyn, tylko o województwo, w
-            którym stoisz. Stąd własny przełącznik tuż pod pushem, a nie wiersz
-            w liście kategorii. Wyjaśnienie siedzi w podpowiedzi — panel ma być
-            listą przełączników, nie instrukcją. */}
-        {isSubscribed && (
-          <div className="toggle-list mt6">
-            <Toggle
-              on={threatPush}
-              onToggle={() => setThreatPush(v => !v)}
-              label={t('THREAT_PUSH_LABEL')}
-              title={t('THREAT_PUSH_DESCRIPTION')}
-              marker={<span className="toggle-dot" style={{
-                background: threatPush ? ALERT : 'transparent',
-                border: `2px solid ${ALERT}`,
-              }} />}
-              state={threatPush ? '◉' : '○'}
-              stateColor={threatPush ? ALERT : 'rgba(255,255,255,0.4)'}
-            />
-          </div>
-        )}
       </section>
 
       {/* 4. Sygnały w otwartej aplikacji — osobny mechanizm, osobna sekcja. */}

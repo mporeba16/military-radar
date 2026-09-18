@@ -33,13 +33,9 @@ export const BASE_NATO = '#6d95b8'
 export const RANGE = '#b06ab3'
 export const RANGE_LABEL = '#d9a7dc'
 
-// ── 3. Zagrożenie ─────────────────────────────────────────────────────────
-export const THREAT = {
-  calm: '#2f7f5b',
-  watch: '#ffc53d',
-  elevated: '#ff8c1a',
-  high: '#ff4757',
-}
-
-// Jedna czerwień alarmowa na całą aplikację — ta sama, co najwyższy poziom.
-export const ALERT = THREAT.high
+// ── 3. Stan ───────────────────────────────────────────────────────────────
+// Z rampy alarmowej warstwy ryzyka dronowego zostały po jej usunięciu dwie
+// barwy, bo niosą je też alerty o maszynach i wiersz gotowości powiadomień:
+// czerwień znaczy „dzieje się teraz”, żółć „coś jest nie tak, ale nic nie leci”.
+export const ALERT = '#ff4757'
+export const WATCH = '#ffc53d'

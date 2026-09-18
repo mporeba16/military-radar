@@ -4,10 +4,8 @@ import { MapMark, MapPanelButtons } from './components/MapChrome'
 import AircraftInfoPanel from './components/AircraftInfoPanel'
 import SettingsPanel from './components/SettingsPanel'
 import MapsPanel from './components/MapsPanel'
-import ThreatBadge from './components/ThreatBadge'
 import { useGeolocation } from './hooks/useGeolocation'
 import { usePushNotifications } from './hooks/usePushNotifications'
-import { useThreat } from './hooks/useThreat'
 import { useLocalStorage } from './hooks/useLocalStorage'
 import { fetchMilitaryAircraft } from './api'
 import { haversine, bearing } from './lib/geo'
@@ -46,8 +44,6 @@ export default function App() {
   const [showNatoBases, setShowNatoBases] = useLocalStorage('radar.natoBases', true)
   const [showRanges, setShowRanges] = useLocalStorage('radar.ranges', true)
   const [showRangeLabels, setShowRangeLabels] = useLocalStorage('radar.rangeLabels', true)
-  const [showThreat, setShowThreat] = useLocalStorage('radar.threat', true)
-  const [threatPush, setThreatPush] = useLocalStorage('radar.threatPush', true)
   const [lastUpdated, setLastUpdated] = useState(null)
   const [alerts, setAlerts] = useState([])
   const [inRangeCount, setInRangeCount] = useState(0)
@@ -78,11 +74,7 @@ export default function App() {
   const {
     isSubscribed, subResolved, isSubscribing, subscribe, unsubscribe, sendTestPush,
     permissionState, subscribeError, syncError, serverStatus,
-  } = usePushNotifications(location, radius, kinds, threatPush)
-
-  // Ocena ryzyka dronowego jest niezależna od GPS i od filtrów — pobieramy ją
-  // zawsze, bo plakietka ma sens także przy wyłączonej nakładce na mapie.
-  const { threat, threatError } = useThreat()
+  } = usePushNotifications(location, radius, kinds)
 
   // Gdy aktywny jest push serwerowy, NIE strzelamy też lokalnym powiadomieniem
   // systemowym — inaczej (w foreground) ten sam samolot daje dwa komunikaty.
@@ -531,12 +523,10 @@ export default function App() {
         showRanges={showRanges}
         showRangeLabels={showRangeLabels}
         dimmedHexes={dimmedHexes}
-        threatRegions={showThreat ? threat?.regions : null}
         recenterRef={recenterRef}
       />
 
       <MapMark isLoading={isLoading} error={error} lastUpdated={lastUpdated} />
-      <ThreatBadge threat={threat} error={threatError} />
       <MapPanelButtons
         activePanel={activePanel}
         onTogglePanel={togglePanel}
@@ -624,8 +614,6 @@ export default function App() {
               alertsCount={alerts.length}
               kinds={kinds}
               setKinds={setKinds}
-              threatPush={threatPush}
-              setThreatPush={setThreatPush}
               permissionState={permissionState}
               isSubscribed={isSubscribed}
               isSubscribing={isSubscribing}
@@ -660,8 +648,6 @@ export default function App() {
               setShowRanges={setShowRanges}
               showRangeLabels={showRangeLabels}
               setShowRangeLabels={setShowRangeLabels}
-              showThreat={showThreat}
-              setShowThreat={setShowThreat}
               altBands={altBands}
               setAltBands={setAltBands}
               bandCounts={bandCounts}

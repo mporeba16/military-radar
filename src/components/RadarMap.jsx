@@ -6,7 +6,6 @@ import './RadarMap.css'
 import { SHAPES, getShapeKey, altToColor, ftToM } from './aircraftShapes'
 import { MIL_BASES_PL, MIL_BASES_NATO } from '../airfields'
 import { KIND_COLORS } from '../lib/palette'
-import ThreatLayer from './ThreatLayer'
 import MilRangesLayer, { MilRangeHatchDefs } from './MilRangesLayer'
 import { t } from '../i18n'
 
@@ -469,7 +468,7 @@ function AircraftLayer({ aircraft, selectedHex, onSelect, zoomScale, dimmedHexes
 export default function RadarMap({
   aircraft, hasFetched, trails, serverTrails, center, gpsCenter, radius,
   selectedHex, onSelect, activeTileId, showBases, showNatoBases, showRanges, showRangeLabels,
-  dimmedHexes, threatRegions, recenterRef,
+  dimmedHexes, recenterRef,
 }) {
   const initialZoom = 6  // S4: was 5, but icons were too small at default view
   const [zoom, setZoom] = useState(initialZoom)
@@ -597,8 +596,6 @@ export default function RadarMap({
         <TileFilter filter={tileLayer.filter} />
         <ZoomTracker onZoomChange={setZoom} />
 
-        {/* Ryzyko pod bazami i pod samolotami — to tło sytuacyjne, nie treść. */}
-        <ThreatLayer regions={threatRegions} />
         <MilRangesLayer
           show={showRanges}
           showLabels={showRangeLabels}

@@ -37,14 +37,14 @@ function getDeviceId() {
   } catch { return null }
 }
 
-async function syncToServer(sub, lat, lon, radius, kinds, threatPush) {
+async function syncToServer(sub, lat, lon, radius, kinds) {
   if (!sub) return { ok: false, error: 'no-subscription' }
   try {
     const res = await fetch('/.netlify/functions/subscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        subscription: sub.toJSON(), lat, lon, radius, kinds, threatPush, deviceId: getDeviceId(),
+        subscription: sub.toJSON(), lat, lon, radius, kinds, deviceId: getDeviceId(),
       }),
     })
     let payload = null
@@ -75,7 +75,7 @@ async function fetchStatus(sub) {
   }
 }
 
-export function usePushNotifications(location, radius, kinds, threatPush) {
+export function usePushNotifications(location, radius, kinds) {
   const [isSubscribed, setIsSubscribed] = useState(false)
   // Czy znamy już stan subskrypcji? Zanim asynchroniczne getSubscription() się
   // rozwiąże, isSubscribed jest false — gdyby klient w tym oknie odpalił lokalne
@@ -99,7 +99,6 @@ export function usePushNotifications(location, radius, kinds, threatPush) {
   const wantMil = kinds?.mil !== false
   const wantHeli = kinds?.heli !== false
   const wantHeavy = kinds?.heavy !== false
-  const wantThreat = threatPush !== false
 
   // On mount: restore existing subscription. Re-sync handled by the
   // separate effect below, which reacts to location/radius changes.
@@ -133,12 +132,12 @@ export function usePushNotifications(location, radius, kinds, threatPush) {
     const id = setTimeout(() => {
       syncToServer(subRef.current, syncLat, syncLon, radius, {
         mil: wantMil, heli: wantHeli, heavy: wantHeavy,
-      }, wantThreat).then(res => {
+      }).then(res => {
         setSyncError(res.ok ? null : res.error)
       })
     }, SYNC_DEBOUNCE_MS)
     return () => clearTimeout(id)
-  }, [isSubscribed, syncLat, syncLon, radius, wantMil, wantHeli, wantHeavy, wantThreat])
+  }, [isSubscribed, syncLat, syncLon, radius, wantMil, wantHeli, wantHeavy])
 
   // Diagnostyka serwerowa, odświeżana co minutę. Zależy WYŁĄCZNIE od stanu
   // subskrypcji: gdyby zależała też od pozycji, każdy fix GPS zerowałby
@@ -184,7 +183,7 @@ export function usePushNotifications(location, radius, kinds, threatPush) {
       setIsSubscribed(true)
       const res = await syncToServer(sub, syncLat, syncLon, radius, {
         mil: wantMil, heli: wantHeli, heavy: wantHeavy,
-      }, wantThreat)
+      })
       if (!res.ok) setSyncError(res.error)
     } catch (err) {
       console.error('Push subscribe failed:', err)
@@ -196,7 +195,7 @@ export function usePushNotifications(location, radius, kinds, threatPush) {
     } finally {
       setIsSubscribing(false)
     }
-  }, [syncLat, syncLon, radius, wantMil, wantHeli, wantHeavy, wantThreat])
+  }, [syncLat, syncLon, radius, wantMil, wantHeli, wantHeavy])
 
   const unsubscribe = useCallback(async () => {
     const sub = subRef.current

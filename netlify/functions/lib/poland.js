@@ -1,8 +1,9 @@
 // Obrys granic Polski i test punktu — jedno miejsce dla wszystkich, którzy
 // pytają „czy to leci nad Polską". Wyjęte z aircraft.js, gdy okazało się, że
-// model ryzyka liczył maszyny w PROSTOKĄCIE wokół Polski i do „maszyn nad
-// Polską" wliczał trzy samoloty nad Czechami. Ten plik istnieje po to, żeby
-// druga odpowiedź na to samo pytanie nie mogła powstać obok pierwszej.
+// usunięty już model ryzyka dronowego liczył maszyny w PROSTOKĄCIE wokół
+// Polski i do „maszyn nad Polską" wliczał trzy samoloty nad Czechami. Ten plik
+// istnieje po to, żeby druga odpowiedź na to samo pytanie nie mogła powstać
+// obok pierwszej.
 
 // Przybliżony obrys granic Polski (z niewielkim zapasem ~10–20 km na
 // pogranicze/podejścia), [lat, lon] zgodnie z ruchem wskazówek zegara.

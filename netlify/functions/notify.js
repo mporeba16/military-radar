@@ -3,12 +3,7 @@ import webpush from 'web-push'
 import { fetchMilitaryNear, haversine, normalizeKinds } from './lib/military.js'
 // Treść alertów mieszka we wspólnym module — ten sam kod składa push z serwera
 // i lokalne powiadomienie w otwartej aplikacji, więc nie mogą się rozjechać.
-import { alertText, groupText, threatText } from '../../src/lib/notifyText.js'
-// Ryzyko dronowe liczy ten sam moduł, który obsługuje endpoint `threat` —
-// mapa w aplikacji i push muszą pokazywać jedną liczbę, nie dwie.
-import { resolveThreatState } from './lib/threatState.js'
-import { diffThreatForPush } from './lib/threat.js'
-import { regionIdAt } from '../../src/lib/regionAt.js'
+import { alertText, groupText } from '../../src/lib/notifyText.js'
 
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY
@@ -207,16 +202,6 @@ export const handler = async (event) => {
     }
   }
 
-  // Pass 3 — ryzyko dronowe. Osobny tor: nie zależy od promienia ani od tego,
-  // czy cokolwiek lata w pobliżu, tylko od tego, w którym województwie stoi
-  // odbiorca. Całość w try/catch — awaria ubillinga nie ma prawa położyć
-  // alertów o maszynach, które są tu główną funkcją aplikacji.
-  try {
-    await runThreatPass(deduped, snapshot, subsStore, alertedStore, stats)
-  } catch (err) {
-    console.error('[notify] threat pass failed:', err.message)
-    stats.threatError = err.message
-  }
 
   stats.durationMs = Date.now() - runStart
   console.log(`[notify] Run complete: ${JSON.stringify({
@@ -319,87 +304,6 @@ async function purgeStaleRateLimits() {
   }))
 }
 
-// ── Push o ryzyku dronowym ────────────────────────────────────────────────
-// Stan jest GLOBALNY (jeden na kraj), więc próg przekracza się raz, a nie raz
-// na subskrybenta — dlatego pamięć „o czym już powiadomiliśmy" siedzi w jednym
-// blobie `threat/notified`, a nie w mapie cooldownu każdego urządzenia.
-//
-// Odbiorcę wybiera jego województwo, nie promień alertów: ryzyko dronowe nie
-// ma środka ani odległości. Kto stoi poza sześcioma modelowanymi obrysami, nie
-// dostaje nic — model nie ma o tym miejscu nic do powiedzenia, a push „w
-// lubelskim jest gorąco" wysłany do Szczecina to czysty szum. Z tego samego
-// powodu nie wysyłamy alertu o sąsiednim województwie.
-const THREAT_STATE_MAX_AGE_MS = 90_000
-// Ciaśniej niż w endpointcie HTTP: cron ma ~10 s na cały przebieg, a alerty o
-// maszynach są ważniejsze niż ta ścieżka i nie mogą przez nią paść.
-const THREAT_UBILLING_TIMEOUT_MS = 5000
-
-async function runThreatPass(subs, snapshot, subsStore, alertedStore, stats) {
-  if (!subs.length) return
-
-  const { state } = await resolveThreatState({
-    maxAgeMs: THREAT_STATE_MAX_AGE_MS,
-    ubillingTimeoutMs: THREAT_UBILLING_TIMEOUT_MS,
-    // Gdy nikt nie ma otwartej aplikacji, snapshot klienta jest przestarzały —
-    // wtedy sygnał ADS-B bierzemy ze zrzutu, który ten przebieg i tak pobrał.
-    fallbackAircraft: snapshot,
-  })
-
-  stats.threatLevel = state.level
-  stats.threatScore = state.score
-
-  const threatStore = getStore('threat')
-  const prevRec = await threatStore.get('notified', { type: 'json' }).catch(() => null)
-  const now = Date.now()
-  const { raised, next } = diffThreatForPush(prevRec?.regions, state, now)
-
-  // Zapis PRZED wysyłką — ta sama zasada co przy mapach cooldownu: ubity w
-  // połowie przebieg ma zgubić alert, a nie powtarzać go co minutę.
-  if (JSON.stringify(next) !== JSON.stringify(prevRec?.regions || {})) {
-    await threatStore.set('notified', JSON.stringify({ regions: next, ts: now })).catch(() => {})
-  }
-
-  if (!raised.length) return
-  stats.threatRaised = raised.map(r => `${r.id}:${r.level}`)
-  console.log(`[notify] threat raised: ${stats.threatRaised.join(', ')}`)
-
-  const byRegion = new Map(raised.map(r => [r.id, r]))
-
-  for (const { key, raw } of subs) {
-    // Brak pola = starszy rekord sprzed tej funkcji → włączone. Wyłącza
-    // wyłącznie jawne `false`, tak samo jak filtr kategorii.
-    if (raw.threatPush === false) continue
-
-    const regionId = regionIdAt(raw.lat, raw.lon)
-    const region = regionId && byRegion.get(regionId)
-    if (!region) continue
-
-    const payload = threatText([region])
-    if (!payload) continue
-
-    try {
-      await webpush.sendNotification(raw.subscription, JSON.stringify({
-        ...payload,
-        // Bez `hex` — service worker nie doklei wtedy akcji „Pokaż na mapie",
-        // bo nie ma do czego linkować. Tag per województwo, żeby dwa kolejne
-        // podniesienia w tym samym miejscu nie zostawiły dwóch powiadomień.
-        tag: `threat-${region.id}`,
-      }))
-      stats.notificationsSent++
-      stats.threatSent = (stats.threatSent || 0) + 1
-      console.log(`[notify] Threat push OK ${key} region=${region.id} level=${region.level}`)
-    } catch (err) {
-      const status = err.statusCode || 0
-      stats.pushErrors++
-      console.error(`[notify] Threat push FAIL ${key} region=${region.id} status=${status} msg=${err.message}`)
-      if (status === 410 || status === 404) {
-        await subsStore.delete(key).catch(() => {})
-        await alertedStore.delete(key).catch(() => {})
-        stats.expiredRemoved++
-      }
-    }
-  }
-}
 
 async function processSubscription({ key, raw, ageMs }, aircraft, subsStore, alertedStore, stats) {
   const result = { sent: 0, errors: 0 }

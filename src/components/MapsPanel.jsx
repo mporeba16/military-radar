@@ -2,7 +2,7 @@ import { TILE_LAYERS, tileThumbUrl } from './RadarMap'
 import { useState } from 'react'
 import Toggle from './Toggle'
 import { t } from '../i18n'
-import { BASE_PL, BASE_NATO, RANGE, RANGE_LABEL, ALERT } from '../lib/palette'
+import { BASE_PL, BASE_NATO, RANGE, RANGE_LABEL } from '../lib/palette'
 import { ALT_BANDS } from '../lib/altBands'
 import { altToColor } from './aircraftShapes'
 
@@ -17,7 +17,7 @@ export default function MapsPanel({
   showNatoBases, setShowNatoBases,
   showRanges, setShowRanges,
   showRangeLabels, setShowRangeLabels,
-  showThreat, setShowThreat, altBands, setAltBands, bandCounts,
+  altBands, setAltBands, bandCounts,
 }) {
   const [baseOpen, setBaseOpen] = useState(false)
   const active = TILE_LAYERS.find(l => l.id === activeTileId) || TILE_LAYERS[0]
@@ -122,17 +122,6 @@ export default function MapsPanel({
               stateColor={showRangeLabels ? RANGE_LABEL : 'rgba(255,255,255,0.4)'}
             />
           )}
-          <Toggle
-            on={showThreat}
-            onToggle={() => setShowThreat(v => !v)}
-            label={t('THREAT_LAYER_LABEL')}
-            marker={<span className="toggle-swatch" style={{
-              background: showThreat ? 'rgba(255,71,87,0.2)' : 'transparent',
-              color: showThreat ? ALERT : 'rgba(255,255,255,0.3)',
-            }} />}
-            state={showThreat ? '◉' : '○'}
-            stateColor={showThreat ? ALERT : 'rgba(255,255,255,0.4)'}
-          />
         </div>
       </section>
 
