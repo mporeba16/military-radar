@@ -24,6 +24,13 @@ describe('currentFlightOnly', () => {
     expect(out).toHaveLength(2)
     expect(out[0].ts).toBe(15000 + GAP)
   })
+
+  it('returns nothing when the newest point is older than the gap', () => {
+    // Stary blob, którego nikt nie przyciął — nie może udawać bieżącego lotu.
+    const pts = [{ ts: 0 }, { ts: 15000 }]
+    expect(currentFlightOnly(pts, 15000 + GAP)).toEqual([])
+    expect(currentFlightOnly(pts, 15000 + 60000)).toHaveLength(2)
+  })
 })
 
 describe('filterImplausibleJumps', () => {

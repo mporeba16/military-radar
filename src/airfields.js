@@ -16,7 +16,7 @@ export const AIRFIELDS = [
   { icao: 'EPIR', name: 'Inowrocław',        lat: 52.8249, lon: 18.3258, mil: true },
   { icao: 'EPPR', name: 'Pruszcz Gdański',   lat: 54.2480, lon: 18.6719, mil: true },
   { icao: 'EPCE', name: 'Siemirowice',       lat: 54.4170, lon: 17.7694, mil: true },
-  { icao: 'EPTM', name: 'Tomaszów (Nowe Miasto)', lat: 51.6189, lon: 20.5378, mil: true },
+  { icao: 'EPTM', name: 'Tomaszów Maz. (Glinnik)', lat: 51.5783, lon: 20.0968, mil: true },
 
   // — Polskie lotniska cywilne / wspólne —
   { icao: 'EPWA', name: 'Warszawa-Okęcie',   lat: 52.1657, lon: 20.9671 },

@@ -43,7 +43,17 @@ const FLIGHT_SPLIT_GAP_MS = 10 * 60 * 1000
 
 // Returns only the points after the most recent gap >= FLIGHT_SPLIT_GAP_MS.
 // Assumes input is sorted ascending by ts.
-export function currentFlightOnly(sortedPoints) {
+//
+// With `now`, the gap between the last point and now counts too. Blobs are
+// pruned only when the aircraft is written again, so a hex that stopped being
+// saved (left the area, MLAT only) keeps an old trail for months. Without this
+// check that trail came back as the "current flight" and the card showed
+// a flight time of 2927 hours.
+export function currentFlightOnly(sortedPoints, now) {
+  if (now != null) {
+    const last = sortedPoints[sortedPoints.length - 1]
+    if (!last || now - last.ts > FLIGHT_SPLIT_GAP_MS) return []
+  }
   if (sortedPoints.length < 2) return sortedPoints
   let cutIndex = 0
   for (let i = 1; i < sortedPoints.length; i++) {
@@ -282,7 +292,7 @@ export const handler = async (event) => {
     // of JSON on every refresh — visual fidelity from 500 polyline vertices
     // is plenty for any realistic flight.
     const TRAIL_RESPONSE_MAX_POINTS = 500
-    const wholeFlight = filterImplausibleJumps(currentFlightOnly(allPoints))
+    const wholeFlight = filterImplausibleJumps(currentFlightOnly(allPoints, Date.now()))
     const currentFlight = wholeFlight.slice(-TRAIL_RESPONSE_MAX_POINTS)
 
     return {
