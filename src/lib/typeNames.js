@@ -138,3 +138,22 @@ export function getCommonName(t) {
   }
   return null
 }
+
+// Etykieta typu na kartę: kod ICAO plus nazwa własna, ale bez powtarzania tego
+// samego dwa razy. Gdy nazwa sama zaczyna się od oznaczenia (M28 Bryza, A310
+// MRTT, C-390 Millennium), kod ICAO nic nie dodaje i tylko zaśmieca —
+// „AN28 · M28 Bryza / An-28" mówiło to samo trzy razy.
+//
+// Człon po ukośniku odpada zawsze: „M28 Bryza / An-28" to jedna maszyna pod
+// dwiema nazwami, a karta ma podać jedną.
+export function typeLabel(t) {
+  const code = (t || '').trim()
+  if (!code) return null
+  const common = getCommonName(code)
+  if (!common) return code
+  const first = common.split('/')[0].trim()
+  // Nazwa zaczynająca się od członu z cyfrą (M28, A310, C-390, RQ-4) sama
+  // niesie oznaczenie typu — kod przed nią byłby powtórzeniem.
+  if (/^[A-Za-z]{1,3}-?\d/.test(first)) return first
+  return `${code} · ${first}`
+}

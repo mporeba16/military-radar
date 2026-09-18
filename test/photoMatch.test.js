@@ -91,3 +91,24 @@ describe('cudze zdjęcie kontra brak zdjęcia', () => {
     expect(canVerifyPhotoMatch({ t: null, flight: '' })).toBe(false)
   })
 })
+
+describe('rejestracja w adresie zdjęcia', () => {
+  it('SHADOW2 odzyskuje swoje zdjęcie', () => {
+    // Regresja po zaostrzeniu bramki: AN28 nie trafiał w slug „m-28b-pt",
+    // więc poprawne zdjęcie polskiej Bryzy było odrzucane razem ze złymi.
+    const foto = { link: 'https://www.planespotters.net/photo/1590895/0222-polish-air-force-pzl-mielec-m-28b-pt' }
+    expect(photoHasMatchSignal(foto, { t: 'AN28', reg: '0222', flight: 'SHADOW2' })).toBe(true)
+  })
+
+  it('numer z myślnikiem nie udaje numeru bez myślnika', () => {
+    // Polski Hercules 1510 kontra niemiecki Airbus 15+10 zapisany jako „15-10".
+    // Gdyby porównanie normalizowało myślniki, cudze zdjęcie wróciłoby na kartę.
+    const foto = { link: 'https://www.planespotters.net/photo/1973085/15-10-luftwaffe-german-air-force-airbus-a321-251nx' }
+    expect(photoHasMatchSignal(foto, { t: 'C130', reg: '1510', flight: 'HEREC01' })).toBe(false)
+  })
+
+  it('krótka rejestracja nie wystarcza za dowód', () => {
+    const foto = { link: 'https://www.planespotters.net/photo/1/22-jakis-samolot' }
+    expect(photoHasMatchSignal(foto, { t: 'XXXX', reg: '22', flight: 'TEST1' })).toBe(false)
+  })
+})

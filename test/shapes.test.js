@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { getShapeKey, SHAPES } from '../src/components/aircraftShapes.js'
-import { getCommonName } from '../src/lib/typeNames.js'
+import { getCommonName, typeLabel } from '../src/lib/typeNames.js'
 
 // C-390 Millennium przychodzi z adsb.fi pod fabrycznym oznaczeniem Embraera
 // (t: "E390", desc: "EMBRAER EMB-390"), a nie pod wojskowym C390/KC390. Reguła
@@ -91,5 +91,28 @@ describe('kategoria emitera ADS-B', () => {
   it('bez kategorii nic się nie zmienia', () => {
     expect(getShapeKey('', null, null)).toBe('jet_swept')
     expect(getShapeKey('', null, 'A3')).toBe('jet_swept')
+  })
+})
+
+describe('typeLabel — etykieta typu na karcie', () => {
+  it('nie powtarza oznaczenia, które niesie już nazwa', () => {
+    // „AN28 · M28 Bryza / An-28" mówiło to samo trzy razy.
+    expect(typeLabel('AN28')).toBe('M28 Bryza')
+    expect(typeLabel('M28')).toBe('M28 Bryza')
+    expect(typeLabel('E390')).toBe('C-390 Millennium')
+    expect(typeLabel('A310')).toBe('A310 MRTT')
+    expect(typeLabel('RQ4')).toBe('RQ-4 Global Hawk')
+  })
+
+  it('dokłada kod, gdy nazwa własna go nie niesie', () => {
+    expect(typeLabel('C17')).toBe('C17 · Globemaster III')
+    expect(typeLabel('E3TF')).toBe('E3TF · Sentry (AWACS)')
+    expect(typeLabel('B748')).toBe('B748 · Jumbo Jet')
+  })
+
+  it('bez nazwy własnej zostaje sam kod', () => {
+    expect(typeLabel('EC35')).toBe('EC35')
+    expect(typeLabel('')).toBeNull()
+    expect(typeLabel(null)).toBeNull()
   })
 })

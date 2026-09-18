@@ -1,8 +1,10 @@
+/* Przypięte do okna, nie do przepływu dokumentu. W trybie standalone na iOS
+   wysokość #root bywa liczona bez paska stanu (-webkit-fill-available), przez
+   co mapa zaczynała się dopiero pod zegarkiem i u góry zostawał ciemny pas tła.
+   `fixed` + `inset: 0` odnosi się do okna, więc mapa sięga samej krawędzi. */
 .app {
-  position: relative;
-  width: 100vw;
-  height: 100vh;
-  height: 100dvh;
+  position: fixed;
+  inset: 0;
   overflow: hidden;
 }
 
@@ -494,7 +496,10 @@
 /* Alert toasts — below logo, center */
 .alert-stack {
   position: absolute;
-  top: calc(58px + env(safe-area-inset-top, 0px));
+  /* Równo ze znacznikiem aplikacji i przyciskami paneli, nie pod nimi. Stos
+     jest wyśrodkowany i przy 393 px sięga od 78 do 315 px, a znacznik kończy
+     się na 56, przyciski zaczynają na 337 — mieści się między nimi. */
+  top: calc(12px + env(safe-area-inset-top, 0px));
   left: 50%;
   transform: translateX(-50%);
   z-index: 1200;

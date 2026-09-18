@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { altToColor, ftToM, knToKmh, getCommonName, countryFromHex, countryFlag } from './aircraftShapes'
+import { altToColor, ftToM, knToKmh, countryFromHex, countryFlag } from './aircraftShapes'
+import { typeLabel } from '../lib/typeNames'
 import { findLikelyLanding } from '../airfields'
 import { scorePhotoMatch, photoHasMatchSignal, canVerifyPhotoMatch } from '../lib/photoMatch'
 import { t } from '../i18n'
@@ -108,7 +109,7 @@ export default function AircraftInfoPanel({ ac, onClose }) {
   const altM = ftToM(ac.alt_baro)
   const kmh = knToKmh(ac.gs)
   const color = altToColor(altM)
-  const commonName = getCommonName(ac.t)
+  const label = typeLabel(ac.t)
   const country = ac.country || countryFromHex(ac.hex)
   const flag = country ? countryFlag(country) : ''
   const landing = findLikelyLanding(ac)
@@ -144,11 +145,7 @@ export default function AircraftInfoPanel({ ac, onClose }) {
               Nagłówek może się zawinąć (patrz .ac-info-title), bo przy wąskiej
               karcie „E3TF · Sentry (AWACS)" nie zmieści się w jednej linii
               obok znaku wywoławczego, a skracanie zjadałoby właśnie nazwę. */}
-          {ac.t && (
-            <span className="ac-info-type">
-              {commonName ? `${ac.t} · ${commonName}` : ac.t}
-            </span>
-          )}
+          {label && <span className="ac-info-type">{label}</span>}
         </span>
         <button className="ac-info-close" onClick={onClose} aria-label={t('CLOSE_AIRCRAFT_PANEL')}>✕</button>
       </div>

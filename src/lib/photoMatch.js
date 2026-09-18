@@ -98,6 +98,11 @@ export const TYPE_SLUG_ALIASES = {
   S70: ['s-70', 'black-hawk', 'blackhawk'], V22: ['v-22', 'osprey'],
   MV22: ['mv-22'], CV22: ['cv-22'],
   MI2: ['mi-2'], MI8: ['mi-8'], MI17: ['mi-17'], MI24: ['mi-24'], MI28: ['mi-28'],
+  // PZL M28 Bryza. adsb.fi podaje AN28 (rodowód An-28), a planespotters pisze
+  // „pzl-mielec-m-28b-pt" — bez tego aliasu poprawne zdjęcie było odrzucane.
+  AN28: ['m-28', 'm28', 'bryza', 'skytruck', 'an-28'],
+  M28: ['m-28', 'm28', 'bryza', 'skytruck', 'an-28'],
+  C145: ['m-28', 'skytruck'], A28: ['an-28'],
   W3: ['w-3', 'sokol'], W3A: ['w-3', 'sokol'],
   EC135: ['ec135', 'ec-135'], EC145: ['ec145', 'ec-145'], EC725: ['ec725', 'caracal'],
   // UWAGA: adsb.fi podaje DESYGNATORY ICAO (EC35, EC45), nie nazwy handlowe.
@@ -177,9 +182,25 @@ export function canVerifyPhotoMatch(ac) {
   return OPERATOR_HINT_BY_CALLSIGN.some(([re]) => re.test(callsign))
 }
 
+// Czy adres zdjęcia zaczyna się od TEJ rejestracji. Slug planespotters ma
+// postać /photo/{id}/{rejestracja}-{operator}-{model}, więc pierwszy człon jest
+// twardym dowodem tożsamości płatowca — mocniejszym niż zgadywanie po typie.
+//
+// Porównujemy rejestrację DOSŁOWNIE, bez usuwania myślników. To nie przeoczenie:
+// polski Hercules ma numer 1510, a niemiecki Airbus 15+10 zapisany w adresie
+// jako „15-10". Po znormalizowaniu myślników oba wyglądałyby tak samo i wrócilibyśmy
+// do pokazywania cudzego zdjęcia.
+function slugStartsWithReg(link, reg) {
+  const r = (reg || '').trim().toLowerCase()
+  if (r.length < 3) return false
+  const m = link.match(/\/photo\/\d+\/([^/?#]+)/)
+  return !!m && m[1].startsWith(r + '-')
+}
+
 export function photoHasMatchSignal(photo, ac) {
   const link = (photo.link || '').toLowerCase()
   if (!link) return false
+  if (slugStartsWithReg(link, ac.reg)) return true
   const candidates = typeSlugCandidates(ac.t)
   if (candidates.length && candidates.some(c => link.includes(c))) return true
   const callsign = (ac.flight || '').toUpperCase()
