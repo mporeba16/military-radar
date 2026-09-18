@@ -269,7 +269,7 @@ export function getShapeKey(t, gs = null, category = null) {
   // MBB, Robinson, MD, Mi-2 / Mi-4 / Mi-6 / Mi-10 / Mi-14 / Mi-26, Kamov
   if (/^BO105$|^B105$|^BK11?7$|^R22[A-Z]?$|^R44$|^R66$|^MD5[0-9]$|^MD500$|^MD600$|^MI2$|^MI4$|^MI6$|^MI10$|^MI14$|^MI26$|^KA2[269]$|^KA32$|^KA26$/.test(type)) return 'helicopter'
 
-  if (/^UH|^AH|^MH|^HH|^SH|^H6|^H4|^H7|^H9|EC135|EC35|EC145|EC45|EC665|W3A?|MI8|MI17|MI28|KA50|KA52|LYNX|SEAHAWK|WILDCAT|R44|R66|NH90|NH9|MD9|EXPLORER/.test(type)) return 'helicopter'
+  if (/^UH|^AH|^MH|^HH|^SH|^H6|^H4|^H7|^H9|EC135|EC35|EC145|EC45|EC665|W3A?|MI8|MI17|MI28|KA50|KA52|LYNX|SEAHAWK|WILDCAT|R44|R66|NH90|NH9|MD9|^EXPL|EXPLORER/.test(type)) return 'helicopter'
 
   // Bombers
   if (/^B1$|^B1B$|LANCER/.test(type)) return 'b1b_lancer'

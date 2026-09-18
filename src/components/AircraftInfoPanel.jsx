@@ -103,7 +103,26 @@ function useAircraftPhoto(hex, reg, ac) {
   return { photo, state }
 }
 
-export default function AircraftInfoPanel({ ac, onClose }) {
+// Trend pionowy z prędkości wznoszenia (ft/min). Próg 250 ft/min odsiewa
+// drgania barometru w locie poziomym.
+const VS_THRESHOLD_FPM = 250
+function verticalTrend(ac) {
+  const rate = ac.baro_rate ?? ac.geom_rate
+  if (rate == null || ac.alt_baro == null || ac.alt_baro === 'ground') return null
+  if (rate > VS_THRESHOLD_FPM) return { dir: 'up', icon: '↑', label: t('INFO_CLIMBING') }
+  if (rate < -VS_THRESHOLD_FPM) return { dir: 'down', icon: '↓', label: t('INFO_DESCENDING') }
+  return { dir: 'level', icon: '→', label: t('INFO_LEVEL') }
+}
+
+// „47 min" albo „1:23 h" — krótko, żeby zmieścić trzecią kolumnę na karcie.
+function formatFlightTime(startTs) {
+  if (!startTs) return null
+  const min = Math.max(0, Math.floor((Date.now() - startTs) / 60000))
+  if (min < 60) return { val: String(min), unit: 'min' }
+  return { val: `${Math.floor(min / 60)}:${String(min % 60).padStart(2, '0')}`, unit: 'h' }
+}
+
+export default function AircraftInfoPanel({ ac, flightStart, onClose }) {
   const { photo, state: photoState } = useAircraftPhoto(ac.hex, ac.reg, ac)
   const [imgError, setImgError] = useState(false)
   const altM = ftToM(ac.alt_baro)
@@ -113,6 +132,8 @@ export default function AircraftInfoPanel({ ac, onClose }) {
   const country = ac.country || countryFromHex(ac.hex)
   const flag = country ? countryFlag(country) : ''
   const landing = findLikelyLanding(ac)
+  const trend = altM != null ? verticalTrend(ac) : null
+  const flightTime = formatFlightTime(flightStart)
 
   useEffect(() => { setImgError(false) }, [photo])
 
@@ -193,6 +214,14 @@ export default function AircraftInfoPanel({ ac, onClose }) {
 
       <div className="ac-info-readout">
         <div className="ac-info-metric">
+          {trend && (
+            <span
+              className={`ac-info-trend ac-info-trend--${trend.dir}`}
+              title={trend.label}
+              aria-label={trend.label}
+              role="img"
+            >{trend.icon}</span>
+          )}
           <span className="ac-info-metric__val">
             {altM != null ? altM.toLocaleString('pl-PL') : '—'}
           </span>
@@ -203,6 +232,11 @@ export default function AircraftInfoPanel({ ac, onClose }) {
           <span className="ac-info-metric__val">{kmh != null ? kmh : '—'}</span>
           <span className="ac-info-metric__unit">km/h</span>
           <span className="ac-info-metric__label">{t('INFO_SPEED')}</span>
+        </div>
+        <div className="ac-info-metric" title={t('INFO_FLIGHT_TIME_HINT')}>
+          <span className="ac-info-metric__val">{flightTime ? flightTime.val : '—'}</span>
+          {flightTime && <span className="ac-info-metric__unit">{flightTime.unit}</span>}
+          <span className="ac-info-metric__label">{t('INFO_FLIGHT_TIME')}</span>
         </div>
       </div>
 

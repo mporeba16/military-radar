@@ -126,3 +126,10 @@ describe('typeLabel — etykieta typu na karcie', () => {
     expect(typeLabel(null)).toBeNull()
   })
 })
+
+describe('MD-900 Explorer', () => {
+  it('EXPL (np. belgijska policja G17) to śmigłowiec', () => {
+    expect(getShapeKey('EXPL')).toBe('helicopter')
+    expect(typeLabel('EXPL')).toBe('MD-900 Explorer')
+  })
+})

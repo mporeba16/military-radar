@@ -273,6 +273,16 @@
   font-feature-settings: 'tnum' 1;
 }
 
+.ac-info-trend {
+  align-self: center;
+  font-size: var(--t-small);
+  font-weight: 600;
+  line-height: 1;
+}
+.ac-info-trend--up    { color: #4caf50; }
+.ac-info-trend--down  { color: #ffb74d; }
+.ac-info-trend--level { color: rgba(255, 255, 255, 0.45); }
+
 .ac-info-metric__unit {
   font-size: var(--t-small);
   color: rgba(255, 255, 255, 0.5);

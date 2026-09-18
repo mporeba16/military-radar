@@ -37,6 +37,7 @@ export default function App() {
   const [vibrateOn, setVibrateOn] = useLocalStorage('radar.vibrate', true)
   const [selectedHex, setSelectedHex] = useState(null)
   const [serverTrails, setServerTrails] = useState(new Map())
+  const [serverFlightStart, setServerFlightStart] = useState(null) // { hex, ts }
   const [activePanel, setActivePanel] = useState(null)
   const [activeTileId, setActiveTileId] = useLocalStorage('radar.tile', 'osm-adsbx')
   const [altBandsRaw, setAltBands] = useLocalStorage('radar.altBands', ALL_BANDS_ON)
@@ -380,8 +381,9 @@ export default function App() {
     const fetchTrail = async () => {
       try {
         const r = await fetch(`/.netlify/functions/aircraft?hex=${selectedHex}`, { signal: ctrl.signal })
-        const { trail } = await r.json()
+        const { trail, flightStartTs } = await r.json()
         if (ctrl.signal.aborted) return
+        if (flightStartTs) setServerFlightStart({ hex: selectedHex, ts: flightStartTs })
         if (trail?.length) {
           setServerTrails(prev => { const next = new Map(prev); next.set(selectedHex, trail); return next })
         }
@@ -406,6 +408,16 @@ export default function App() {
     () => location ? [location.lat, location.lon] : null,
     [location?.lat, location?.lon]
   )
+
+  // Czas lotu: ADS-B nie niesie godziny startu, więc liczymy od najwcześniejszego
+  // punktu, jaki znamy — trasy z serwera (cron zapisuje wojsko w tle) albo
+  // pierwszego odczytu w tej sesji. To dolna granica, nie czas od startu.
+  function flightStartFor(hex) {
+    const local = firstSeenRef.current.get(hex)
+    const server = serverFlightStart?.hex === hex ? serverFlightStart.ts : null
+    const known = [local, server].filter(Boolean)
+    return known.length ? Math.min(...known) : null
+  }
 
   const selectedAc = useMemo(
     () => selectedHex ? (aircraft.find(ac => ac.hex === selectedHex) || null) : null,
@@ -540,6 +552,7 @@ export default function App() {
         <AircraftInfoPanel
           key={selectedAc.hex}
           ac={selectedAc}
+          flightStart={flightStartFor(selectedAc.hex)}
           onClose={() => setSelectedHex(null)}
         />
       )}

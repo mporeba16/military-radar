@@ -126,7 +126,7 @@ export function getCommonName(t) {
     [/C212/, 'Aviocar'],
     [/C12$/, 'Huron'],
     [/B744|B747|B748/, 'Jumbo Jet'],
-    [/MD9|EXPLORER/, 'MD-900 Explorer'],
+    [/MD9|^EXPL|EXPLORER/, 'MD-900 Explorer'],
     [/^E121|XINGU/, 'EMB-121 Xingu'],
     [/^DA62/, 'Diamond DA-62'],
     [/^DA42/, 'Diamond DA-42'],

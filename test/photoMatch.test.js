@@ -134,3 +134,10 @@ describe('rejestracja w adresie zdjęcia', () => {
     expect(photoHasMatchSignal(foto, { t: 'XXXX', reg: '22', flight: 'TEST1' })).toBe(false)
   })
 })
+
+describe('King Air / C-12 (USAF SPAR)', () => {
+  it('SPAR89 (BE20, 76-3239) przyjmuje swoje zdjęcie C-12C', () => {
+    const foto = { link: 'https://www.planespotters.net/photo/1602941/76-3239-united-states-air-force-beechcraft-c-12c-b200-super-king-air?utm_source=api' }
+    expect(photoHasMatchSignal(foto, { t: 'BE20', reg: '76-3239', flight: 'SPAR89' })).toBe(true)
+  })
+})

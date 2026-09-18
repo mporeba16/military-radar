@@ -282,14 +282,17 @@ export const handler = async (event) => {
     // of JSON on every refresh — visual fidelity from 500 polyline vertices
     // is plenty for any realistic flight.
     const TRAIL_RESPONSE_MAX_POINTS = 500
-    const currentFlight = filterImplausibleJumps(currentFlightOnly(allPoints))
-      .slice(-TRAIL_RESPONSE_MAX_POINTS)
+    const wholeFlight = filterImplausibleJumps(currentFlightOnly(allPoints))
+    const currentFlight = wholeFlight.slice(-TRAIL_RESPONSE_MAX_POINTS)
 
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({
         trail: currentFlight,
+        // Początek lotu liczony PRZED przycięciem do 500 punktów — inaczej
+        // czas lotu na karcie maleje przy długich lotach.
+        flightStartTs: wholeFlight[0]?.ts || null,
         sources: {
           blob: currentFlight.length,
           blobTotal: allPoints.length,
