@@ -13,47 +13,6 @@ const SPECIAL_SQUAWKS = {
   '7400': { label: '⚠ 7400 UTRATA UAV', kind: 'warn' },
 }
 
-// V5: operator inferred from callsign prefix
-const OPERATOR_PATTERNS = [
-  [/^GAF\d/, 'Luftwaffe (Niemcy)'],
-  [/^LIFT/, 'Luftwaffe (Niemcy)'],
-  [/^RCF/, 'Siły Powietrzne RP'],
-  [/^PLF/, 'Siły Powietrzne RP'],
-  [/^RCH|^REACH/, 'USAF'],
-  [/^DUKE|^JAKE|^POLO|^GORDO|^PEARL|^FORTE|^RAZER|^KNIFE|^IRON|^SWORD|^VALOR|^HEAVY|^EAGLE\d|^VIPER|^DEMON|^KNIGHT|^SHADOW|^GHOST|^RAVEN|^STALLION|^RANGER\d|^TIGER\d|^VENOM|^SPECTRE|^SPOOKY|^JOLLY|^PEDRO|^KING\d|^PAVE|^COMBAT/, 'USAF / US Air Force'],
-  [/^MAGMA|^ASCOT|^COMET/, 'RAF (Wlk. Brytania)'],
-  [/^NATO|^NAOC|^NATOQ/, 'NATO'],
-  [/^FRAF/, 'Armée de l\'Air (Francja)'],
-  [/^BAF\d/, 'Belgian Air Force'],
-  [/^DAMP/, 'Danish Air Force'],
-  [/^CZAF/, 'Czech Air Force'],
-  [/^SLAF/, 'Slovak Air Force'],
-  [/^HUNAF/, 'Hungarian Air Force'],
-  [/^BUAF/, 'Bulgarian Air Force'],
-  [/^ROTAF/, 'Romanian Air Force'],
-  [/^FNY|^FINAF/, 'Finnish Air Force'],
-  [/^NRAF|^SAVER/, 'Norwegian Air Force'],
-  [/^SWAF/, 'Swedish Air Force'],
-  [/^LTAF/, 'Lithuanian Air Force'],
-  [/^LVAF/, 'Latvian Air Force'],
-  [/^EEAF/, 'Estonian Air Force'],
-  [/^RIMC/, 'Aeronautica Militare (Włochy)'],
-  [/^BAH/, 'Bahrain Royal Air Force'],
-  [/^KAF/, 'Kuwait Air Force'],
-  [/^QAF/, 'Qatar Emiri Air Force'],
-  [/^OAF/, 'Oman Royal Air Force'],
-  [/^SRA/, 'Saudi Royal Air Force'],
-  [/^SHAHD/, 'Jordan Royal Air Force'],
-]
-
-function operatorFrom(callsign) {
-  const cs = (callsign || '').toUpperCase()
-  for (const [re, op] of OPERATOR_PATTERNS) {
-    if (re.test(cs)) return op
-  }
-  return null
-}
-
 function useAircraftPhoto(hex, reg, ac) {
   const [photo, setPhoto] = useState(null)
   // 'idle' | 'loading' | 'ok' | 'not-found' | 'error'
@@ -143,7 +102,6 @@ export default function AircraftInfoPanel({ ac, onClose }) {
   const commonName = getCommonName(ac.t)
   const country = ac.country || countryFromHex(ac.hex)
   const flag = country ? countryFlag(country) : ''
-  const operator = operatorFrom(ac.flight)
   const landing = findLikelyLanding(ac)
 
   useEffect(() => { setImgError(false) }, [photo])
@@ -155,10 +113,8 @@ export default function AircraftInfoPanel({ ac, onClose }) {
   //
   // Układ: dwie liczby, które NAPRAWDĘ się zmieniają (wysokość i prędkość),
   // dostają stopień pisma odpowiadający temu, jak często się na nie patrzy.
-  // Typ i operator to dane stałe przez cały lot — schodzą do jednej cichej
-  // linijki pod spodem. Wcześniej wszystkie cztery były wierszami tabelki
-  // tej samej wagi i nic nie wygrywało.
-  const identity = operator
+  // Czym maszyna jest, mówi nagłówek; operator zniknął, bo „NATO" czy „Siły
+  // Powietrzne RP" i tak wynikało z flagi i znaku wywoławczego obok.
 
   const photoSrc = photo?.thumbnail_large?.src || photo?.thumbnail?.src
   const showPhoto = !!(photo && photoSrc && !imgError)
@@ -176,7 +132,6 @@ export default function AircraftInfoPanel({ ac, onClose }) {
           </span>
           {/* Kod typu WRAZ z nazwą własną przy znaku wywoławczym: razem
               odpowiadają na pytanie „co to jest", więc stoją obok siebie.
-              Na dole zostaje sam operator — czyje to jest, a nie co to jest.
               Nagłówek może się zawinąć (patrz .ac-info-title), bo przy wąskiej
               karcie „E3TF · Sentry (AWACS)" nie zmieści się w jednej linii
               obok znaku wywoławczego, a skracanie zjadałoby właśnie nazwę. */}
@@ -244,8 +199,6 @@ export default function AircraftInfoPanel({ ac, onClose }) {
           <span className="ac-info-metric__label">{t('INFO_SPEED')}</span>
         </div>
       </div>
-
-      {identity && <p className="ac-info-identity">{identity}</p>}
 
       <a
         className="ac-info-ext-link"

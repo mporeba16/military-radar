@@ -154,6 +154,10 @@ function mapADSBfiRecord(a) {
     baro_rate: a.baro_rate != null ? Math.round(a.baro_rate) : null,
     squawk: a.squawk || null,
     reg: a.r || null,
+    // Kategoria emitera ADS-B (A7 = wiropłat). Nadaje ją sama maszyna, więc
+    // przy pustym kodzie typu jest jedynym pewnym sygnałem, że to śmigłowiec —
+    // bez niej mapa rysowała Mi-8 jako odrzutowiec.
+    category: a.category || null,
     country: '',
     on_ground: a.alt_baro === 'ground' || !!a.on_ground,
     // MLAT-derived position (adsb.fi oznacza pola wyliczone w tablicy `mlat`) —

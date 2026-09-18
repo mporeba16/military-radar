@@ -198,7 +198,7 @@ function buildIconSvg(ac, isSelected, zoomScale) {
     : onGround
       ? '#808080'
       : altToColor(altM)
-  const shapeKey = getShapeKey(ac.t, ac.gs)
+  const shapeKey = getShapeKey(ac.t, ac.gs, ac.category)
   const shape = SHAPES[shapeKey] || SHAPES.jet_swept
 
   const { cx, cy, scale, sz = 44 } = shape
@@ -269,7 +269,7 @@ function buildIconSvg(ac, isSelected, zoomScale) {
 }
 
 function buildLeafletIcon(ac, isSelected, zoomScale) {
-  const shape = SHAPES[getShapeKey(ac.t, ac.gs)] || SHAPES.jet_swept
+  const shape = SHAPES[getShapeKey(ac.t, ac.gs, ac.category)] || SHAPES.jet_swept
   const sz = shape.sz || 44
   const effectiveSz = Math.round(sz * zoomScale)
   const tapPad = Math.max(6, Math.ceil((MIN_TAP_TARGET - effectiveSz) / 2))

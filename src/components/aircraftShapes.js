@@ -239,7 +239,7 @@ export const SHAPES = {
   para: { path: 'M 2.7004841,35.4 C 2.3957197,34.805237 2.3346108,34.071291 2.3487212,33.492639 2.3628316,32.913987 2.4133442,32.511354 2.7,32 9.5741879,27.222774 18.4208,24.315376 32,24.357064 45.579201,24.281104 54.425812,27.222774 61.3,32 c 0.276334,0.514345 0.356292,0.854368 0.375811,1.434709 C 61.69533,34.01505 61.609571,34.773946 61.3,35.4 51.576472,38.439657 40.678687,39.277517 32,39.189844 21.874148,39.356757 12.026431,38.677104 2.7004841,35.4 Z' , cx:32, cy:32, scale:0.47743 },
 }
 
-export function getShapeKey(t, gs = null) {
+export function getShapeKey(t, gs = null, category = null) {
   const type = (t || '').toUpperCase().replace(/[-\s]/g, '')
 
   if (/BLIMP|ZEPPELIN|AIRSHIP/.test(type)) return 'blimp'
@@ -416,6 +416,13 @@ export function getShapeKey(t, gs = null) {
   if (/CIRRUS|SR22|SR20|^DA40/.test(type)) return 'cirrus_sr22'
   if (/^PA[23]/.test(type)) return 'pa24'
   if (/GLIDER|SAILPLANE|^ASK|^ASW/.test(type)) return 'glider'
+
+  // Ostatnia deska ratunku PRZED domyślnym odrzutowcem: kategoria emitera
+  // ADS-B. A7 to wiropłat — nadaje ją sama maszyna, więc gdy kod typu jest
+  // pusty (Mode-S, MLAT, maszyna spoza bazy), to jedyna pewna informacja, że
+  // rysujemy śmigłowiec, a nie samolot. Bez tego Mi-8 bez typu wychodził jako
+  // odrzutowiec.
+  if ((category || '').toUpperCase() === 'A7') return 'helicopter'
 
   return 'jet_swept'
 }

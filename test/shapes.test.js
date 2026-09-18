@@ -73,3 +73,23 @@ describe('getCommonName — desygnatory ICAO z adsb.fi', () => {
     expect(getCommonName('A320')).toBeNull()
   })
 })
+
+describe('kategoria emitera ADS-B', () => {
+  // Maszyny bez kodu typu (Mode-S, MLAT, spoza bazy) dostawały domyślnie
+  // sylwetkę odrzutowca — tak polski Mi-8 wychodził na mapie jako samolot.
+  // A7 nadaje sama maszyna, więc jest pewniejsze niż jakakolwiek heurystyka.
+  it('A7 bez kodu typu daje śmigłowiec, nie odrzutowiec', () => {
+    expect(getShapeKey('', null, 'A7')).toBe('helicopter')
+    expect(getShapeKey(null, null, 'a7')).toBe('helicopter')
+  })
+
+  it('kod typu ma pierwszeństwo przed kategorią', () => {
+    // Mi-24 ma własną sylwetkę i kategoria nie może jej nadpisać.
+    expect(getShapeKey('MI24', null, 'A7')).toBe('mil24')
+  })
+
+  it('bez kategorii nic się nie zmienia', () => {
+    expect(getShapeKey('', null, null)).toBe('jet_swept')
+    expect(getShapeKey('', null, 'A3')).toBe('jet_swept')
+  })
+})
