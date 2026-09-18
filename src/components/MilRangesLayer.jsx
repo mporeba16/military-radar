@@ -31,7 +31,6 @@ export default function MilRangesLayer({ show, zoom, basemapLabelsAreas }) {
   // wszystkich razem potrafi wypaść w polu między nimi.
   const labels = useMemo(() => MIL_RANGES_PL.map(r => ({
     name: r.name,
-    km2: r.km2,
     center: centroid(r.rings.reduce((a, b) => (ringArea(b) > ringArea(a) ? b : a))),
   })), [])
 
@@ -57,7 +56,7 @@ export default function MilRangesLayer({ show, zoom, basemapLabelsAreas }) {
           zIndexOffset={-900}
           icon={L.divIcon({
             className: 'range-marker',
-            html: `<span class="range-marker-label">${l.name}<span class="range-marker-km">${l.km2} km²</span></span>`,
+            html: `<span class="range-marker-label">${l.name}</span>`,
             iconSize: [0, 0],
             iconAnchor: [0, 0],
           })}

@@ -320,3 +320,15 @@
   letter-spacing: 0.4px;
   color: rgba(255, 255, 255, 0.72);
 }
+
+/* Mobile — musi stać PO regułach odczytów, inaczej one wygrywają kolejnością. */
+@media (max-width: 600px) {
+  /* Trzy odczyty w 226 px treści: przy 21 px wysokość z trendem i prędkość
+     zajmowały całą szerokość, a czas lotu wypadał poza kartę i trzeba było
+     przewijać ją w bok. */
+  .ac-info-readout { gap: 6px; }
+  .ac-info-metric { gap: 2px; }
+  .ac-info-metric__val { font-size: 17px; }
+  .ac-info-metric__unit,
+  .ac-info-trend { font-size: var(--t-micro); }
+}

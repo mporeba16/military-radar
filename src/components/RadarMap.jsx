@@ -289,7 +289,7 @@ function MapClickHandler({ onSelect }) {
 }
 
 // Statyczna warstwa polskich baz wojskowych (Łask, Krzesiny…). Rysowana POD
-// samolotami (zIndexOffset ujemny), bursztynowym kwadratem. Nazwa pokazuje się
+// samolotami (zIndexOffset ujemny). Nazwa pokazuje się
 // dopiero od zoomu LABEL_ZOOM, żeby przy oddaleniu nie zaśmiecać mapy napisami.
 const BASE_LABEL_ZOOM = 8
 
@@ -297,8 +297,9 @@ const BASE_LABEL_ZOOM = 8
 // koło mnie", a nie o to, nad którym budynkiem.
 const RECENTER_GPS_ZOOM = 9
 // Jedna warstwa, dwa zbiory: polskie bazy i bazy NATO. `variant` decyduje
-// tylko o kolorze kwadratu i etykiety — reszta zachowania jest wspólna, żeby
-// obie warstwy nie zaczęły żyć własnym życiem.
+// tylko o kolorze etykiety — reszta zachowania jest wspólna, żeby obie warstwy
+// nie zaczęły żyć własnym życiem. Bazę na mapie znaczy kreskowany teren
+// (BaseAreasLayer); marker niesie już tylko podpis i dymek z nazwą.
 function BasesLayer({ zoom, bases, variant }) {
   const map = useMap()
   const groupRef = useRef(null)
@@ -315,7 +316,6 @@ function BasesLayer({ zoom, bases, variant }) {
     if (!group) return
     group.clearLayers()
     const showLabel = zoom >= BASE_LABEL_ZOOM
-    const mod = variant === 'nato' ? ' base-marker-sq--nato' : ''
     const labelMod = variant === 'nato' ? ' base-marker-label--nato' : ''
     for (const ap of bases) {
       const label = showLabel
@@ -323,7 +323,7 @@ function BasesLayer({ zoom, bases, variant }) {
         : ''
       const icon = L.divIcon({
         className: 'base-marker',
-        html: `<span class="base-marker-sq${mod}"></span>${label}`,
+        html: label,
         iconSize: [12, 12],
         iconAnchor: [6, 6],
       })
@@ -336,9 +336,8 @@ function BasesLayer({ zoom, bases, variant }) {
   return null
 }
 
-// Teren lotniska — kreskowany obrys jak poligon. Kwadrat z BasesLayer zostaje
-// na wierzchu: przy oddaleniu obrys ma kilka pikseli i tylko kwadrat mówi, że
-// tam jest baza.
+// Teren lotniska — kreskowany obrys jak poligon. To jedyny znak bazy na mapie:
+// kwadraty nad nim zaśmiecały widok całej Polski.
 function BaseAreasLayer({ bases, variant }) {
   const className = `base-area--${variant}`
   const color = variant === 'nato' ? BASE_NATO : BASE_PL
