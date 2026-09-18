@@ -206,12 +206,6 @@
   100% { background-position: -200% 0; }
 }
 
-.ac-info-identity strong {
-  color: #dce8f5;
-  font-weight: 600;
-  letter-spacing: 0.3px;
-}
-
 .ac-info-ext-link {
   display: block;
   margin: 6px 12px 10px;
@@ -313,16 +307,6 @@
 .ac-info-metric__label {
   font-size: var(--t-micro);
   color: rgba(255, 255, 255, 0.4);
-}
-
-/* Rejestracja i adres ICAO — dane stałe przez cały lot, więc jedna cicha
-   linijka pod odczytami. */
-.ac-info-identity {
-  margin: 0;
-  padding: 6px 12px 0;
-  font-size: var(--t-small);
-  line-height: 1.4;
-  color: rgba(255, 255, 255, 0.62);
 }
 
 /* Kod typu obok znaku wywoławczego — przygaszony, bo to uzupełnienie nazwy,

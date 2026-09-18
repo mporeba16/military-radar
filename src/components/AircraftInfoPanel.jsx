@@ -239,13 +239,6 @@ export default function AircraftInfoPanel({ ac, flightStart, onClose }) {
         </div>
       </div>
 
-      {(ac.reg || ac.hex) && (
-        <p className="ac-info-identity">
-          {ac.reg && <>{t('INFO_REG')} <strong>{ac.reg}</strong> · </>}
-          ICAO <strong>{ac.hex.toUpperCase()}</strong>
-        </p>
-      )}
-
       <a
         className="ac-info-ext-link"
         href={`https://globe.adsbexchange.com/?icao=${ac.hex}`}

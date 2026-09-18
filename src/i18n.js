@@ -89,7 +89,6 @@ const STRINGS = {
     ALERT_TAG: '⚠ W ZASIĘGU',
     ALERT_TAG_NEAR: '⚠ BLISKO CIEBIE',
     ALERT_OVERFLOW: 'więcej w zasięgu',
-    INFO_REG: 'Rejestracja',
     INFO_ALTITUDE: 'Wysokość',
     INFO_SPEED: 'Prędkość',
     INFO_FLIGHT_TIME: 'Czas lotu',
