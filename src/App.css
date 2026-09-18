@@ -3,8 +3,15 @@
    co mapa zaczynała się dopiero pod zegarkiem i u góry zostawał ciemny pas tła.
    `fixed` + `inset: 0` odnosi się do okna, więc mapa sięga samej krawędzi. */
 .app {
+  /* Wysokość z `dvh`, nie z `inset: 0`. Gdyby blok zawierający okazał się
+     skrócony, `inset: 0` odziedziczyłoby to skrócenie; `100dvh` odnosi się do
+     widocznego okna, więc daje pełny ekran niezależnie od tego, co iOS zgłosi
+     jako wysokość dokumentu. */
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100dvh;
   overflow: hidden;
 }
 

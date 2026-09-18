@@ -94,8 +94,12 @@
 }
 
 html, body, #root {
+  /* Bez `-webkit-fill-available`. Na iOS w trybie standalone ta wartość zwraca
+     wysokość POMNIEJSZONĄ o wcięcia bezpieczne, a że dotyczy elementu <html>,
+     skraca blok zawierający całej strony — razem z elementami `fixed`, które
+     powinny sięgać krawędzi ekranu. Efektem był pusty pas nad paskiem gestu
+     u dołu: mapa kończyła się tam, gdzie kończył się skrócony <html>. */
   height: 100%;
-  height: -webkit-fill-available;
   overflow: hidden;
   /* Kill pull-to-refresh and rubber-band overscroll — this is an app, not a
      scrollable document, and an accidental swipe shouldn't reload the PWA. */
