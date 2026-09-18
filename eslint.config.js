@@ -16,7 +16,9 @@ export default [
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'module',
-      globals: { ...globals.browser },
+      // __BUILD_STAMP__ wstrzykuje Vite przez `define` — dla ESLinta to zmienna
+      // nieznana, więc trzeba ją zadeklarować, inaczej zgłasza no-undef.
+      globals: { ...globals.browser, __BUILD_STAMP__: 'readonly' },
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
     plugins: { react, 'react-hooks': reactHooks },

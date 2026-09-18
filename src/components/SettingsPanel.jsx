@@ -4,6 +4,7 @@ import RangeSlider from './RangeSlider'
 import { t } from '../i18n'
 import { planeWord } from '../lib/plural'
 import { KIND_COLORS, ALERT } from '../lib/palette'
+import { readViewportReport } from '../lib/viewportProbe'
 
 // iPadOS 13+ reports as "MacIntel" but has a touch screen — catch it too.
 const IS_IOS = typeof navigator !== 'undefined' && (
@@ -40,6 +41,34 @@ function readiness({ hasGps, pushOn, kindsOn }) {
   if (kindsOn === 0) return { level: 'warn', title: t('READY_MUTED'), why: t('READY_WHY_MUTED') }
   if (!pushOn) return { level: 'warn', title: t('READY_APP_ONLY'), why: t('READY_WHY_APP_ONLY') }
   return { level: 'ok', title: t('READY_OK'), why: null }
+}
+
+// Wymiary okna odczytane na urządzeniu — jedyny sposób, żeby zobaczyć, co iOS
+// naprawdę robi z trybem standalone i wcięciami bezpiecznymi.
+function ViewportDiag() {
+  const [rep, setRep] = useState(() => readViewportReport())
+  const wiersz = (k, v) => (
+    <div className="diag__row" key={k}>{k}: <span className="diag__v">{v}</span></div>
+  )
+  if (!rep) return null
+  const { insets } = rep
+  return (
+    <section className="cp-section">
+      <div className="cp-label">Okno</div>
+      <div className="diag">
+        {wiersz('standalone', rep.standalone ? 'tak' : 'NIE')}
+        {wiersz('innerHeight', rep.innerH)}
+        {wiersz('screen.height', rep.screenH)}
+        {wiersz('visualViewport', rep.visualH)}
+        {wiersz('clientHeight', rep.dvh)}
+        {wiersz('.app', rep.appH)}
+        {wiersz('mapa', rep.mapH)}
+        {wiersz('wcięcia (g/d/l/p)', `${insets.top} / ${insets.bottom} / ${insets.left} / ${insets.right}`)}
+        {wiersz('dpr', rep.dpr)}
+        <button className="link-btn mt6" onClick={() => setRep(readViewportReport())}>Zmierz ponownie</button>
+      </div>
+    </section>
+  )
 }
 
 export default function SettingsPanel({
@@ -234,7 +263,7 @@ export default function SettingsPanel({
           wciśnięta pomiędzy ustawienia, jak było wcześniej. */}
       <div className="panel-footer">
         <button className="panel-footer__ver" onClick={bumpVersionTap} title={debugUnlocked ? 'Debug aktywny' : ''}>
-          v{version}
+          v{version} · {__BUILD_STAMP__}
         </button>
         {debugUnlocked && (
           <button className="panel-footer__dbg" onClick={() => setDebugOpen(o => !o)} aria-expanded={debugOpen}>
@@ -248,6 +277,8 @@ export default function SettingsPanel({
           <section className="cp-section">
             <button className="btn-refresh" onClick={fetchData}>{t('REFRESH_BTN')}</button>
           </section>
+
+          <ViewportDiag />
 
           {isSubscribed && (
             <section className="cp-section">

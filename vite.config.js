@@ -3,6 +3,10 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  // Znacznik budowy w stopce ustawień. PWA aktualizuje się dopiero przy
+  // kolejnym uruchomieniu, więc bez tego nie da się stwierdzić, czy telefon
+  // ogląda już nową wersję, czy wciąż starą z cache'u service workera.
+  define: { __BUILD_STAMP__: JSON.stringify(new Date().toISOString().slice(5, 16).replace('T', ' ')) },
   build: {
     rollupOptions: {
       output: {
