@@ -1,4 +1,5 @@
 import { TILE_LAYERS, tileThumbUrl } from './RadarMap'
+import { useState } from 'react'
 import Toggle from './Toggle'
 import { t } from '../i18n'
 import { BASE_PL, BASE_NATO, RANGE, RANGE_LABEL, ALERT } from '../lib/palette'
@@ -18,19 +19,41 @@ export default function MapsPanel({
   showRangeLabels, setShowRangeLabels,
   showThreat, setShowThreat, altBands, setAltBands, bandCounts,
 }) {
+  const [baseOpen, setBaseOpen] = useState(false)
+  const active = TILE_LAYERS.find(l => l.id === activeTileId) || TILE_LAYERS[0]
+
   return (
     <div className="panel-body">
 
+      {/* Podkład zmienia się raz na jakiś czas, a siatka sześciu podglądów
+          zajmowała pół panelu i spychała warstwy poniżej krawędzi ekranu.
+          Domyślnie zwinięty wiersz pokazuje, co jest wybrane; siatka
+          rozwija się dopiero, gdy naprawdę chcesz zmienić. */}
       <section className="cp-section">
         <div className="cp-label">{t('MAP_BASE_LABEL')}</div>
-        <div className="tile-grid">
+
+        <button className={`tile-current ${baseOpen ? 'open' : ''}`}
+          aria-expanded={baseOpen}
+          onClick={() => setBaseOpen(o => !o)}>
+          <span className="tile-current__thumb"
+            style={active.filter ? { filter: active.filter } : undefined}>
+            <img src={tileThumbUrl(active)} alt="" loading="lazy" />
+          </span>
+          <span className="tile-current__meta">
+            <span className="tile-current__name">{active.label || active.name}</span>
+            <span className="tile-current__src">{active.sub || active.name}</span>
+          </span>
+          <span className="tile-current__chev">{baseOpen ? '⌃' : '⌄'}</span>
+        </button>
+
+        {baseOpen && <div className="tile-grid">
           {TILE_LAYERS.map(layer => {
             const active = activeTileId === layer.id
             return (
               <button key={layer.id}
                 className={`tile-card ${active ? 'active' : ''}`}
                 aria-pressed={active}
-                onClick={() => setActiveTileId(layer.id)}>
+                onClick={() => { setActiveTileId(layer.id); setBaseOpen(false) }}>
                 <span className="tile-card__thumb"
                   style={layer.filter ? { filter: layer.filter } : undefined}>
                   <img src={tileThumbUrl(layer)} alt="" loading="lazy" />
@@ -45,7 +68,7 @@ export default function MapsPanel({
               </button>
             )
           })}
-        </div>
+        </div>}
       </section>
 
       <section className="cp-section">

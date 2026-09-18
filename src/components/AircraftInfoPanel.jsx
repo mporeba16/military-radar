@@ -152,12 +152,16 @@ export default function AircraftInfoPanel({ ac, onClose }) {
   // Dystans, prędkość pionowa, czas na radarze i długość śladu zniknęły —
   // dystans niesie i tak alert, a resztę widać na mapie. Kraj też nie ma
   // własnego wiersza: mówi go flaga w nagłówku (nazwa została w podpowiedzi).
-  const rows = [
-    [t('INFO_TYPE'),       ac.t ? (commonName ? `${ac.t} · ${commonName}` : ac.t) : '—'],
-    operator ? [t('INFO_OPERATOR'),  operator] : null,
-    [t('INFO_ALTITUDE'), altM != null ? `${altM.toLocaleString()} m` : '—'],
-    [t('INFO_SPEED'), kmh != null ? `${kmh} km/h` : '—'],
-  ].filter(Boolean)
+  //
+  // Układ: dwie liczby, które NAPRAWDĘ się zmieniają (wysokość i prędkość),
+  // dostają stopień pisma odpowiadający temu, jak często się na nie patrzy.
+  // Typ i operator to dane stałe przez cały lot — schodzą do jednej cichej
+  // linijki pod spodem. Wcześniej wszystkie cztery były wierszami tabelki
+  // tej samej wagi i nic nie wygrywało.
+  const identity = [
+    ac.t ? (commonName ? `${ac.t} · ${commonName}` : ac.t) : null,
+    operator,
+  ].filter(Boolean).join('  ·  ')
 
   const photoSrc = photo?.thumbnail_large?.src || photo?.thumbnail?.src
   const showPhoto = !!(photo && photoSrc && !imgError)
@@ -218,16 +222,22 @@ export default function AircraftInfoPanel({ ac, onClose }) {
         </div>
       )}
 
-      <table className="ac-info-table">
-        <tbody>
-          {rows.map(([label, val]) => (
-            <tr key={label}>
-              <td className="ac-info-label">{label}</td>
-              <td className="ac-info-val">{val}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="ac-info-readout">
+        <div className="ac-info-metric">
+          <span className="ac-info-metric__val">
+            {altM != null ? altM.toLocaleString('pl-PL') : '—'}
+          </span>
+          <span className="ac-info-metric__unit">m</span>
+          <span className="ac-info-metric__label">{t('INFO_ALTITUDE')}</span>
+        </div>
+        <div className="ac-info-metric">
+          <span className="ac-info-metric__val">{kmh != null ? kmh : '—'}</span>
+          <span className="ac-info-metric__unit">km/h</span>
+          <span className="ac-info-metric__label">{t('INFO_SPEED')}</span>
+        </div>
+      </div>
+
+      {identity && <p className="ac-info-identity">{identity}</p>}
 
       <a
         className="ac-info-ext-link"

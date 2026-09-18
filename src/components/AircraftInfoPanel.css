@@ -243,3 +243,51 @@
   }
   .ac-info-photo-skeleton { height: 100px; }
 }
+
+/* ── Odczyty na żywo ──────────────────────────────────────────────────────
+   Wysokość i prędkość to jedyne dane na tej karcie, które zmieniają się co
+   cykl odświeżenia. Dostają stopień pisma odpowiadający temu, jak często się
+   na nie patrzy, i cyfry tabelaryczne, żeby nie drgały przy zmianie. */
+.ac-info-readout {
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px 4px;
+}
+
+.ac-info-metric {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 3px;
+  min-width: 0;
+}
+
+.ac-info-metric__val {
+  font-size: var(--t-head);
+  font-weight: 600;
+  line-height: 1;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+.ac-info-metric__unit {
+  font-size: var(--t-small);
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.ac-info-metric__label {
+  flex-basis: 100%;
+  font-size: var(--t-micro);
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Typ i operator — dane stałe przez cały lot, więc jedna cicha linijka. */
+.ac-info-identity {
+  margin: 0;
+  padding: 8px 12px 10px;
+  font-size: var(--t-small);
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.62);
+}
