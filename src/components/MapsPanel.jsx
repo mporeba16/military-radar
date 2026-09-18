@@ -2,7 +2,7 @@ import { TILE_LAYERS, tileThumbUrl } from './RadarMap'
 import { useState } from 'react'
 import Toggle from './Toggle'
 import { t } from '../i18n'
-import { BASE_PL, BASE_NATO, RANGE } from '../lib/palette'
+import { BASE_PL, BASE_NATO, RANGE, AIRSPACE } from '../lib/palette'
 import { ALT_BANDS } from '../lib/altBands'
 import { altToColor } from './aircraftShapes'
 
@@ -16,6 +16,7 @@ export default function MapsPanel({
   activeTileId, setActiveTileId, showBases, setShowBases,
   showNatoBases, setShowNatoBases,
   showRanges, setShowRanges,
+  showAirspace, setShowAirspace, airspaceError,
   altBands, setAltBands, bandCounts,
 }) {
   const [baseOpen, setBaseOpen] = useState(false)
@@ -106,7 +107,22 @@ export default function MapsPanel({
             state={showRanges ? '◉' : '○'}
             stateColor={showRanges ? RANGE : 'rgba(255,255,255,0.4)'}
           />
+          <Toggle
+            on={showAirspace}
+            onToggle={() => setShowAirspace(b => !b)}
+            label={t('AIRSPACE_LABEL')}
+            title={t('AIRSPACE_HINT')}
+            marker={<span className="toggle-swatch toggle-swatch--dashed" style={{
+              background: showAirspace ? 'rgba(227, 220, 85, 0.12)' : 'transparent',
+              color: showAirspace ? AIRSPACE : 'rgba(255,255,255,0.3)',
+            }} />}
+            state={showAirspace ? '◉' : '○'}
+            stateColor={showAirspace ? AIRSPACE : 'rgba(255,255,255,0.4)'}
+          />
         </div>
+        {showAirspace && airspaceError && (
+          <p className="layer-note">{t('AIRSPACE_ERROR')}</p>
+        )}
       </section>
 
       <section className="cp-section">

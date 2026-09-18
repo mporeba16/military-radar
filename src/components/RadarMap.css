@@ -163,3 +163,85 @@
     0 1px 2px rgba(0, 0, 0, 0.95), 0 -1px 2px rgba(0, 0, 0, 0.95),
     0 2px 6px rgba(0, 0, 0, 0.9);
 }
+
+/* ── Strefy aktywne (AUP/UUP) ─────────────────────────────────────────────
+   Podpis jak przy poligonach — sam tekst z obwódką — ale klikalny: pod nim
+   jest okienko z godzinami, pułapami i tym, kto strefę zarezerwował. */
+.airspace-marker {
+  background: none;
+  border: none;
+}
+
+.airspace-marker-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+  cursor: pointer;
+  font: 11px/1.2 var(--font);
+  letter-spacing: 0.6px;
+  color: var(--airspace-label);
+  text-shadow:
+    1px 0 2px rgba(0, 0, 0, 0.95), -1px 0 2px rgba(0, 0, 0, 0.95),
+    0 1px 2px rgba(0, 0, 0, 0.95), 0 -1px 2px rgba(0, 0, 0, 0.95),
+    0 2px 6px rgba(0, 0, 0, 0.9);
+}
+
+.airspace-popup .leaflet-popup-content-wrapper {
+  background: rgba(4, 10, 20, 0.96);
+  color: #dce8f5;
+  border: 1px solid rgba(227, 220, 85, 0.45);
+  border-radius: 5px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.6);
+}
+.airspace-popup .leaflet-popup-tip {
+  background: rgba(4, 10, 20, 0.96);
+  border: 1px solid rgba(227, 220, 85, 0.45);
+}
+.airspace-popup .leaflet-popup-content {
+  margin: 10px 12px;
+  /* Leaflet mierzy szerokość w chwili otwarcia i przy treści z Reacta
+     zwężał okienko do kilkudziesięciu pikseli. Stała szerokość, węższa
+     na telefonie. */
+  width: min(250px, calc(100vw - 72px)) !important;
+}
+
+.airspace-pop {
+  font-family: var(--font);
+  font-size: var(--t-small);
+  line-height: 1.4;
+}
+.airspace-pop__title {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  color: var(--airspace-label);
+}
+.airspace-pop__type {
+  font-size: var(--t-micro);
+  color: rgba(255, 255, 255, 0.45);
+  margin-bottom: 6px;
+}
+.airspace-pop__row + .airspace-pop__row {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.airspace-pop__who {
+  color: #fff;
+  font-weight: 600;
+}
+.airspace-pop__meta {
+  color: rgba(255, 255, 255, 0.6);
+  font-variant-numeric: tabular-nums;
+}
+.airspace-pop__later {
+  margin-top: 8px;
+  color: rgba(255, 255, 255, 0.55);
+}
+.airspace-pop__source {
+  margin-top: 8px;
+  font-size: var(--t-micro);
+  color: rgba(255, 255, 255, 0.35);
+}

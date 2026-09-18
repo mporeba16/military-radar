@@ -35,6 +35,12 @@ export const BASE_NATO = '#9b5de5'
 export const RANGE = '#e8741c'
 export const RANGE_LABEL = '#f5b27a'
 
+// Strefy aktywne z planu PAŻP (AUP/UUP): żółć, przerywany obrys bez
+// kreskowania — to stan na TERAZ, nie stały teren jak poligon czy lotnisko.
+// Chłodniejsza i jaśniejsza od WATCH, żeby nie udawać ostrzeżenia.
+export const AIRSPACE = '#e3dc55'
+export const AIRSPACE_LABEL = '#f0eb9a'
+
 // ── 3. Stan ───────────────────────────────────────────────────────────────
 // Z rampy alarmowej warstwy ryzyka dronowego zostały po jej usunięciu dwie
 // barwy, bo niosą je też alerty o maszynach i wiersz gotowości powiadomień:

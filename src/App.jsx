@@ -7,6 +7,7 @@ import MapsPanel from './components/MapsPanel'
 import { useGeolocation } from './hooks/useGeolocation'
 import { usePushNotifications } from './hooks/usePushNotifications'
 import { useLocalStorage } from './hooks/useLocalStorage'
+import { useAirspace } from './hooks/useAirspace'
 import { fetchMilitaryAircraft } from './api'
 import { haversine, bearing } from './lib/geo'
 import { ALL_BANDS_ON, bandForAltM, normalizeBands, ALT_BANDS } from './lib/altBands'
@@ -44,6 +45,8 @@ export default function App() {
   const [showBases, setShowBases] = useLocalStorage('radar.bases', true)
   const [showNatoBases, setShowNatoBases] = useLocalStorage('radar.natoBases', true)
   const [showRanges, setShowRanges] = useLocalStorage('radar.ranges', true)
+  const [showAirspace, setShowAirspace] = useLocalStorage('radar.airspace', true)
+  const airspace = useAirspace(showAirspace)
   const [lastUpdated, setLastUpdated] = useState(null)
   const [alerts, setAlerts] = useState([])
   const [inRangeCount, setInRangeCount] = useState(0)
@@ -532,6 +535,7 @@ export default function App() {
         showBases={showBases}
         showNatoBases={showNatoBases}
         showRanges={showRanges}
+        airspace={showAirspace ? airspace : null}
         dimmedHexes={dimmedHexes}
         recenterRef={recenterRef}
       />
@@ -657,6 +661,9 @@ export default function App() {
               setShowNatoBases={setShowNatoBases}
               showRanges={showRanges}
               setShowRanges={setShowRanges}
+              showAirspace={showAirspace}
+              setShowAirspace={setShowAirspace}
+              airspaceError={airspace.error}
               altBands={altBands}
               setAltBands={setAltBands}
               bandCounts={bandCounts}

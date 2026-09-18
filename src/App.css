@@ -875,3 +875,14 @@
 .tile-current__chev { margin-left: auto; color: var(--text-dim); font-size: var(--t-base); }
 
 .tile-current + .tile-grid { margin-top: 8px; }
+
+/* Próbka warstwy stref AUP — przerywana jak jej obrys na mapie. */
+.toggle-swatch--dashed { border-style: dashed; }
+
+/* Stan warstwy pod przełącznikiem — tylko gdy jest coś nie tak (np. PAŻP nie
+   odpowiada). Wyjaśnienia zwykłe siedzą w podpowiedzi przełącznika. */
+.layer-note {
+  margin: 6px 0 0;
+  font-size: var(--t-micro);
+  color: var(--watch);
+}

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
-import { KIND_COLORS, BASE_PL, BASE_NATO, RANGE, RANGE_LABEL, ALERT, WATCH } from '../src/lib/palette.js'
+import { KIND_COLORS, BASE_PL, BASE_NATO, RANGE, RANGE_LABEL, AIRSPACE, AIRSPACE_LABEL, ALERT, WATCH } from '../src/lib/palette.js'
 
 // Paleta żyje w dwóch miejscach: palette.js dla warstwy JS (Leaflet przyjmuje
 // kolory jako wartości, nie zmienne CSS) i :root w index.css dla arkuszy.
@@ -24,6 +24,8 @@ describe('paleta', () => {
       ['base-nato', BASE_NATO],
       ['range', RANGE],
       ['range-label', RANGE_LABEL],
+      ['airspace', AIRSPACE],
+      ['airspace-label', AIRSPACE_LABEL],
       ['alert', ALERT],
       ['watch', WATCH],
     ]
@@ -38,7 +40,7 @@ describe('paleta', () => {
     // i poziomem obserwacji.
     const used = [
       ['mil', KIND_COLORS.mil], ['heli', KIND_COLORS.heli], ['heavy', KIND_COLORS.heavy],
-      ['baza PL', BASE_PL], ['baza NATO', BASE_NATO], ['poligon', RANGE],
+      ['baza PL', BASE_PL], ['baza NATO', BASE_NATO], ['poligon', RANGE], ['strefa AUP', AIRSPACE],
       ['alert', ALERT], ['watch', WATCH],
     ]
     const seen = new Map()
@@ -71,7 +73,7 @@ describe('paleta', () => {
       const max = Math.max(r, g, b), min = Math.min(r, g, b)
       return max === 0 ? 0 : (max - min) / max
     }
-    for (const infra of [BASE_PL, BASE_NATO, RANGE]) {
+    for (const infra of [BASE_PL, BASE_NATO, RANGE, AIRSPACE]) {
       expect(sat(infra), infra).toBeLessThan(sat(KIND_COLORS.heavy))
     }
   })

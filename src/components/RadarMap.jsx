@@ -6,6 +6,7 @@ import './RadarMap.css'
 import { SHAPES, getShapeKey, altToColor, ftToM } from './aircraftShapes'
 import { MIL_BASES_PL, MIL_BASES_NATO } from '../airfields'
 import { KIND_COLORS, BASE_PL, BASE_NATO } from '../lib/palette'
+import AirspaceLayer from './AirspaceLayer'
 import MilRangesLayer, { MilRangeHatchDefs, HatchedPolygon, AREA_LABEL_ZOOM } from './MilRangesLayer'
 import { MIL_AIRFIELD_AREAS } from '../data/milAirfieldAreas'
 import { t } from '../i18n'
@@ -481,7 +482,7 @@ function AircraftLayer({ aircraft, selectedHex, onSelect, zoomScale, dimmedHexes
 export default function RadarMap({
   aircraft, hasFetched, trails, serverTrails, center, gpsCenter, radius,
   selectedHex, onSelect, activeTileId, showBases, showNatoBases, showRanges,
-  dimmedHexes, recenterRef,
+  airspace, dimmedHexes, recenterRef,
 }) {
   const initialZoom = 6  // S4: was 5, but icons were too small at default view
   const [zoom, setZoom] = useState(initialZoom)
@@ -608,6 +609,10 @@ export default function RadarMap({
         <MapClickHandler onSelect={onSelect} />
         <TileFilter filter={tileLayer.filter} />
         <ZoomTracker onZoomChange={setZoom} />
+
+        {airspace?.zones && (
+          <AirspaceLayer zones={airspace.zones} now={airspace.now} zoom={zoom} />
+        )}
 
         <MilRangesLayer
           show={showRanges}

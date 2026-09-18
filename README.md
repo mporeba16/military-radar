@@ -42,6 +42,7 @@ Each category can be switched off — it then disappears from the map and stops 
 - **Flight trail** — up to 4 hours of history stored server-side, recorded even when nobody has the app open
 - **Push notifications** — an alert when an aircraft enters a chosen radius around your position, even with the app closed (on iPhone after adding it to the home screen)
 - **Overlays** — Polish military airfield grounds (red), major NATO bases (purple) and 12 military training areas (orange, hatched)
+- **Airspace active now** — military zones (TSA, TRA, D, R) reserved right now in the Polish airspace use plan, with hours, altitudes, the reserving base and aircraft type (e.g. *TS7 · F-35 · Łask · 10:00–11:00*)
 - **Six base maps** — dark, classic, satellite, neutral dark, neutral light, terrain
 - **PWA** — installs like a native app on phone and desktop
 
@@ -54,6 +55,7 @@ Each category can be switched off — it then disappears from the map and stops 
 | [OpenSky Network](https://opensky-network.org) | fallback when adsb.fi is down (no type or registration) |
 | [Planespotters.net](https://www.planespotters.net) | aircraft photos |
 | [OpenStreetMap](https://www.openstreetmap.org) | airfield and training-area outlines |
+| [PANSA AUP/UUP](https://airspace.pansa.pl) | daily airspace use plan — which military zones are reserved, when and by whom (informative only) |
 
 ADS-B does not carry a take-off time, so **flight time** counts from the earliest trail point the server knows — a lower bound, not an exact value.
 
@@ -76,6 +78,7 @@ flowchart LR
 | `aircraft` | fetches and classifies traffic, returns the trail of a selected aircraft |
 | `collect` | records trails in the background every 2 minutes |
 | `notify` | checks every subscriber's radius each minute and sends push alerts |
+| `airspace` | proxies and trims the PANSA airspace use plan (no CORS upstream), cached 10 min |
 | `subscribe` / `status` / `test-push` | subscription storage, diagnostics, test push |
 
 ## Running locally
@@ -100,7 +103,7 @@ Deployment: every push to `main` is built automatically on Netlify.
 ## Project structure
 
 ```
-netlify/functions/   aircraft, collect, notify, subscribe, status, test-push
+netlify/functions/   aircraft, airspace, collect, notify, subscribe, status, test-push
   lib/               military classification, Poland boundary, security
 src/
   components/        map, aircraft card, panels, SVG silhouettes
@@ -114,4 +117,4 @@ test/                vitest tests
 
 Code: [MIT](LICENSE) © 2026 Maciej Poręba.
 
-Map data and the airfield and training-area outlines in `src/data/` come from © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors and are available under the [ODbL](https://opendatacommons.org/licenses/odbl/). Aircraft data belongs to adsb.fi and OpenSky Network, photos to their authors on Planespotters.net — each under its own terms.
+Map data and the airfield and training-area outlines in `src/data/` come from © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors and are available under the [ODbL](https://opendatacommons.org/licenses/odbl/). Aircraft data belongs to adsb.fi and OpenSky Network, the airspace use plan to PANSA (Polska Agencja Żeglugi Powietrznej), photos to their authors on Planespotters.net — each under its own terms.
