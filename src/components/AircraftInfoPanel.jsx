@@ -214,28 +214,34 @@ export default function AircraftInfoPanel({ ac, flightStart, onClose }) {
 
       <div className="ac-info-readout">
         <div className="ac-info-metric">
-          {trend && (
-            <span
-              className={`ac-info-trend ac-info-trend--${trend.dir}`}
-              title={trend.label}
-              aria-label={trend.label}
-              role="img"
-            >{trend.icon}</span>
-          )}
-          <span className="ac-info-metric__val">
-            {altM != null ? altM.toLocaleString('pl-PL') : '—'}
+          <span className="ac-info-metric__line">
+            {trend && (
+              <span
+                className={`ac-info-trend ac-info-trend--${trend.dir}`}
+                title={trend.label}
+                aria-label={trend.label}
+                role="img"
+              >{trend.icon}</span>
+            )}
+            <span className="ac-info-metric__val">
+              {altM != null ? altM.toLocaleString('pl-PL') : '—'}
+            </span>
+            <span className="ac-info-metric__unit">m</span>
           </span>
-          <span className="ac-info-metric__unit">m</span>
           <span className="ac-info-metric__label">{t('INFO_ALTITUDE')}</span>
         </div>
         <div className="ac-info-metric">
-          <span className="ac-info-metric__val">{kmh != null ? kmh : '—'}</span>
-          <span className="ac-info-metric__unit">km/h</span>
+          <span className="ac-info-metric__line">
+            <span className="ac-info-metric__val">{kmh != null ? kmh : '—'}</span>
+            <span className="ac-info-metric__unit">km/h</span>
+          </span>
           <span className="ac-info-metric__label">{t('INFO_SPEED')}</span>
         </div>
         <div className="ac-info-metric" title={t('INFO_FLIGHT_TIME_HINT')}>
-          <span className="ac-info-metric__val">{flightTime ? flightTime.val : '—'}</span>
-          {flightTime && <span className="ac-info-metric__unit">{flightTime.unit}</span>}
+          <span className="ac-info-metric__line">
+            <span className="ac-info-metric__val">{flightTime ? flightTime.val : '—'}</span>
+            {flightTime && <span className="ac-info-metric__unit">{flightTime.unit}</span>}
+          </span>
           <span className="ac-info-metric__label">{t('INFO_FLIGHT_TIME')}</span>
         </div>
       </div>
