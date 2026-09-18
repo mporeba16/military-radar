@@ -357,6 +357,30 @@ function TileFilter({ filter }) {
   return null
 }
 
+// Wybór maszyny spoza mapy — link z #hex albo kliknięte powiadomienie —
+// otwierał kartę, ale mapa zostawała, gdzie była, i nie było widać, gdzie ta
+// maszyna leci. Przesuwamy mapę raz na wybór i tylko wtedy, gdy maszyna jest
+// poza widokiem: kliknięcie w widoczną ikonę niczego nie rusza.
+// Przy linku lista maszyn przychodzi dopiero po chwili, więc czekamy, aż
+// wybrana się w niej pojawi.
+function SelectionFocus({ aircraft, selectedHex }) {
+  const map = useMap()
+  const doneRef = useRef(null)
+
+  useEffect(() => {
+    if (!selectedHex) { doneRef.current = null; return }
+    if (doneRef.current === selectedHex) return
+    const ac = aircraft.find(a => a.hex === selectedHex)
+    if (!ac || ac.lat == null || ac.lon == null) return
+    doneRef.current = selectedHex
+    if (!map.getBounds().pad(-0.1).contains([ac.lat, ac.lon])) {
+      map.flyTo([ac.lat, ac.lon], Math.max(map.getZoom(), 7), { duration: 0.8 })
+    }
+  }, [aircraft, selectedHex, map])
+
+  return null
+}
+
 function ZoomTracker({ onZoomChange }) {
   const map = useMap()
   useEffect(() => {
@@ -609,6 +633,7 @@ export default function RadarMap({
         <MapClickHandler onSelect={onSelect} />
         <TileFilter filter={tileLayer.filter} />
         <ZoomTracker onZoomChange={setZoom} />
+        <SelectionFocus aircraft={aircraft} selectedHex={selectedHex} />
 
         {airspace?.zones && (
           <AirspaceLayer zones={airspace.zones} now={airspace.now} zoom={zoom} />

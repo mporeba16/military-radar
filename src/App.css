@@ -270,51 +270,7 @@
   line-height: 1.6;
 }
 
-/* Karta statusu GPS — zielona gdy jest fix, czerwony alarm gdy brak */
-.gps-card {
-  border-radius: 8px;
-  padding: 12px 13px;
-  border: 1px solid transparent;
-}
-.gps-card.gps-ok {
-  background: rgba(0, 255, 136, 0.06);
-  border-color: rgba(0, 255, 136, 0.22);
-}
-.gps-card.gps-off {
-  background: rgba(var(--alert-rgb), 0.09);
-  border-color: rgba(var(--alert-rgb), 0.5);
-  box-shadow: 0 0 18px rgba(var(--alert-rgb), 0.12);
-}
-.gps-card.gps-wait {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.15);
-}
-.gps-wait-text {
-  font-family: var(--font);
-  font-size: 12.5px;
-  color: rgba(255, 255, 255, 0.75);
-  margin: 0;
-  animation: gpsPulse 1.4s ease-in-out infinite;
-}
-@keyframes gpsPulse {
-  0%, 100% { opacity: 0.55; }
-  50%      { opacity: 1; }
-}
-.gps-alarm-head {
-  font-family: var(--font);
-  font-size: 12.5px;
-  font-weight: bold;
-  letter-spacing: 1.5px;
-  color: var(--alert);
-  margin-bottom: 6px;
-}
-.gps-alarm-text {
-  font-family: var(--font);
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.7);
-  line-height: 1.55;
-  margin: 0 0 9px;
-}
+/* Ponowienie GPS — w karcie gotowości alertów, gdy brak pozycji. */
 .btn-gps-fix {
   width: 100%;
   padding: 9px;

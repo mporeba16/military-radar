@@ -414,11 +414,14 @@ export default function App() {
   // Czas lotu: ADS-B nie niesie godziny startu, więc liczymy od najwcześniejszego
   // punktu, jaki znamy — trasy z serwera (cron zapisuje wojsko w tle) albo
   // pierwszego odczytu w tej sesji. To dolna granica, nie czas od startu.
+  // `partial`: znamy tylko odczyt z tej sesji — karta pokaże „≥”, bo C-17
+  // w połowie lotu nad Atlantykiem miał inaczej „0 min”.
   function flightStartFor(hex) {
     const local = firstSeenRef.current.get(hex)
     const server = serverFlightStart?.hex === hex ? serverFlightStart.ts : null
     const known = [local, server].filter(Boolean)
-    return known.length ? Math.min(...known) : null
+    if (!known.length) return null
+    return { ts: Math.min(...known), partial: !server }
   }
 
   const selectedAc = useMemo(

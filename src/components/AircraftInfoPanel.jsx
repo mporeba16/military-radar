@@ -4,6 +4,7 @@ import { typeLabel } from '../lib/typeNames'
 import { findLikelyLanding } from '../airfields'
 import { scorePhotoMatch, photoHasMatchSignal, canVerifyPhotoMatch } from '../lib/photoMatch'
 import { t } from '../i18n'
+import { formatFlightTime } from '../lib/flightTime'
 import './AircraftInfoPanel.css'
 
 // V4: ICAO special transponder codes that mean something serious
@@ -112,14 +113,6 @@ function verticalTrend(ac) {
   if (rate > VS_THRESHOLD_FPM) return { dir: 'up', icon: '↑', label: t('INFO_CLIMBING') }
   if (rate < -VS_THRESHOLD_FPM) return { dir: 'down', icon: '↓', label: t('INFO_DESCENDING') }
   return { dir: 'level', icon: '→', label: t('INFO_LEVEL') }
-}
-
-// „47 min" albo „1:23 h" — krótko, żeby zmieścić trzecią kolumnę na karcie.
-function formatFlightTime(startTs) {
-  if (!startTs) return null
-  const min = Math.max(0, Math.floor((Date.now() - startTs) / 60000))
-  if (min < 60) return { val: String(min), unit: 'min' }
-  return { val: `${Math.floor(min / 60)}:${String(min % 60).padStart(2, '0')}`, unit: 'h' }
 }
 
 export default function AircraftInfoPanel({ ac, flightStart, onClose }) {
@@ -245,6 +238,13 @@ export default function AircraftInfoPanel({ ac, flightStart, onClose }) {
           <span className="ac-info-metric__label">{t('INFO_FLIGHT_TIME')}</span>
         </div>
       </div>
+
+      {(ac.reg || ac.hex) && (
+        <p className="ac-info-identity">
+          {ac.reg && <>{t('INFO_REG')} <strong>{ac.reg}</strong> · </>}
+          ICAO <strong>{ac.hex.toUpperCase()}</strong>
+        </p>
+      )}
 
       <a
         className="ac-info-ext-link"

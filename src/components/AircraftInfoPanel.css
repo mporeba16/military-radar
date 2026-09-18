@@ -206,6 +206,12 @@
   100% { background-position: -200% 0; }
 }
 
+.ac-info-identity strong {
+  color: #dce8f5;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
 .ac-info-ext-link {
   display: block;
   margin: 6px 12px 10px;
@@ -309,10 +315,11 @@
   color: rgba(255, 255, 255, 0.4);
 }
 
-/* Typ i operator — dane stałe przez cały lot, więc jedna cicha linijka. */
+/* Rejestracja i adres ICAO — dane stałe przez cały lot, więc jedna cicha
+   linijka pod odczytami. */
 .ac-info-identity {
   margin: 0;
-  padding: 8px 12px 10px;
+  padding: 6px 12px 0;
   font-size: var(--t-small);
   line-height: 1.4;
   color: rgba(255, 255, 255, 0.62);

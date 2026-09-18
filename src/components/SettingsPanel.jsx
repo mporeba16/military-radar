@@ -36,8 +36,19 @@ const KIND_ROWS = [
 // Alerty wymagają trzech rzeczy naraz: pozycji, włączonego pusha i choćby
 // jednej kategorii. Wcześniej trzeba było przeczytać cztery sekcje, żeby to
 // złożyć — ten pasek odpowiada w jednym wierszu i nazywa brakujący warunek.
-function readiness({ hasGps, pushOn, kindsOn }) {
-  if (!hasGps) return { level: 'off', title: t('READY_NO_GPS'), why: t('READY_WHY_NO_GPS') }
+// Bez GPS karta od razu mówi, co zrobić — wcześniej to samo stało drugi raz
+// na dole panelu jako czerwona ramka „GPS wyłączony”.
+function gpsWhy(locationError) {
+  if (locationError === 'Brak zgody na lokalizację') return { text: t('GPS_DENIED_HINT'), retry: false }
+  if (locationError) return { text: t('GPS_OFF_DESC'), retry: true }
+  return { text: t('GPS_SEARCHING'), retry: true }
+}
+
+function readiness({ hasGps, pushOn, kindsOn, locationError }) {
+  if (!hasGps) {
+    const g = gpsWhy(locationError)
+    return { level: 'off', title: t('READY_NO_GPS'), why: g.text, retry: g.retry }
+  }
   if (kindsOn === 0) return { level: 'warn', title: t('READY_MUTED'), why: t('READY_WHY_MUTED') }
   if (!pushOn) return { level: 'warn', title: t('READY_APP_ONLY'), why: t('READY_WHY_APP_ONLY') }
   return { level: 'ok', title: t('READY_OK'), why: null }
@@ -87,7 +98,7 @@ export default function SettingsPanel({
   const [debugOpen, setDebugOpen] = useState(false)
 
   const kindsOn = KIND_ROWS.filter(k => kinds[k.key]).length
-  const state = readiness({ hasGps: !!location, pushOn: isSubscribed, kindsOn })
+  const state = readiness({ hasGps: !!location, pushOn: isSubscribed, kindsOn, locationError })
   const pushUsable = permissionState !== 'unsupported' && permissionState !== 'denied'
 
   return (
@@ -97,6 +108,9 @@ export default function SettingsPanel({
       <div className={`ready-card ready-${state.level}`}>
         <span className="ready-title">{state.level === 'ok' ? '◉' : '⚠'} {state.title}</span>
         {state.why && <span className="ready-why">{state.why}</span>}
+        {state.retry && (
+          <button className="btn-gps-fix" onClick={requestLocation}>◎ {t('GPS_RETRY')}</button>
+        )}
         <div className="ready-conds">
           <span className={`ready-cond ${location ? 'on' : ''}`}>{t('READY_COND_GPS')}</span>
           <span className={`ready-cond ${isSubscribed ? 'on' : ''}`}>{t('READY_COND_PUSH')}</span>
@@ -196,9 +210,9 @@ export default function SettingsPanel({
         </div>
       </section>
 
-      {/* 6. GPS — duża karta alarmowa tylko wtedy, gdy coś nie gra. */}
+      {/* 6. GPS — współrzędne, gdy są. Brak GPS opisuje karta na górze. */}
+      {location && (
       <section className="cp-section">
-        {location ? (
           <>
             <button className="gps-slim" onClick={() => setGpsOpen(o => !o)} aria-expanded={gpsOpen}>
               <span className="gps-slim__dot">◉</span>
@@ -215,27 +229,8 @@ export default function SettingsPanel({
               </div>
             )}
           </>
-        ) : (
-          <div className={`gps-card ${locationError ? 'gps-off' : 'gps-wait'}`}>
-            {locationError ? (
-              <>
-                <div className="gps-alarm-head">⚠ {t('GPS_OFF_TITLE')}</div>
-                {locationError === 'Brak zgody na lokalizację'
-                  ? <p className="gps-alarm-text">{t('GPS_DENIED_HINT')}</p>
-                  : <>
-                      <p className="gps-alarm-text">{t('GPS_OFF_DESC')}</p>
-                      <button className="btn-gps-fix" onClick={requestLocation}>◎ {t('GPS_RETRY')}</button>
-                    </>}
-              </>
-            ) : (
-              <>
-                <p className="gps-wait-text">◌ {t('GPS_SEARCHING')}</p>
-                <button className="link-btn" onClick={requestLocation}>{t('GPS_RETRY')}</button>
-              </>
-            )}
-          </div>
-        )}
       </section>
+      )}
 
       {error && <p className="err small">✗ {error}</p>}
 
