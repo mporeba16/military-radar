@@ -7,16 +7,24 @@
     <meta name="description" content="Radar wojskowych samolotów nad Polską i Europą — alerty push, mapa, historia tras." />
     <meta name="color-scheme" content="dark" />
 
-    <!-- iOS PWA: standalone + treść POD paskiem stanu i Dynamic Island.
-         'black-translucent' było już raz usunięte w poszukiwaniu pustego pasa
-         u dołu i WRACA, bo pomiar z urządzenia pokazał, że nie o nie chodziło:
-         bez niego okno kurczy się do 812 px (874 minus pasek stanu), więc mapa
-         przestaje sięgać góry, a pas i tak zostaje.
-         Winowajcą było `-webkit-fill-available` na <html> (usunięte osobno):
-         skracało blok zawierający o dolne wcięcie, przez co element `fixed`
-         kończył się nad paskiem gestu. -->
+    <!-- iOS PWA: standalone. 'black-translucent' USUNIĘTE świadomie, na
+         podstawie pomiaru z iPhone'a 17 (v2.3.0, build 09-18 15:07):
+
+             screen.height 874   innerHeight 812   wcięcia 62 / 34
+
+         iOS daje tej aplikacji 812 px z 874 i nie da więcej — 62 px nie należy
+         do strony, więc żaden CSS ich nie wypełni. Pytanie brzmi wyłącznie:
+         GDZIE ta luka wypada.
+
+         Z 'black-translucent' strona zaczyna się na samej górze ekranu, a 62 px
+         zostaje NA DOLE — czarny pas nad paskiem gestu, który wygląda jak
+         usterka. Bez tej deklaracji iOS kładzie stronę pod paskiem stanu i luka
+         wraca NA GÓRĘ, gdzie i tak jest zegarek z baterią, a 'theme-color'
+         poniżej barwi ją na granat interfejsu.
+
+         Ta sama dziura, ale w miejscu, w którym czyta się jak pasek stanu,
+         a nie jak brak kawałka mapy. -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <!-- Standardowy odpowiednik powyższego. Chrome od dawna zgłasza wariant
          'apple-' jako przestarzały; bez tej linii konsola sypie ostrzeżeniem
          przy każdym wejściu. -->
