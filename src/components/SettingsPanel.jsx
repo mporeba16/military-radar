@@ -152,6 +152,17 @@ export default function SettingsPanel({
                   state={t('SOUND_ON')}
                   stateColor="#00ff88"
                 />
+                {/* Niezależne od GPS i zasięgu: tankowce, AWACS, rozpoznanie
+                    nad całą Polską. Jedzie w tym samym obiekcie `kinds`. */}
+                <Toggle
+                  on={kinds.rare !== false}
+                  onToggle={() => setKinds(prev => ({ ...prev, rare: prev.rare === false }))}
+                  label={t('RARE_LABEL')}
+                  title={t('RARE_HINT')}
+                  marker={<span className="toggle-ico">🛰</span>}
+                  state={kinds.rare !== false ? t('SOUND_ON') : t('SOUND_OFF')}
+                  stateColor={kinds.rare !== false ? '#00ff88' : 'rgba(255,255,255,0.4)'}
+                />
               </div>
             : <>
                 <button className="btn-subscribe" onClick={subscribe} disabled={isSubscribing}>

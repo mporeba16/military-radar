@@ -88,6 +88,30 @@ function groupWord(kind, n, near) {
   return near ? `${w} blisko` : w
 }
 
+// Rzadka maszyna nad Polską (tankowiec, AWACS, rozpoznanie…). Tytuł niesie
+// rolę, bo to ona jest wiadomością; zamiast dystansu od użytkownika —
+// najbliższe znane lotnisko, żeby wiedzieć, nad którą częścią kraju leci.
+export function rareText(ac, role, nearName) {
+  const name = shortTypeName(ac)
+  const where = nearName ? `okolice ${nearName}` : 'nad Polską'
+  const title = `${role} · ${where}`
+  const parts = [callsign(ac)]
+  if (name) parts.push(name)
+  const fl = flightLevel(ac.alt_baro)
+  if (fl) parts.push(fl)
+  const dir = compassDir(ac.track)
+  if (dir) parts.push(`kurs ${dir}`)
+  return { title, body: parts.join(' · ') }
+}
+
+export function rareGroupText(list) {
+  const n = list.length
+  const title = `${n} ${plForm(n, 'rzadka maszyna', 'rzadkie maszyny', 'rzadkich maszyn')} nad Polską`
+  const names = list.slice(0, LIST_MAX).map(({ ac, role }) => `${callsign(ac)} (${role.toLowerCase()})`)
+  const extra = n - names.length
+  return { title, body: `${names.join(' · ')}${extra > 0 ? ` +${extra}` : ''}` }
+}
+
 // Kilka maszyn w jednym przebiegu: dystans najbliższej w tytule, reszta listą.
 export function groupText(list, kind) {
   const sorted = [...list].sort((a, b) => a._dist - b._dist)

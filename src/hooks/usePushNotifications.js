@@ -99,6 +99,7 @@ export function usePushNotifications(location, radius, kinds) {
   const wantMil = kinds?.mil !== false
   const wantHeli = kinds?.heli !== false
   const wantHeavy = kinds?.heavy !== false
+  const wantRare = kinds?.rare !== false
 
   // On mount: restore existing subscription. Re-sync handled by the
   // separate effect below, which reacts to location/radius changes.
@@ -131,13 +132,13 @@ export function usePushNotifications(location, radius, kinds) {
     if (!isSubscribed || !subRef.current) return
     const id = setTimeout(() => {
       syncToServer(subRef.current, syncLat, syncLon, radius, {
-        mil: wantMil, heli: wantHeli, heavy: wantHeavy,
+        mil: wantMil, heli: wantHeli, heavy: wantHeavy, rare: wantRare,
       }).then(res => {
         setSyncError(res.ok ? null : res.error)
       })
     }, SYNC_DEBOUNCE_MS)
     return () => clearTimeout(id)
-  }, [isSubscribed, syncLat, syncLon, radius, wantMil, wantHeli, wantHeavy])
+  }, [isSubscribed, syncLat, syncLon, radius, wantMil, wantHeli, wantHeavy, wantRare])
 
   // Diagnostyka serwerowa, odświeżana co minutę. Zależy WYŁĄCZNIE od stanu
   // subskrypcji: gdyby zależała też od pozycji, każdy fix GPS zerowałby

@@ -47,6 +47,8 @@ const STRINGS = {
     PUSH_IOS_INSTALL: 'Na iPhonie powiadomienia działają tylko po dodaniu aplikacji do ekranu głównego: otwórz w Safari menu Udostępnij → „Dodaj do ekranu początkowego".',
     PUSH_DENIED: '✗ Zablokowane — odblokuj w ustawieniach przeglądarki',
     PUSH_ENABLE: 'Włącz powiadomienia',
+    RARE_LABEL: 'Rzadkie maszyny nad Polską',
+    RARE_HINT: 'Tankowce, AWACS, rozpoznanie, bombowce, drony rozpoznawcze — nad całą Polską, niezależnie od Twojej pozycji i zasięgu. Jeden alert na maszynę na 12 godzin.',
     PUSH_CONNECTING: '◌ Łączenie…',
     PUSH_DESCRIPTION: 'Alert gdy wojskowy samolot pojawi się w zasięgu GPS — nawet gdy aplikacja jest zamknięta. Sprawdzane co minutę przez serwer.',
     SOUND_LABEL: 'Dźwięk alertu',

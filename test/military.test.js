@@ -116,33 +116,33 @@ describe('isMilitaryState (OpenSky array form)', () => {
 // starszym klientem (bez pola `kinds`) nie może nikomu wyciszyć alertów.
 describe('normalizeKinds', () => {
   it('brak pola oznacza wszystkie kategorie włączone', () => {
-    expect(normalizeKinds(undefined)).toEqual({ mil: true, heli: true, heavy: true })
-    expect(normalizeKinds(null)).toEqual({ mil: true, heli: true, heavy: true })
+    expect(normalizeKinds(undefined)).toEqual({ mil: true, heli: true, heavy: true, rare: true })
+    expect(normalizeKinds(null)).toEqual({ mil: true, heli: true, heavy: true, rare: true })
   })
 
   it('wartość niebędąca obiektem też oznacza komplet', () => {
-    expect(normalizeKinds('wszystko')).toEqual({ mil: true, heli: true, heavy: true })
-    expect(normalizeKinds(7)).toEqual({ mil: true, heli: true, heavy: true })
+    expect(normalizeKinds('wszystko')).toEqual({ mil: true, heli: true, heavy: true, rare: true })
+    expect(normalizeKinds(7)).toEqual({ mil: true, heli: true, heavy: true, rare: true })
   })
 
   it('wyłącza wyłącznie jawne false', () => {
     expect(normalizeKinds({ heavy: false }))
-      .toEqual({ mil: true, heli: true, heavy: false })
+      .toEqual({ mil: true, heli: true, heavy: false, rare: true })
   })
 
   it('brakujący klucz zostaje włączony', () => {
     expect(normalizeKinds({ mil: false }))
-      .toEqual({ mil: false, heli: true, heavy: true })
+      .toEqual({ mil: false, heli: true, heavy: true, rare: true })
   })
 
   it('ignoruje nieznane klucze i zwraca zawsze ten sam kształt', () => {
     expect(normalizeKinds({ mil: true, ufo: false }))
-      .toEqual({ mil: true, heli: true, heavy: true })
+      .toEqual({ mil: true, heli: true, heavy: true, rare: true })
   })
 
   it('potrafi wyłączyć wszystko naraz', () => {
-    expect(normalizeKinds({ mil: false, heli: false, heavy: false }))
-      .toEqual({ mil: false, heli: false, heavy: false })
+    expect(normalizeKinds({ mil: false, heli: false, heavy: false, rare: false }))
+      .toEqual({ mil: false, heli: false, heavy: false, rare: false })
   })
 })
 

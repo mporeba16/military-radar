@@ -41,8 +41,10 @@ Each category can be switched off — it then disappears from the map and stops 
 - **Aircraft card** — photo from Planespotters, type, country, altitude with climb/descent trend, speed, flight time and likely landing airfield
 - **Flight trail** — up to 4 hours of history stored server-side, recorded even when nobody has the app open
 - **Push notifications** — an alert when an aircraft enters a chosen radius around your position, even with the app closed (on iPhone after adding it to the home screen)
+- **Rare aircraft alerts** — tankers, AWACS, reconnaissance, bombers and surveillance drones anywhere over Poland, regardless of your position (one alert per aircraft per 12 h)
 - **Overlays** — Polish military airfield grounds (red), major NATO bases (purple) and 12 military training areas (orange, hatched)
 - **Airspace active now** — military zones (TSA, TRA, D, R) reserved for specific hours right now in the Polish airspace use plan (drone corridors and all-day blanket reservations are left out), with hours, altitudes, the reserving base and aircraft type (e.g. *TS7 · F-35 · Łask · 10:00–11:00*)
+- **Airfield card** — tap a military airfield to see what is planned from it today in the PANSA plan (e.g. *F-35 · 10:00–12:10 · TS6, TS7*) and what is airborne within 50 km
 - **Six base maps** — dark, classic, satellite, neutral dark, neutral light, terrain
 - **PWA** — installs like a native app on phone and desktop
 

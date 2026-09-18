@@ -1,9 +1,12 @@
 import { getStore, connectLambda } from '@netlify/blobs'
 import webpush from 'web-push'
-import { fetchMilitaryNear, haversine, normalizeKinds } from './lib/military.js'
+import { fetchMilitaryNear, fetchMilGlobal, haversine, normalizeKinds } from './lib/military.js'
+import { isInPoland } from './lib/poland.js'
+import { rareRole } from '../../src/lib/rareTypes.js'
+import { AIRFIELDS } from '../../src/airfields.js'
 // Treść alertów mieszka we wspólnym module — ten sam kod składa push z serwera
 // i lokalne powiadomienie w otwartej aplikacji, więc nie mogą się rozjechać.
-import { alertText, groupText } from '../../src/lib/notifyText.js'
+import { alertText, groupText, rareText, rareGroupText } from '../../src/lib/notifyText.js'
 
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY
@@ -21,6 +24,35 @@ const CLOSE_RANGE_KM = 10
 const ALERT_COOLDOWN_MS = 45 * 60 * 1000
 const NEAR_GROUP_THRESHOLD = 3    // above this many close planes, group them too
 const MAX_COVERAGE_KM = 1500      // clamp for the shared fetch bounding circle
+// Rzadka maszyna (tankowiec, AWACS…) nad Polską alarmuje raz na pół doby —
+// tankowiec potrafi krążyć nad krajem kilka godzin, a jeden alert wystarczy.
+const RARE_COOLDOWN_MS = 12 * 60 * 60 * 1000
+const RARE_GROUP_THRESHOLD = 2
+const RARE_NEAR_AIRFIELD_KM = 80
+const PL_AIRFIELDS = AIRFIELDS.filter(a => a.icao.startsWith('EP'))
+
+// Rzadkie maszyny w powietrzu nad Polską z listy /mil. Czysta funkcja, żeby
+// dało się ją przetestować bez sieci.
+export function findRare(milList) {
+  const out = []
+  for (const a of milList || []) {
+    if (a.lat == null || a.lon == null) continue
+    if (a.alt_baro === 'ground' || a.on_ground) continue
+    if (!isInPoland(a.lat, a.lon)) continue
+    const role = rareRole(a.t)
+    if (role) out.push({ ac: a, role })
+  }
+  return out
+}
+
+function nearestAirfieldName(lat, lon) {
+  let best = null
+  for (const ap of PL_AIRFIELDS) {
+    const d = haversine(lat, lon, ap.lat, ap.lon)
+    if (d <= RARE_NEAR_AIRFIELD_KM && (!best || d < best.d)) best = { d, name: ap.name }
+  }
+  return best?.name || null
+}
 
 // Dedup po urządzeniu: jeśli jeden telefon ma kilka rekordów subskrypcji
 // (rotacja endpointu APNS, albo stare rekordy bez deviceId, których prune w
@@ -202,6 +234,13 @@ export const handler = async (event) => {
     }
   }
 
+  // Pass 3 — rzadkie maszyny nad całą Polską. Nie zależą od pozycji
+  // użytkownika, więc idą też do subskrypcji bez GPS.
+  await processRare(loaded, subsStore, alertedStore, stats).catch(err => {
+    console.error('[notify] rare pass failed:', err.message)
+    stats.rareError = err.message
+  })
+
 
   stats.durationMs = Date.now() - runStart
   console.log(`[notify] Run complete: ${JSON.stringify({
@@ -219,6 +258,58 @@ export const handler = async (event) => {
 
   await writeRunStats(stats, runStart)
   return { statusCode: 200, body: JSON.stringify(stats) }
+}
+
+async function processRare(loaded, subsStore, alertedStore, stats) {
+  const rare = findRare(await fetchMilGlobal())
+  stats.rareOverPoland = rare.length
+  if (!rare.length) return
+
+  const store = getStore('push-rare')
+  const now = Date.now()
+  const prev = (await store.get('alerted', { type: 'json' }).catch(() => null))?.alerted || {}
+  const fresh = rare.filter(({ ac }) => !prev[ac.hex] || now - prev[ac.hex] > RARE_COOLDOWN_MS)
+
+  // Znacznik odświeżany, dopóki maszyna jest nad Polską — cooldown liczy się
+  // od chwili, gdy ją opuści, jak przy alertach zasięgowych.
+  const next = {}
+  for (const [hex, ts] of Object.entries(prev)) if (now - ts <= RARE_COOLDOWN_MS) next[hex] = ts
+  for (const { ac } of rare) next[ac.hex] = now
+  // Zapis PRZED wysyłką — ubity run zgubi najwyżej jeden alert, nie powtórzy go.
+  await store.set('alerted', JSON.stringify({ alerted: next, ts: now }))
+  if (!fresh.length) return
+
+  const payload = fresh.length <= RARE_GROUP_THRESHOLD
+    ? fresh.map(({ ac, role }) => ({
+        ...rareText(ac, role, nearestAirfieldName(ac.lat, ac.lon)),
+        tag: `rare-${ac.hex}`, hex: ac.hex,
+      }))
+    : [{ ...rareGroupText(fresh), tag: 'rare-group', hex: fresh[0].ac.hex }]
+
+  const recipients = dedupeByDevice(loaded.filter(v => v.raw?.subscription))
+    .filter(v => normalizeKinds(v.raw.kinds).rare)
+  stats.rareSent = 0
+
+  await Promise.allSettled(recipients.map(async v => {
+    for (const p of payload) {
+      try {
+        await webpush.sendNotification(v.raw.subscription, JSON.stringify(p))
+        stats.rareSent++
+        stats.notificationsSent++
+      } catch (err) {
+        stats.pushErrors++
+        const status = err.statusCode || 0
+        if (status === 410 || status === 404) {
+          await subsStore.delete(v.key).catch(() => {})
+          await alertedStore.delete(v.key).catch(() => {})
+          stats.expiredRemoved++
+          return
+        }
+        console.error(`[notify] rare push FAIL ${v.key} status=${status} msg=${err.message}`)
+      }
+    }
+  }))
+  console.log(`[notify] rare: ${fresh.map(r => `${r.ac.hex}/${r.ac.t}`).join(', ')} → ${recipients.length} subs`)
 }
 
 async function writeRunStats(stats, runStart) {

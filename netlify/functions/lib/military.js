@@ -104,7 +104,9 @@ export function classifyExtra(a) {
 // subskrypcji i wysyłka muszą czytać ten sam kształt. Wyłącza wyłącznie jawne
 // `false`: brak pola albo śmieci znaczą „wszystko włączone", żeby rekord
 // zapisany starszą wersją klienta nie wyciszył komuś alertów po deployu.
-export const KIND_KEYS = ['mil', 'heli', 'heavy']
+// `rare` nie jest kategorią na mapie, tylko przełącznikiem powiadomień
+// o rzadkich maszynach nad Polską — jedzie tym samym obiektem `kinds`.
+export const KIND_KEYS = ['mil', 'heli', 'heavy', 'rare']
 
 export function normalizeKinds(v) {
   const out = {}
@@ -220,6 +222,25 @@ export function haversine(lat1, lon1, lat2, lon2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
 
+// Globalna lista /mil adsb.fi. Ten sam przebieg notify potrzebuje jej dwa
+// razy (maszyny w promieniu subskrybentów i rzadkie maszyny nad całą Polską),
+// a adsb.fi limituje ~1 zapytanie na sekundę — stąd krótka pamięć w instancji.
+const MIL_CACHE_MS = 20_000
+let milCache = null // { at, list }
+
+export async function fetchMilGlobal() {
+  if (milCache && Date.now() - milCache.at < MIL_CACHE_MS) return milCache.list
+  const res = await fetch('https://opendata.adsb.fi/api/v2/mil', {
+    signal: AbortSignal.timeout(5000),
+    headers: { 'User-Agent': 'MilitaryRadarPL/1.0', 'Accept': 'application/json' },
+  })
+  if (!res.ok) throw new Error('adsb.fi /mil failed')
+  const data = await res.json()
+  const list = (data.ac || data.aircraft || []).filter(isValidADSBfi)
+  milCache = { at: Date.now(), list }
+  return list
+}
+
 export async function fetchMilitaryNear(lat, lon, radiusKm) {
   const headers = { 'User-Agent': 'MilitaryRadarPL/1.0', 'Accept': 'application/json' }
   const degLat = radiusKm / 111
@@ -229,14 +250,9 @@ export async function fetchMilitaryNear(lat, lon, radiusKm) {
 
   try {
     // Query 1: adsb.fi /mil — globally tagged military aircraft
-    const milRes = await fetch('https://opendata.adsb.fi/api/v2/mil', {
-      signal: AbortSignal.timeout(5000), headers,
-    })
-    if (!milRes.ok) throw new Error('adsb.fi /mil failed')
-    const milData = await milRes.json()
-
-    const milAircraft = (milData.ac || milData.aircraft || [])
-      .filter(a => isValidADSBfi(a) && !isTrainingAircraft(a.t) &&
+    const milAircraft = (await fetchMilGlobal())
+      .map(a => ({ ...a }))
+      .filter(a => !isTrainingAircraft(a.t) &&
         a.lat >= lamin && a.lat <= lamax &&
         a.lon >= lomin && a.lon <= lomax)
     milAircraft.forEach(a => { a._kind = 'mil' })

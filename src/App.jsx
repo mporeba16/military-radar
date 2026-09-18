@@ -33,7 +33,7 @@ export default function App() {
   const [hasFetched, setHasFetched] = useState(false)
   const [error, setError] = useState(null)
   const [radius, setRadius] = useLocalStorage('radar.radius', 100)
-  const [kinds, setKinds] = useLocalStorage('radar.kinds', { mil: true, heli: true, heavy: true })
+  const [kinds, setKinds] = useLocalStorage('radar.kinds', { mil: true, heli: true, heavy: true, rare: true })
   const [soundOn, setSoundOn] = useLocalStorage('radar.sound', true)
   const [vibrateOn, setVibrateOn] = useLocalStorage('radar.vibrate', true)
   const [selectedHex, setSelectedHex] = useState(null)
