@@ -343,7 +343,8 @@ function BaseAreasLayer({ bases, variant }) {
   const color = variant === 'nato' ? BASE_NATO : BASE_PL
   return bases.flatMap(ap =>
     (MIL_AIRFIELD_AREAS[ap.icao] || []).map((ring, i) => (
-      <HatchedPolygon key={`${ap.icao}-${i}`} positions={ring} className={className} color={color} />
+      <HatchedPolygon key={`${ap.icao}-${i}`} positions={ring} className={className} color={color}
+        weight={variant === 'nato' ? 1.2 : 2.2} />
     ))
   )
 }

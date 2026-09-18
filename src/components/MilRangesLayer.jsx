@@ -103,7 +103,7 @@ function centroid(ring) {
 // Leaflet przebuduje ścieżkę (zmiana renderera, powrót warstwy).
 // Ten sam mechanizm rysuje teren lotnisk (MilAirfieldAreasLayer) — inna klasa
 // i kolor obrysu, reszta wspólna.
-export function HatchedPolygon({ positions, className = 'mil-range', color = RANGE_COLOR }) {
+export function HatchedPolygon({ positions, className = 'mil-range', color = RANGE_COLOR, weight = 1.2 }) {
   const ref = useRef(null)
 
   useEffect(() => {
@@ -115,7 +115,7 @@ export function HatchedPolygon({ positions, className = 'mil-range', color = RAN
       ref={ref}
       positions={positions}
       interactive={false}
-      pathOptions={{ color, weight: 1.2, opacity: 0.85 }}
+      pathOptions={{ color, weight, opacity: 0.85 }}
     />
   )
 }
@@ -141,8 +141,8 @@ export function MilRangeHatchDefs() {
             jest małe, więc kreska gęściej niż na poligonie. */}
         <pattern id="baseAreaHatchPl" width="6" height="6"
           patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-          <rect width="6" height="6" fill="rgba(47, 95, 208, 0.10)" />
-          <line x1="0" y1="0" x2="0" y2="6" stroke="rgba(47, 95, 208, 0.6)" strokeWidth="1.6" />
+          <rect width="6" height="6" fill="rgba(220, 47, 61, 0.22)" />
+          <line x1="0" y1="0" x2="0" y2="6" stroke="rgba(220, 47, 61, 0.85)" strokeWidth="1.8" />
         </pattern>
         <pattern id="baseAreaHatchNato" width="6" height="6"
           patternUnits="userSpaceOnUse" patternTransform="rotate(45)">

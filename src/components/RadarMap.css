@@ -25,25 +25,28 @@
   pointer-events: none;
   font: 10px/1.1 var(--font);
   letter-spacing: 0.3px;
-  color: #9db8f0;
+  color: #ff9ca3;
   text-shadow: 0 1px 3px rgba(0,0,0,0.95), 0 0 2px rgba(0,0,0,0.9);
 }
 
 .base-marker-label--nato {
   color: #a9c6de;
 }
+.base-marker-label--nato .base-marker-icao {
+  color: rgba(169, 198, 222, 0.6);
+}
 
 .base-marker-icao {
   margin-left: 5px;
   font-size: 9px;
-  color: rgba(157, 184, 240, 0.6);
+  color: rgba(255, 156, 163, 0.65);
 }
 
 /* Tooltip bazy — ciemny, spójny z motywem */
 .base-tooltip.leaflet-tooltip {
   background: rgba(4, 10, 20, 0.95);
-  color: #9db8f0;
-  border: 1px solid rgba(47, 95, 208, 0.5);
+  color: #ff9ca3;
+  border: 1px solid rgba(220, 47, 61, 0.55);
   border-radius: 4px;
   font: 11px var(--font);
   box-shadow: 0 2px 8px rgba(0,0,0,0.5);

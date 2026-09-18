@@ -78,7 +78,7 @@ export default function MapsPanel({
             onToggle={() => setShowBases(b => !b)}
             label={t('BASES_LABEL')}
             marker={<span className="toggle-swatch" style={{
-              background: showBases ? 'rgba(47, 95, 208,0.25)' : 'transparent',
+              background: showBases ? 'rgba(220, 47, 61, 0.25)' : 'transparent',
               color: showBases ? BASE_PL : 'rgba(255,255,255,0.3)',
             }} />}
             state={showBases ? '◉' : '○'}

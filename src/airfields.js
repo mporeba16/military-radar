@@ -5,7 +5,7 @@
 
 export const AIRFIELDS = [
   // — Polskie bazy wojskowe —
-  { icao: 'EPKS', name: 'Poznań-Krzesiny',   lat: 52.1331, lon: 16.9665, mil: true },
+  { icao: 'EPKS', name: 'Poznań-Krzesiny',   lat: 52.3243, lon: 16.9696, mil: true },
   { icao: 'EPLK', name: 'Łask',              lat: 51.5517, lon: 19.1791, mil: true },
   { icao: 'EPMM', name: 'Mińsk Mazowiecki',  lat: 52.1955, lon: 21.6556, mil: true },
   { icao: 'EPPW', name: 'Powidz',            lat: 52.3794, lon: 17.8539, mil: true },
@@ -13,9 +13,9 @@ export const AIRFIELDS = [
   { icao: 'EPSN', name: 'Świdwin',           lat: 53.7906, lon: 15.8264, mil: true },
   { icao: 'EPMB', name: 'Malbork',           lat: 54.0269, lon: 19.1342, mil: true },
   { icao: 'EPDE', name: 'Dęblin',            lat: 51.5514, lon: 21.8937, mil: true },
-  { icao: 'EPIR', name: 'Inowrocław',        lat: 52.7991, lon: 18.3306, mil: true },
+  { icao: 'EPIR', name: 'Inowrocław',        lat: 52.8249, lon: 18.3258, mil: true },
   { icao: 'EPPR', name: 'Pruszcz Gdański',   lat: 54.2480, lon: 18.6719, mil: true },
-  { icao: 'EPCE', name: 'Siemirowice',       lat: 54.4783, lon: 17.7211, mil: true },
+  { icao: 'EPCE', name: 'Siemirowice',       lat: 54.4170, lon: 17.7694, mil: true },
   { icao: 'EPTM', name: 'Tomaszów (Nowe Miasto)', lat: 51.6189, lon: 20.5378, mil: true },
 
   // — Polskie lotniska cywilne / wspólne —

@@ -21,9 +21,10 @@ export const KIND_COLORS = {
 }
 
 // ── 2. Infrastruktura ─────────────────────────────────────────────────────
-// Polskie lotniska wojskowe: ciemny niebieski (decyzja użytkownika). Kwadrat
-// i obrys terenu lotniska mają ten sam kolor.
-export const BASE_PL = '#2f5fd0'
+// Polskie lotniska wojskowe: czerwień (decyzja użytkownika — ciemny niebieski
+// ginął na zielono-szarym podkładzie). Ciemniejsza i chłodniejsza od ALERT,
+// żeby stały teren nie udawał zdarzenia. Obrys i podpis lotniska mają ten kolor.
+export const BASE_PL = '#dc2f3d'
 export const BASE_NATO = '#6d95b8'
 
 // Poligony: pomarańcz (decyzja użytkownika). Wyraźnie czerwieńszy od bursztynu
