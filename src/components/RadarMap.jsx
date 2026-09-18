@@ -7,6 +7,7 @@ import { SHAPES, getShapeKey, altToColor, ftToM } from './aircraftShapes'
 import { MIL_BASES_PL, MIL_BASES_NATO } from '../airfields'
 import { KIND_COLORS, BASE_PL, BASE_NATO } from '../lib/palette'
 import AirspaceLayer from './AirspaceLayer'
+import { basePopupHtml } from './basePopup'
 import MilRangesLayer, { MilRangeHatchDefs, HatchedPolygon, AREA_LABEL_ZOOM } from './MilRangesLayer'
 import { MIL_AIRFIELD_AREAS } from '../data/milAirfieldAreas'
 import { t } from '../i18n'
@@ -300,7 +301,12 @@ const RECENTER_GPS_ZOOM = 9
 // tylko o kolorze etykiety — reszta zachowania jest wspólna, żeby obie warstwy
 // nie zaczęły żyć własnym życiem. Bazę na mapie znaczy kreskowany teren
 // (BaseAreasLayer); marker niesie już tylko podpis i dymek z nazwą.
-function BasesLayer({ zoom, bases, variant }) {
+// Kliknięcie w bazę (podpis albo środek terenu) otwiera dymek: plan PAŻP na
+// dziś i maszyny w pobliżu. Dane czyta z `infoRef` w chwili otwarcia, żeby
+// odświeżanie samolotów co 5 s nie przebudowywało markerów baz.
+const POPUP_PAD = { autoPanPaddingTopLeft: [16, 64], autoPanPaddingBottomRight: [72, 24] }
+
+function BasesLayer({ zoom, bases, variant, infoRef }) {
   const map = useMap()
   const groupRef = useRef(null)
 
@@ -324,14 +330,33 @@ function BasesLayer({ zoom, bases, variant }) {
       const icon = L.divIcon({
         className: 'base-marker',
         html: label,
-        iconSize: [12, 12],
-        iconAnchor: [6, 6],
+        // Niewidoczny cel dla palca w środku lotniska — przy oddaleniu, gdy
+        // podpisu jeszcze nie ma, to jedyne miejsce do kliknięcia.
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
       })
       const m = L.marker([ap.lat, ap.lon], { icon, zIndexOffset: -1000, keyboard: false })
       m.bindTooltip(`${ap.name} · ${ap.icao}`, { direction: 'top', offset: [0, -8], className: `base-tooltip base-tooltip--${variant}` })
+      m.bindPopup(() => basePopupHtml(ap, variant, { ...infoRef.current, now: Date.now() }), {
+        className: `base-popup base-popup--${variant}`, closeButton: false, ...POPUP_PAD,
+      })
+      m.on('popupopen', e => {
+        m.closeTooltip()
+        const el = e.popup.getElement()
+        // Leaflet trzyma ten sam element dymka między otwarciami — nasłuch
+        // podpinamy raz, inaczej każde otwarcie dokładałoby kolejny.
+        if (!el || el.dataset.bound) return
+        el.dataset.bound = '1'
+        el.addEventListener('click', ev => {
+          const btn = ev.target.closest('[data-hex]')
+          if (!btn) return
+          infoRef.current.onSelect(btn.dataset.hex)
+          map.closePopup()
+        })
+      })
       group.addLayer(m)
     }
-  }, [zoom, bases, variant])
+  }, [zoom, bases, variant, infoRef, map])
 
   return null
 }
@@ -377,6 +402,58 @@ function SelectionFocus({ aircraft, selectedHex }) {
       map.flyTo([ac.lat, ac.lon], Math.max(map.getZoom(), 7), { duration: 0.8 })
     }
   }, [aircraft, selectedHex, map])
+
+  return null
+}
+
+// Podpisy baz, stref i poligonów przy przybliżeniu 7 wchodziły na siebie
+// (Nadarzyce na Mirosławcu, strefy PAŻP na nazwach baz). Po każdej zmianie
+// widoku i każdej zmianie markerów ukrywamy podpis, który nachodzi na już
+// postawiony — w kolejności ważności: polskie bazy, bazy NATO, strefy,
+// poligony. Ukryty (visibility) nie łapie też kliknięć.
+const LABEL_PRIORITY = [
+  '.base-marker-label:not(.base-marker-label--nato)',
+  '.base-marker-label--nato',
+  '.airspace-marker-label',
+  '.range-marker-label',
+]
+
+function LabelDeclutter() {
+  const map = useMap()
+
+  useEffect(() => {
+    const pane = map.getPane('markerPane')
+    let raf = 0
+    const run = () => {
+      raf = 0
+      const placed = []
+      for (const sel of LABEL_PRIORITY) {
+        for (const el of pane.querySelectorAll(sel)) {
+          el.style.visibility = ''
+          const r = el.getBoundingClientRect()
+          if (!r.width) continue
+          const hit = placed.some(p =>
+            r.left < p.right + 2 && r.right > p.left - 2 &&
+            r.top < p.bottom + 1 && r.bottom > p.top - 1)
+          if (hit) el.style.visibility = 'hidden'
+          else placed.push(r)
+        }
+      }
+    }
+    const schedule = () => { if (!raf) raf = requestAnimationFrame(run) }
+    // Markery dochodzą i znikają bez zdarzeń mapy (warstwy, co minutę strefy),
+    // więc obserwujemy też sam panel. Zmiana `visibility` to atrybut, nie
+    // dziecko — nie wywoła obserwatora ponownie.
+    const obs = new MutationObserver(schedule)
+    obs.observe(pane, { childList: true, subtree: true })
+    map.on('zoomend moveend', schedule)
+    schedule()
+    return () => {
+      obs.disconnect()
+      map.off('zoomend moveend', schedule)
+      if (raf) cancelAnimationFrame(raf)
+    }
+  }, [map])
 
   return null
 }
@@ -506,13 +583,18 @@ function AircraftLayer({ aircraft, selectedHex, onSelect, zoomScale, dimmedHexes
 export default function RadarMap({
   aircraft, hasFetched, trails, serverTrails, center, gpsCenter, radius,
   selectedHex, onSelect, activeTileId, showBases, showNatoBases, showRanges,
-  airspace, dimmedHexes, recenterRef,
+  airspace, showAirspace, dimmedHexes, recenterRef,
 }) {
   const initialZoom = 6  // S4: was 5, but icons were too small at default view
   const [zoom, setZoom] = useState(initialZoom)
   const tileLayer = TILE_LAYERS.find(l => l.id === activeTileId) || TILE_LAYERS[0]
   const zoomScale = useMemo(() => iconScaleForZoom(zoom), [zoom])
   const mapRef = useRef(null)
+  // Dane dla dymków baz — aktualizowane po renderze, czytane przy otwarciu.
+  const baseInfoRef = useRef({ zones: null, aircraft: [], onSelect: () => {} })
+  useEffect(() => {
+    baseInfoRef.current = { zones: airspace?.zones ?? null, aircraft, onSelect }
+  }, [airspace?.zones, aircraft, onSelect])
 
   // Akcja „wróć do widoku" wystawiona przez ref, bo przycisk mieszka w chrome
   // nad mapą (MapChrome), a instancja Leafletu tylko tutaj. Osobny stos
@@ -634,8 +716,9 @@ export default function RadarMap({
         <TileFilter filter={tileLayer.filter} />
         <ZoomTracker onZoomChange={setZoom} />
         <SelectionFocus aircraft={aircraft} selectedHex={selectedHex} />
+        <LabelDeclutter />
 
-        {airspace?.zones && (
+        {showAirspace && airspace?.zones && (
           <AirspaceLayer zones={airspace.zones} now={airspace.now} zoom={zoom} />
         )}
 
@@ -648,8 +731,8 @@ export default function RadarMap({
         {showNatoBases && <BaseAreasLayer bases={MIL_BASES_NATO} variant="nato" />}
         {showBases && <BaseAreasLayer bases={MIL_BASES_PL} variant="pl" />}
 
-        {showNatoBases && <BasesLayer zoom={zoom} bases={MIL_BASES_NATO} variant="nato" />}
-        {showBases && <BasesLayer zoom={zoom} bases={MIL_BASES_PL} variant="pl" />}
+        {showNatoBases && <BasesLayer zoom={zoom} bases={MIL_BASES_NATO} variant="nato" infoRef={baseInfoRef} />}
+        {showBases && <BasesLayer zoom={zoom} bases={MIL_BASES_PL} variant="pl" infoRef={baseInfoRef} />}
 
         {radius && gpsCenter && (
           <Circle center={gpsCenter} radius={radius * 1000} pathOptions={{

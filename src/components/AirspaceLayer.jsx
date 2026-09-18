@@ -90,7 +90,8 @@ export default function AirspaceLayer({ zones, now, zoom }) {
               iconAnchor: [0, 0],
             })}
           >
-            <Popup className="airspace-popup" closeButton={false} autoPanPadding={[16, 16]}>
+            <Popup className="airspace-popup" closeButton={false}
+              autoPanPaddingTopLeft={[16, 64]} autoPanPaddingBottomRight={[72, 24]}>
               <ZoneGroupPopup group={g} now={now} />
             </Popup>
           </Marker>

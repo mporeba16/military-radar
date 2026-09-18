@@ -46,7 +46,9 @@ export default function App() {
   const [showNatoBases, setShowNatoBases] = useLocalStorage('radar.natoBases', true)
   const [showRanges, setShowRanges] = useLocalStorage('radar.ranges', true)
   const [showAirspace, setShowAirspace] = useLocalStorage('radar.airspace', true)
-  const airspace = useAirspace(showAirspace)
+  // Plan PAŻP zasila też dymek polskiej bazy („co dziś stąd lata”), więc
+  // pobieramy go, gdy włączona jest którakolwiek z tych warstw.
+  const airspace = useAirspace(showAirspace || showBases)
   const [lastUpdated, setLastUpdated] = useState(null)
   const [alerts, setAlerts] = useState([])
   const [inRangeCount, setInRangeCount] = useState(0)
@@ -538,7 +540,8 @@ export default function App() {
         showBases={showBases}
         showNatoBases={showNatoBases}
         showRanges={showRanges}
-        airspace={showAirspace ? airspace : null}
+        airspace={airspace}
+        showAirspace={showAirspace}
         dimmedHexes={dimmedHexes}
         recenterRef={recenterRef}
       />
