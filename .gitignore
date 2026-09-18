@@ -7,3 +7,6 @@ dist/
 
 # Zrzuty i logi z narzędzi przeglądarkowych
 .playwright-mcp/
+
+# Notatki robocze, poza repo
+PLAN_NAPRAWCZY.md

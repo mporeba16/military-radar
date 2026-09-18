@@ -1,132 +1,108 @@
-# Military Radar
+<div align="center">
 
-Real-time military aircraft tracking for Europe and Poland. Built as a Progressive Web App with live ADS-B data, flight trail history, and push notifications.
+<img src="public/radar-icon.svg" width="88" alt="" />
 
-**Live:** [radar-wojskowy.netlify.app](https://radar-wojskowy.netlify.app)
+# Radar Wojskowy
 
----
+**Samoloty wojskowe, służbowe śmigłowce i największe transportowce nad Polską — na żywo, z powiadomieniem, gdy któryś pojawi się blisko Ciebie.**
 
-## Features
+[**radar-wojskowy.netlify.app**](https://radar-wojskowy.netlify.app)
 
-- **Real-time tracking** — aircraft positions refreshed every 5 seconds
-- **Military filtering** — ICAO hex prefixes, callsign patterns, and squawk codes used to identify military traffic across 20+ NATO nations
-- **Three view modes** — Europe-wide (2800 km radius), Poland (400 km), or GPS-centered with custom radius
-- **Flight trails** — 15-minute client-side trail + 4-hour server-side trail history via Netlify Blobs
-- **Aircraft info panel** — type, altitude, speed, heading, registration, country flag, photo from Planespotters.net
-- **Altitude color scale** — color-coded icons from red (0 m) through yellow (1200 m), green, teal, blue to purple (12 000+ m)
-- **SVG aircraft shapes** — 40+ distinct shapes: fighters, bombers, transports, helicopters, UAVs
-- **Push notifications** — Web Push alerts when military aircraft enter GPS radius, works when app is closed
-- **Multiple map layers** — OSM ADSBx, Carto Voyager, OpenStreetMap, Esri Satellite
-- **PWA** — installable, works offline (last cached data)
+![React 18](https://img.shields.io/badge/React-18-20232a?logo=react&logoColor=61dafb)
+![Vite 5](https://img.shields.io/badge/Vite-5-20232a?logo=vite&logoColor=ffd62e)
+![Leaflet](https://img.shields.io/badge/Leaflet-1.9-20232a?logo=leaflet&logoColor=a3d977)
+![Netlify](https://img.shields.io/badge/Netlify-Functions%20%2B%20Blobs-20232a?logo=netlify&logoColor=32e6e2)
+![PWA](https://img.shields.io/badge/PWA-instalowalna-20232a?logo=pwa&logoColor=a78bfa)
 
----
+</div>
 
-## Data Sources
+<p align="center">
+  <img src="docs/screenshot-desktop.jpg" width="72%" alt="Mapa Europy Środkowej z samolotami wojskowymi, poligonami i lotniskami" />
+  &nbsp;
+  <img src="docs/screenshot-mobile.jpg" width="22%" alt="Karta C-17 Globemaster III na telefonie" />
+</p>
 
-| Source | Endpoint | Purpose |
-|--------|----------|---------|
-| [adsb.fi](https://opendata.adsb.fi) | `/api/v2/mil` | Global military aircraft database |
-| [adsb.fi](https://opendata.adsb.fi) | `/api/v2/lat/{lat}/lon/{lon}/dist/{nm}` | Geographic supplement for untagged military traffic |
-| [OpenSky Network](https://opensky-network.org) | `/api/states/all` | Fallback when adsb.fi is unavailable |
-| [Planespotters.net](https://www.planespotters.net) | `/pub/photos/hex/{hex}` | Aircraft photos |
+## Co pokazuje
 
-No API key required for anonymous use. adsb.fi and OpenSky have rate limits for unauthenticated requests.
+| | |
+|---|---|
+| **Wojsko** | maszyny oznaczone jako wojskowe w adsb.fi oraz rozpoznane samodzielnie — po blokach adresów ICAO, znakach wywoławczych (RCH, SAVER, DUKE…) i squawkach 7777 / 7400 |
+| **Śmigłowce służbowe** | LPR, Policja, Straż Graniczna i zagraniczne służby ratunkowe — tylko potwierdzone wiropłaty |
+| **Duże samoloty** | Boeing 747, An-124, An-225 |
 
----
+Każdą kategorię można wyłączyć — znika wtedy z mapy i przestaje wysyłać alerty.
 
-## Military Detection Logic
+## Funkcje
 
-An aircraft is classified as military if it matches **any** of:
+- **Mapa na żywo** — odświeżanie co 5 s, płynny ruch ikon, ponad 40 sylwetek (myśliwce, tankowce, transportowce, śmigłowce, drony) w kolorze pułapu
+- **Karta maszyny** — zdjęcie z Planespotters, typ, kraj, wysokość z trendem, prędkość, czas lotu i przewidywane lotnisko lądowania
+- **Trasa lotu** — do 4 godzin historii zapisywanej po stronie serwera, także gdy nikt nie ma otwartej aplikacji
+- **Powiadomienia push** — alert, gdy maszyna wleci w wybrany promień od Twojej pozycji, nawet przy zamkniętej aplikacji (na iPhonie po dodaniu do ekranu głównego)
+- **Warstwy** — teren polskich lotnisk wojskowych (czerwony), główne bazy NATO (fioletowy) i 12 poligonów (pomarańczowy, kreskowany)
+- **Sześć podkładów** — ciemny, klasyczny, satelita, neutralne ciemny i jasny, teren
+- **PWA** — instaluje się jak aplikacja, działa na telefonie i komputerze
 
-1. **ICAO hex prefix** — blocks allocated exclusively to military (e.g. `AE` for USAF/USN/USMC, `43C–43F` for Bundeswehr, `478` for Norwegian Luftforsvaret, etc.)
-2. **Callsign pattern** — known military callsign prefixes (RCH, ASCOT, MAGMA, SAVER, GAF, CZAF, etc.)
-3. **Squawk code** — `7777` (intercept) or `7400` (lost link)
+## Skąd dane
 
-Civilian airline callsigns (LOT, RYR, DLH, BAW, etc.) are always excluded even if hex matches.
+| Źródło | Do czego |
+|---|---|
+| [adsb.fi](https://opendata.adsb.fi) `/v2/mil` | globalna lista maszyn wojskowych |
+| [adsb.fi](https://opendata.adsb.fi) `/v2/lat/…/lon/…/dist/250` | cały ruch nad Polską — stąd wyłapywane są maszyny, których `/mil` nie oznacza |
+| [OpenSky Network](https://opensky-network.org) | zapas, gdy adsb.fi nie odpowiada (bez typu i rejestracji) |
+| [Planespotters.net](https://www.planespotters.net) | zdjęcia maszyn |
+| [OpenStreetMap](https://www.openstreetmap.org) | obrysy lotnisk i poligonów (ODbL) |
 
-Synthetic/test addresses are filtered out:
-- Sequential byte pattern (e.g. `0x44-0x55-0x66`)
-- TIS-B temporary addresses ending in `0xFFF`
-- Null or all-identical-byte addresses
+ADS-B nie podaje godziny startu, więc **czas lotu** to czas od pierwszego punktu trasy, jaki zna serwer — dolna granica, nie dokładna wartość.
 
----
+## Jak to działa
 
-## Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| Frontend | React 18, Vite 5 |
-| Maps | Leaflet 1.9.4, React Leaflet 4 |
-| PWA | vite-plugin-pwa (Workbox, generateSW) |
-| Backend | Netlify Functions (Node 20, ES modules) |
-| Storage | Netlify Blobs (flight trail persistence) |
-| Push | Web Push (VAPID), Service Worker |
-| Deployment | Netlify (auto-deploy from `main`) |
-
----
-
-## Project Structure
-
-```
-├── netlify/
-│   └── functions/
-│       ├── aircraft.js      # Aircraft data fetching + trail storage
-│       ├── subscribe.js     # Web Push subscription management
-│       └── notify.js        # Scheduled push notification delivery
-├── public/
-│   ├── push-handler.js      # Service worker push event handler
-│   └── pwa-*.png            # PWA icons
-└── src/
-    ├── api.js               # Client-side API helpers
-    ├── App.jsx              # Root component, state, polling loop
-    ├── components/
-    │   ├── RadarMap.jsx         # Leaflet map, markers, trails, legend
-    │   ├── AircraftInfoPanel.jsx # Selected aircraft details
-    │   └── aircraftShapes.js    # SVG shapes, color scale, ICAO type mapping
-    └── hooks/
-        ├── useGeolocation.js       # watchPosition with auto-start
-        └── usePushNotifications.js # VAPID subscription flow
+```mermaid
+flowchart LR
+  A[adsb.fi / OpenSky] --> F[aircraft<br/>co 5 s na żądanie]
+  A --> C[collect<br/>cron co 2 min]
+  F --> B[(Netlify Blobs<br/>trasy 4 h)]
+  C --> B
+  F --> P[PWA<br/>React + Leaflet]
+  B --> P
+  A --> N[notify<br/>cron co 1 min]
+  N -->|Web Push| P
 ```
 
----
+| Funkcja | Rola |
+|---|---|
+| `aircraft` | pobiera i klasyfikuje ruch, zwraca trasę wybranej maszyny |
+| `collect` | co 2 minuty zapisuje trasy w tle |
+| `notify` | co minutę sprawdza zasięg subskrybentów i wysyła push |
+| `subscribe` / `status` / `test-push` | zapis subskrypcji, diagnostyka, testowy push |
 
-## Local Development
+## Uruchomienie lokalne
 
 ```bash
 npm install
-netlify dev          # runs Vite + Netlify Functions locally
+npx netlify dev      # Vite + Netlify Functions
 ```
 
-Requires [Netlify CLI](https://docs.netlify.com/cli/get-started/).
+Sam `npm run dev` uruchomi interfejs bez funkcji — mapa zostanie pusta, a znacznik w rogu zaświeci na czerwono.
 
-For push notifications and trail persistence, set environment variables in Netlify dashboard or `.env`:
-
-```
-VAPID_PUBLIC_KEY=...
-VAPID_PRIVATE_KEY=...
-OPENSKY_USER=...      # optional — raises OpenSky rate limit
-OPENSKY_PASS=...
-```
-
----
-
-## Deployment
+Powiadomienia wymagają kluczy VAPID (`npx web-push generate-vapid-keys`) — wzór w [`.env.example`](.env.example).
 
 ```bash
-netlify deploy --prod
+npm test             # vitest
+npm run lint         # eslint
+npm run build        # produkcja do dist/
 ```
 
-Netlify automatically builds and deploys on push to `main`. Build command: `npm run build`, publish directory: `dist`.
+Wdrożenie: każdy push na `main` buduje się automatycznie na Netlify.
 
----
+## Struktura
 
-## Data Filtering Details
-
-### Altitude cap
-Aircraft reporting above **60 000 ft (18 300 m)** are excluded — phantom tracks in adsb.fi sometimes carry invalid Mode-C altitude readings.
-
-### Supplement geographic query
-The adsb.fi `/mil` endpoint does not tag every military aircraft. A second geographic query fetches all aircraft within radius and applies our own hex/callsign filters, catching traffic missed by the global database.
-
-### ICAO hex → country lookup
-Country is derived client-side from the ICAO 24-bit address range table (80+ countries) and displayed with emoji flag in the info panel.
+```
+netlify/functions/   aircraft, collect, notify, subscribe, status, test-push
+  lib/               klasyfikacja wojska, granice Polski, bezpieczeństwo
+src/
+  components/        mapa, karta maszyny, panele, sylwetki SVG
+  data/              obrysy lotnisk i poligonów
+  lib/               paleta, geometria, nazwy typów, dopasowanie zdjęć
+  airfields.js       lotniska: polskie wojskowe, cywilne, bazy NATO
+test/                testy vitest
+```
