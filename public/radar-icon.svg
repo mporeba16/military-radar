@@ -1,8 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <circle cx="16" cy="16" r="15" fill="#0a1628" stroke="#00ff88" stroke-width="1.5"/>
-  <circle cx="16" cy="16" r="10" fill="none" stroke="#00ff88" stroke-width="0.8" opacity="0.5"/>
-  <circle cx="16" cy="16" r="5" fill="none" stroke="#00ff88" stroke-width="0.8" opacity="0.3"/>
-  <line x1="16" y1="1" x2="16" y2="31" stroke="#00ff88" stroke-width="0.5" opacity="0.3"/>
-  <line x1="1" y1="16" x2="31" y2="16" stroke="#00ff88" stroke-width="0.5" opacity="0.3"/>
-  <polygon points="16,4 17.5,20 16,18 14.5,20" fill="#00ff88"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#080f1c"/>
+  <!-- Łuk zasięgu — echo okręgu, który aplikacja rysuje wokół pozycji
+       użytkownika. Nie pełne oczko radaru: ćwiartka wystarcza, żeby powiedzieć
+       „zasięg”, i nie zamienia ikony w kolejny zielony celownik. -->
+  <path d="M88 256 A 168 168 0 0 1 256 88"
+        fill="none" stroke="#00ff88" stroke-opacity="0.42" stroke-width="13" stroke-linecap="round"
+        transform="rotate(-8 256 256)"/>
+  <!-- Ten sam glif, którym aplikacja znaczy odrzutowiec o nieustalonym typie. -->
+  <g transform="translate(268 262) rotate(42) scale(8.8) translate(-9 -12)">
+    <path fill="#00ff88" d="M9.44,23c-.1.6-.35.6-.44.6s-.34,0-.44-.6l-3,.67V22.6A.54.54,0,0,1,6,22.05l2.38-1.12L8,19.33H6.69l0-.2a8.23,8.23,0,0,1-.14-3.85l.06-.18H7.73V13.19h-2L.26,14.29v-.93c0-.28.07-.46.22-.53l7.25-3.6V3.85A4.47,4.47,0,0,1,8.83.49L9,.34l.17.15a4.47,4.47,0,0,1,1.1,3.36V9.23l7.25,3.6c.14.07.22.25.22.53v.93l-5.51-1.1h-2V15.1h1.17l.06.18a8.24,8.24,0,0,1-.15,3.84l0,.2H10l-.36,1.6,2.43,1.14a.52.52,0,0,1,.35.53v1.08Z"/>
+  </g>
 </svg>

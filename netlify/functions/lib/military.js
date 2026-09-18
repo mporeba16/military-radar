@@ -28,6 +28,29 @@ const CIVILIAN_CALLSIGN_PATTERNS = [
   /^AFR/i, /^IBE/i, /^EZY/i, /^TRA/i, /^KLM/i,
 ]
 
+// ── Samoloty szkolne ──────────────────────────────────────────────────────
+// Maszyny treningowe latają w kółko nad własnym lotniskiem po kilka godzin
+// dziennie i zapychają radar zdarzeniami, które nic nie znaczą: PZL-130 Orlik
+// z Dęblina potrafi siedzieć na mapie cały dzień, robiąc kręgi nad Radomiem.
+// To jedyna rzecz w tej aplikacji odsiewana dlatego, że jest NUDNA, a nie
+// dlatego, że jest błędna — stąd osobna, jawna lista zamiast reguły.
+//
+// Świadomie NIE są tu odrzucone szkolno-bojowe: M-346 Bielik, TS-11 Iskra,
+// L-39 Albatros, Hawk, T-38 Talon. Latają zadaniowo, nie w kręgu, i ich pojawienie
+// się nad Polską jest informacją.
+const TRAINING_TYPES = new Set([
+  'PZ3T',          // PZL-130 Orlik — Dęblin / Radom
+  'G115',          // Grob G115 Tutor — brytyjskie loty zapoznawcze
+  'PC21', 'PC9',   // Pilatus PC-21 / PC-9
+  'DA40', 'DA42',  // Diamond — szkolenie podstawowe i nawigacyjne
+  'T6',            // Beechcraft T-6 Texan II
+  'SF26', 'G120',  // Grob G120TP i szybowce szkolne
+])
+
+export function isTrainingAircraft(type) {
+  return TRAINING_TYPES.has(normType(type))
+}
+
 const GROUND_STATION_PATTERNS = [/XCAM/i, /XCAT/i, /XBAT/i]
 export const GROUND_STATION_TYPES = new Set(['TWR', 'GND', 'MLAT', 'RADAR'])
 const MILITARY_SQUAWKS = new Set(['7777', '7400'])
@@ -111,6 +134,7 @@ export function isSuspiciousHex(hex) {
 }
 
 export function isMilitaryADSBfiRecord(a) {
+  if (isTrainingAircraft(a.t)) return false
   const hex = (a.hex || '').toLowerCase()
   const callsign = (a.flight || '').trim()
   const squawk = a.squawk || ''
@@ -212,7 +236,7 @@ export async function fetchMilitaryNear(lat, lon, radiusKm) {
     const milData = await milRes.json()
 
     const milAircraft = (milData.ac || milData.aircraft || [])
-      .filter(a => isValidADSBfi(a) &&
+      .filter(a => isValidADSBfi(a) && !isTrainingAircraft(a.t) &&
         a.lat >= lamin && a.lat <= lamax &&
         a.lon >= lomin && a.lon <= lomax)
     milAircraft.forEach(a => { a._kind = 'mil' })

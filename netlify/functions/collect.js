@@ -1,6 +1,6 @@
 import { getStore, connectLambda } from '@netlify/blobs'
 import { saveTrails } from './aircraft.js'
-import { classifyADSBfi, isSuspiciousHex } from './lib/military.js'
+import { classifyADSBfi, isSuspiciousHex, isTrainingAircraft } from './lib/military.js'
 
 // Szeroki bounding box pokrywający Europę + zachodnia Rosja + bliski wschód
 // (lat 30°-72°, lon -15°-50°). adsb.fi /mil zwraca globalnie, więc i tak
@@ -33,6 +33,8 @@ function isValidRecord(a) {
   // Ten sam filtr, co na ścieżce live (aircraft.js). Bez niego cron zapisywał
   // trasy maszyn-widm, których aplikacja i tak nigdy nie pokaże.
   if (isSuspiciousHex(a.hex)) return false
+  // Samoloty szkolne nie trafiają na radar, więc nie ma po co zbierać ich tras.
+  if (isTrainingAircraft(a.t)) return false
   return true
 }
 

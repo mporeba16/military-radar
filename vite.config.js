@@ -29,9 +29,13 @@ export default defineConfig({
         background_color: '#080f1c',
         display: 'standalone',
         orientation: 'any',
+        // `maskable` dostaje WŁASNY plik z zapasem przy krawędziach. Wcześniej
+        // ta sama grafika była zgłaszana jako 'any maskable', więc Android
+        // przycinał ją do koła razem z treścią sięgającą brzegu.
         icons: [
-          { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },
-          { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' }
+          { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: 'pwa-512x512-maskable.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
         ]
       },
       workbox: {

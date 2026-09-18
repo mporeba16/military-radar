@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   classifyADSBfi,
   isSuspiciousHex,
+  isTrainingAircraft,
   isMilitaryADSBfiRecord,
   classifyExtra,
   isMilitaryState,
@@ -142,5 +143,34 @@ describe('normalizeKinds', () => {
   it('potrafi wyłączyć wszystko naraz', () => {
     expect(normalizeKinds({ mil: false, heli: false, heavy: false }))
       .toEqual({ mil: false, heli: false, heavy: false })
+  })
+})
+
+describe('isTrainingAircraft', () => {
+  it('odsiewa maszyny latające w kółko nad własnym lotniskiem', () => {
+    // PZ3T to PZL-130 Orlik z Dęblina — potrafi siedzieć na mapie cały dzień,
+    // robiąc kręgi nad Radomiem, i zapycha radar zdarzeniami bez znaczenia.
+    expect(isTrainingAircraft('PZ3T')).toBe(true)
+    expect(isTrainingAircraft('G115')).toBe(true)
+    expect(isTrainingAircraft('PC21')).toBe(true)
+    expect(isTrainingAircraft('DA40')).toBe(true)
+  })
+
+  it('zostawia szkolno-bojowe, bo te latają zadaniowo', () => {
+    for (const t of ['M346', 'TS11', 'L39', 'HAWK', 'T38']) {
+      expect(isTrainingAircraft(t), t).toBe(false)
+    }
+  })
+
+  it('nie wywraca się na braku typu', () => {
+    expect(isTrainingAircraft('')).toBe(false)
+    expect(isTrainingAircraft(null)).toBe(false)
+    expect(isTrainingAircraft(undefined)).toBe(false)
+  })
+
+  it('Orlik nie przechodzi klasyfikacji nawet z wojskowym callsignem', () => {
+    // Bramka musi stać PRZED regułami hex/callsign, inaczej PLF na Orliku
+    // przepuściłby go z powrotem na radar.
+    expect(classifyADSBfi({ hex: '48d911', flight: 'PLF12', t: 'PZ3T' })).toBeNull()
   })
 })

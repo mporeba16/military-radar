@@ -12,6 +12,7 @@ import { snapshotKey } from './lib/snapshot.js'
 import { isInPoland } from './lib/poland.js'
 import {
   isSuspiciousHex,
+  isTrainingAircraft,
   classifyExtra,
   isMilitaryADSBfiRecord,
   isMilitaryState,
@@ -195,7 +196,8 @@ async function tryADSBfi(lamin, lomin, lamax, lomax) {
     if (!milRes.ok) return null
     const milData = await milRes.json()
     const milAircraft = (milData.ac || []).filter(a =>
-      isADSBfiRecordInBox(a, lamin, lomin, lamax, lomax) && passesTypeNoise(a))
+      isADSBfiRecordInBox(a, lamin, lomin, lamax, lomax) && passesTypeNoise(a) &&
+      !isTrainingAircraft(a.t))
     milAircraft.forEach(a => { a._kind = 'mil' })
     const milHexes = new Set(milAircraft.map(a => a.hex))
 

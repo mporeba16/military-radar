@@ -12,6 +12,10 @@
          nieprzezroczystego status baru, przez co env(safe-area-inset-top) ≈ 0 i
          cała obsługa notcha (paddingi safe-area) nic by nie robiła. -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
+    <!-- Standardowy odpowiednik powyższego. Chrome od dawna zgłasza wariant
+         'apple-' jako przestarzały; bez tej linii konsola sypie ostrzeżeniem
+         przy każdym wejściu. -->
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Radar PL" />
 
@@ -40,7 +44,9 @@
          the CSS bundle is parsed. Avoids LCP-counting against us during
          a brief flash. */
       html, body, #root { margin: 0; height: 100%; background: #040a14; }
-      body { color: #ccd; font-family: 'Courier New', monospace; -webkit-text-size-adjust: 100%; }
+      /* Ten sam stos, co po doczytaniu arkusza — inaczej pierwszy klatkę
+         widać Courierem, a potem tekst przeskakuje. */
+      body { color: #ccd; font-family: 'Barlow Semi Condensed', 'Roboto Condensed', 'Helvetica Neue', system-ui, sans-serif; -webkit-text-size-adjust: 100%; }
       .boot-splash { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.45); font-size: 12px; letter-spacing: 2px; }
     </style>
   </head>
