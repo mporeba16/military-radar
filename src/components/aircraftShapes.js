@@ -391,7 +391,7 @@ export function getShapeKey(t, gs = null, category = null) {
   // nie ma, więc człon E39[0-9] łapał tylko C-390 i odbierał mu właściwą ikonę.
   if (/E29[0-9]|E17[0-9]|E19[0-9]|E13[0-9]|E14[0-9]|RJ[0-9]|B46[123]/.test(type)) return 'e390'
   // Twin-engine military transports — extend with An-30/72/74 + C-9 / DC-9 / MD-80/90
-  if (/C295|CN235|C235|AN26|AN30|AN32|^AN7[24]$|COALER|CLANK|DHC5|CASA|C27J|C27/.test(type)) return 'twin_large'
+  if (/C295|CN235|C235|^CN35$|AN26|AN30|AN32|^AN7[24]$|COALER|CLANK|DHC5|CASA|C27J|C27/.test(type)) return 'twin_large'
   // PZL M28 Skytruck / Bryza (pochodna An-28) — lekki dwusilnikowy turbośmigłowiec
   // (~7.5 t), klasa King Air / Twin Otter, nie średni transport jak C-295 → twin_small.
   // adsb.fi koduje je NIESPÓJNIE: "M28", "AN28", czasem "A28" — wszystkie to ta sama

@@ -133,6 +133,9 @@ describe('typeLabel — etykieta typu na karcie', () => {
 describe('MD-900 Explorer', () => {
   it('EXPL (np. belgijska policja G17) to śmigłowiec', () => {
     expect(getShapeKey('EXPL')).toBe('helicopter')
+    // CN35 = CASA CN-235 (CTM2078) — ta sama ikonka co C-295.
+    expect(getShapeKey('CN35')).toBe(getShapeKey('C295'))
+    expect(typeLabel('CN35')).toBe('CASA CN-235')
     expect(typeLabel('EXPL')).toBe('MD-900 Explorer')
   })
 })

@@ -126,6 +126,8 @@ export function getCommonName(t) {
     // W polskim lotnictwie ta maszyna to po prostu „Casa" — nazwa wytwórni
     // przylgnęła mocniej niż oznaczenie, więc stoi w etykiecie przed nim.
     [/C295|CN295/, 'CASA CN-295'],
+    // CN35 to desygnator ICAO CN-235 (francuski CTM, turecki, hiszpański).
+    [/CN235|^CN35$|^C235$/, 'CASA CN-235'],
     [/C212/, 'Aviocar'],
     [/C12$/, 'Huron'],
     [/B744|B747|B748/, 'Jumbo Jet'],
