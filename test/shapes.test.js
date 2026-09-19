@@ -61,6 +61,9 @@ describe('getCommonName — desygnatory ICAO z adsb.fi', () => {
   it('rozpoznaje warianty tankowców i rozpoznania', () => {
     expect(getCommonName('K35R')).toBe('Stratotanker')
     expect(getCommonName('K35E')).toBe('Stratotanker')
+    expect(getCommonName('C30J')).toBe('C-130J Hercules')
+    expect(typeLabel('C30J')).toBe('C-130J Hercules')
+    expect(getCommonName('C130')).toBe('Hercules')
     expect(getCommonName('R135')).toBe('Rivet Joint')
     expect(getCommonName('E3TF')).toBe('Sentry (AWACS)')
     expect(getCommonName('K46')).toBe('Pegasus')

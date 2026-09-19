@@ -66,6 +66,9 @@ export function getCommonName(t) {
     [/KC135|^K35[REAT]$/, 'Stratotanker'],
     [/KC10|^K10$|EXTENDER/, 'Extender'],
     [/MRTT|A330MRT/, 'MRTT'],
+    // C-130J ma w ICAO własny desygnator C30J (także C13J) — sam „C130” go
+    // nie łapał i karta pokazywała goły kod „C30J”.
+    [/^C30J$|^C13J$|C130J/, 'C-130J Hercules'],
     [/C130|HERCULES/, 'Hercules'],
     [/C160/, 'Transall'],
     [/AN12/, 'Cub'],
