@@ -125,6 +125,21 @@ export const TYPE_SLUG_ALIASES = {
   AS332: ['as332', 'super-puma'], AS532: ['as532', 'cougar'],
   // UAVs
   MQ9: ['mq-9', 'reaper'], MQ1: ['mq-1'], RQ4: ['rq-4'],
+  Q9: ['mq-9', 'reaper'], Q4: ['rq-4', 'mq-4', 'global-hawk', 'triton'],
+  // Desygnatory ICAO wojskowych Boeingów i Lockheedów nie mają nic wspólnego
+  // z nazwą w adresie zdjęcia: K35R to „boeing-kc-135t-stratotanker”, R135 to
+  // „boeing-rc-135w”. Bez tych aliasów zdjęcie tankowca 59-1460 (ae0596) było
+  // odrzucane jako cudze — rejestracja z samych cyfr nie jest dowodem, a
+  // maszyna nie nadawała znaku wywoławczego.
+  K35R: ['kc-135', 'stratotanker'], K35E: ['kc-135', 'stratotanker'],
+  KC46: ['kc-46', 'pegasus'], K46: ['kc-46', 'pegasus'], KC10: ['kc-10', 'extender'],
+  R135: ['rc-135', 'rivet-joint'], C135: ['c-135'], E3TF: ['e-3', 'sentry'],
+  E3CF: ['e-3', 'sentry'], E737: ['e-7', 'wedgetail', '737-7es'],
+  E6: ['e-6', 'mercury'], E8: ['e-8', 'jstars'], P8: ['p-8', 'poseidon'],
+  P3: ['p-3', 'orion'], EP3: ['ep-3'], E2: ['e-2', 'hawkeye'],
+  C5M: ['c-5', 'galaxy'], C5: ['c-5', 'galaxy'], C17: ['c-17', 'globemaster'],
+  H60: ['uh-60', 'hh-60', 'mh-60', 'sh-60', 'black-hawk', 'blackhawk', 'seahawk'],
+  H47: ['ch-47', 'chinook'],
   // Dassault Falcon / business jets (ICAO code != planespotters slug)
   F900: ['falcon-900', 'falcon'], F2TH: ['falcon-2000', 'falcon'],
   FA7X: ['falcon-7x', 'falcon'], FA8X: ['falcon-8x', 'falcon'], F50: ['falcon-50', 'falcon'],

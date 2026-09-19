@@ -141,3 +141,20 @@ describe('King Air / C-12 (USAF SPAR)', () => {
     expect(photoHasMatchSignal(foto, { t: 'BE20', reg: '76-3239', flight: 'SPAR89' })).toBe(true)
   })
 })
+
+describe('military designators that differ from the slug', () => {
+  it('accepts the KC-135 photo for K35R without a callsign (ae0596)', () => {
+    const ac = { hex: 'ae0596', t: 'K35R', reg: '59-1460', flight: '' }
+    const photo = {
+      link: 'https://www.planespotters.net/photo/1963735/59-1460-united-states-air-force-boeing-kc-135t-stratotanker-717-148?utm_source=api',
+      _src: 'reg',
+    }
+    expect(photoHasMatchSignal(photo, ac)).toBe(true)
+  })
+
+  it('still rejects an unrelated photo for the same numeric registration', () => {
+    const ac = { hex: 'ae0596', t: 'K35R', reg: '59-1460', flight: '' }
+    const photo = { link: 'https://www.planespotters.net/photo/1/59-1460-some-air-force-lockheed-f-104g-starfighter' }
+    expect(photoHasMatchSignal(photo, ac)).toBe(false)
+  })
+})
