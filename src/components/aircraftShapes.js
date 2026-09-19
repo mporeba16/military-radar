@@ -374,7 +374,8 @@ export function getShapeKey(t, gs = null, category = null) {
 
   if (/B747|B748|B744/.test(type)) return 'heavy_4e'
   if (/A380/.test(type)) return 'a380'
-  if (/A340|IL96/.test(type)) return 'heavy_4e'
+  // Desygnatory ICAO A340 to A342/A343/A345/A346 — sam „A340” ich nie łapał.
+  if (/A340|^A34[2356]$|IL96/.test(type)) return 'heavy_4e'
   if (/IL62/.test(type)) return 'il_62'
   if (/MD11|DC10/.test(type)) return 'md11'
   if (/B76[234WZ]|B767|B77[23LW89]|B777|B78[79X]|B787/.test(type)) return 'heavy_2e'

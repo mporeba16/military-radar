@@ -65,6 +65,8 @@ describe('getCommonName — desygnatory ICAO z adsb.fi', () => {
     expect(getCommonName('B1')).toBe('Lancer')
     expect(getCommonName('B1B')).toBe('Lancer')
     expect(getCommonName('GLF5')).toBe('Gulfstream')
+    expect(typeLabel('A345')).toBe('Airbus A340')
+    expect(getCommonName('SA342')).toBe('Gazelle')
     expect(getCommonName('B190')).not.toBe('Lancer')
     expect(typeLabel('C30J')).toBe('C-130J Hercules')
     expect(getCommonName('C130')).toBe('Hercules')
@@ -139,6 +141,7 @@ describe('MD-900 Explorer', () => {
     expect(getShapeKey('EXPL')).toBe('helicopter')
     // CN35 = CASA CN-235 (CTM2078) — ta sama ikonka co C-295.
     expect(getShapeKey('CN35')).toBe(getShapeKey('C295'))
+    for (const t of ['A342', 'A343', 'A345', 'A346']) expect(getShapeKey(t)).toBe('heavy_4e')
     expect(typeLabel('CN35')).toBe('CASA CN-235')
     expect(typeLabel('EXPL')).toBe('MD-900 Explorer')
   })
