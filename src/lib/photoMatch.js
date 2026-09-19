@@ -87,7 +87,7 @@ export const TYPE_SLUG_ALIASES = {
   M2KA: ['mirage-2000'], M2KC: ['mirage-2000'], M2KD: ['mirage-2000'], M2KN: ['mirage-2000'],
   EUFI: ['eurofighter', 'typhoon'], EF2000: ['typhoon', 'eurofighter'],
   RFAL: ['rafale'], JS39: ['gripen', 'jas-39'], JAS39: ['gripen', 'jas-39'],
-  TORN: ['tornado'], B1: ['b-1'], B2: ['b-2', 'spirit'], B52: ['b-52'],
+  TORN: ['tornado'], B1: ['b-1', 'lancer'], B2: ['b-2', 'spirit'], B52: ['b-52'],
   A10: ['a-10'], U2: ['u-2'],
   T6: ['t-6', 'texan'], T7: ['t-7'], T45: ['t-45'], T38: ['t-38'],
   L39: ['l-39'], YK130: ['yak-130'], YAK130: ['yak-130'],
@@ -148,7 +148,7 @@ export const TYPE_SLUG_ALIASES = {
   BE30: ['b300', 'king-air-350', 'king-air'], B350: ['b300', 'king-air-350', 'king-air'],
   EXPL: ['md-900', 'md-902', 'explorer'],
   F406: ['f406', 'caravan-ii'], E55P: ['phenom-300'], E50P: ['phenom-100'],
-  GLF5: ['gulfstream-v'], GLF6: ['gulfstream'], C56X: ['citation'], C68A: ['citation'],
+  GLF5: ['gulfstream-v', 'gulfstream', 'c-37'], GLF6: ['gulfstream'], C56X: ['citation'], C68A: ['citation'],
 }
 
 export function typeSlugCandidates(t) {

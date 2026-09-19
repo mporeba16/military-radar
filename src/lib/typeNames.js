@@ -6,6 +6,9 @@ export function getCommonName(t) {
   const type = (t || '').toUpperCase().replace(/[-\s]/g, '')
   if (!type) return null
   const map = [
+    // Na początku listy: niżej są wzorce bez kotwic (np. na F5), które
+    // mogłyby złapać „GLF5”. GLF4/5/6 to Gulfstreamy — VIP i wsparcie sił USA.
+    [/^GLF\d$|GULFSTREAM/, 'Gulfstream'],
     [/F16|FIGHTINGFALCON/, 'Fighting Falcon'],
     [/F15C?D?E?|STRIKEEAGLE/, 'Eagle'],
     [/FA18|F18|SUPERHORNET/, 'Hornet'],
@@ -41,7 +44,8 @@ export function getCommonName(t) {
     [/^AV8[A-Z]?$|^HARR$|HARRIER/, 'Harrier II'],
     [/^SR71$|BLACKBIRD/, 'Blackbird'],
     [/^MG1[5-9]$|^MIG1[5-9]$/, 'MiG-15/17/19'],
-    [/B1B|LANCER/, 'Lancer'],
+    // adsb.fi podaje dla B-1 zarówno B1B, jak i gołe B1 (ae6c0a).
+    [/^B1B?$|LANCER/, 'Lancer'],
     [/^B2[AT]?$|SPIRIT/, 'Spirit'],
     [/B52|STRATOFORTRESS/, 'Stratofortress'],
     [/^TU95$|^TU142$|BEAR/, 'Bear'],
