@@ -10,6 +10,8 @@ export function getCommonName(t) {
     // mogłyby złapać „GLF5”. GLF4/5/6 to Gulfstreamy — VIP i wsparcie sił USA.
     [/^GLF\d$|GULFSTREAM/, 'Gulfstream'],
     [/^C5[567]\d$|^C56X$|CITATION/, 'Citation'],
+    [/^LJ3[56]$|^C21$|LEARJET/, 'Learjet C-21'],
+    [/^LJ(31|45|55|60|75)$/, 'Learjet'],
     [/^SF34$|SAAB340/, 'Saab 340'],
     [/^SB20$|SAAB2000/, 'Saab 2000'],
     [/F16|FIGHTINGFALCON/, 'Fighting Falcon'],

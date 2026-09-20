@@ -156,6 +156,11 @@ export const TYPE_SLUG_ALIASES = {
   // Szwedzkie Saaby: w adresie zdjęcia stoi oznaczenie wojskowe („saab-tp-100c
   // -340b”, „s-100b-argus”), nie kod ICAO.
   SF34: ['saab-340', '340b', 'tp-100', 's-100'], SB20: ['saab-2000', '2000', 'tp-102'],
+  // Learjety: USAF lata nimi jako C-21A, a w adresie zdjęcia stoi
+  // „learjet-c-21a-learjet-35a” — kod LJ35 nie występuje tam w ogóle.
+  LJ35: ['learjet-35', 'learjet', 'c-21'], LJ36: ['learjet-36', 'learjet'],
+  LJ45: ['learjet-45', 'learjet'], LJ60: ['learjet-60', 'learjet'],
+  LJ31: ['learjet-31', 'learjet'], LJ55: ['learjet-55', 'learjet'],
   C560: ['citation', 'uc-35'], C56X: ['citation', 'uc-35'], C550: ['citation'],
   C525: ['citation'], C510: ['citation'], C750: ['citation'],
 }

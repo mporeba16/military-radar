@@ -172,3 +172,11 @@ describe('szwedzkie Saaby', () => {
     expect(photoHasMatchSignal(photo, ac)).toBe(false)
   })
 })
+
+describe('Learjet C-21', () => {
+  it('przyjmuje zdjęcie C-21A dla LJ35 (E10E2)', () => {
+    const ac = { hex: 'ae018a', t: 'LJ35', reg: '84-0096', flight: 'E10E2' }
+    const photo = { link: 'https://www.planespotters.net/photo/1/84-0096-united-states-air-force-learjet-c-21a-learjet-35a', _src: 'reg' }
+    expect(photoHasMatchSignal(photo, ac)).toBe(true)
+  })
+})
