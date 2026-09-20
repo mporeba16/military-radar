@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getShapeKey, SHAPES } from '../src/components/aircraftShapes.js'
+import { getShapeKey, SHAPES, countryFromHex, countryFlag } from '../src/components/aircraftShapes.js'
 import { getCommonName, typeLabel } from '../src/lib/typeNames.js'
 
 // C-390 Millennium przychodzi z adsb.fi pod fabrycznym oznaczeniem Embraera
@@ -144,5 +144,32 @@ describe('MD-900 Explorer', () => {
     for (const t of ['A342', 'A343', 'A345', 'A346']) expect(getShapeKey(t)).toBe('heavy_4e')
     expect(typeLabel('CN35')).toBe('CASA CN-235')
     expect(typeLabel('EXPL')).toBe('MD-900 Explorer')
+  })
+})
+
+describe('countryFromHex — tabela ICAO', () => {
+  const cases = [
+    ['ae0596', 'United States'],   // KC-135
+    ['70c08e', 'Oman'],            // C-130J RAFO — wcześniej brak kraju
+    ['3f7a10', 'Germany'],
+    ['489a20', 'Poland'],
+    ['4ca1b2', 'Ireland'],
+    ['730123', 'Iran'],            // stara tabela mówiła „Thailand”
+    ['760111', 'Pakistan'],        // stara tabela mówiła „China”
+    ['008123', 'South Africa'],    // stara tabela mówiła „Egypt”
+    ['0a0123', 'Algeria'],         // stara tabela mówiła „Cameroon”
+  ]
+
+  it.each(cases)('%s → %s', (hex, country) => {
+    expect(countryFromHex(hex)).toBe(country)
+  })
+
+  it('daje flagę dla każdego państwa z tabeli', () => {
+    for (const [, country] of cases) expect(countryFlag(country)).not.toBe('')
+  })
+
+  it('nie zna adresów spoza przydziałów', () => {
+    expect(countryFromHex('ffffff')).toBeNull()
+    expect(countryFromHex('')).toBeNull()
   })
 })

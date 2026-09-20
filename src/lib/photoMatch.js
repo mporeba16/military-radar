@@ -148,7 +148,12 @@ export const TYPE_SLUG_ALIASES = {
   BE30: ['b300', 'king-air-350', 'king-air'], B350: ['b300', 'king-air-350', 'king-air'],
   EXPL: ['md-900', 'md-902', 'explorer'],
   F406: ['f406', 'caravan-ii'], E55P: ['phenom-300'], E50P: ['phenom-100'],
-  GLF5: ['gulfstream-v', 'gulfstream', 'c-37'], GLF6: ['gulfstream'], C56X: ['citation'], C68A: ['citation'],
+  GLF5: ['gulfstream-v', 'gulfstream', 'c-37'], GLF6: ['gulfstream'], C68A: ['citation'],
+  // Wojskowe Citationy: USAF i US Army latają nimi jako UC-35, a planespotters
+  // pisze „cessna-uc-35a-citation-ultra”. Sam kod C560 w adresie nie występuje,
+  // więc zdjęcie SPAR95 (adfebb) było odrzucane.
+  C560: ['citation', 'uc-35'], C56X: ['citation', 'uc-35'], C550: ['citation'],
+  C525: ['citation'], C510: ['citation'], C750: ['citation'],
 }
 
 export function typeSlugCandidates(t) {
