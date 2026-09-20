@@ -33,6 +33,20 @@ function passesTypeNoise(a) {
 
 // Wspólny cache live-snapshotu (redukuje zapytania do adsb.fi → mniej 429)
 const SNAPSHOT_TTL_MS = 9000
+// Jak stara może być migawka oddana, gdy źródła nie odpowiadają. Dziesięć
+// minut to granica, po której pozycje przestają mieć sens (maszyna zdąży
+// przelecieć ~130 km).
+const STALE_FALLBACK_MS = 10 * 60 * 1000
+
+// Co oddać, gdy oba źródła padły. Migawka młodsza niż STALE_FALLBACK_MS wraca
+// z oznaczeniem wieku; starsza jest bezużyteczna, więc wtedy pusta lista.
+export function staleFallback(snapshot, now) {
+  const age = snapshot?.ts ? now - snapshot.ts : Infinity
+  if (!snapshot?.aircraft?.length || age >= STALE_FALLBACK_MS) {
+    return { aircraft: [], _source: 'unavailable' }
+  }
+  return { aircraft: snapshot.aircraft, _source: snapshot.source, _stale: true, _ageMs: age }
+}
 
 
 const TRAIL_MAX_AGE_MS = 4 * 60 * 60 * 1000  // 4 godziny historii
@@ -345,9 +359,20 @@ export const handler = async (event) => {
     } catch { /* brak cache → pobierz świeżo */ }
   }
 
-  const result = await tryADSBfi(lamin, lomin, lamax, lomax)
+  let result = await tryADSBfi(lamin, lomin, lamax, lomax)
     || await tryOpenSky(lamin, lomin, lamax, lomax)
-    || { aircraft: [], _source: 'unavailable' }
+
+  // Oba źródła padły (najczęściej limit zapytań adsb.fi po serii wywołań).
+  // Pusta lista czyściła wtedy całą mapę na jeden cykl, a po chwili maszyny
+  // wracały. Lepiej oddać ostatnią dobrą migawkę i oznaczyć ją jako starszą —
+  // kilka minut nieaktualnych pozycji mówi więcej niż puste niebo.
+  if (!result) {
+    let stale = null
+    if (snapStore) {
+      try { stale = await snapStore.get(snapKey, { type: 'json' }) } catch { /* brak migawki */ }
+    }
+    result = staleFallback(stale, Date.now())
+  }
 
   if (snapStore && result._source !== 'unavailable') {
     await snapStore.set(snapKey, JSON.stringify({ ts: Date.now(), aircraft: result.aircraft, source: result._source })).catch(() => {})

@@ -124,13 +124,19 @@ const MIN_TAP_TARGET = 44
 // every animating marker from old to new position over ~2.5 s instead of
 // teleporting on each poll. This hides the 5-s-poll sampling step and
 // smooths over small jumps in adsb.fi data.
+// Animacja dobiega 2,5 s, ale przy tłoku na niebie skracamy ją: na telefonie
+// płynne przesuwanie kilkuset ikon przez 2,5 s po każdym odświeżeniu zjadało
+// więcej procesora niż wszystko inne razem wzięte.
 const MARKER_ANIM_MS = 2500
+const MARKER_ANIM_MS_BUSY = 1000
+const BUSY_MARKERS = 150
+let markerAnimMs = MARKER_ANIM_MS
 const animatingMarkers = new Map() // marker → { fromLat, fromLon, toLat, toLon, startTime }
 let animRafId = null
 function tickMarkerAnimations() {
   const now = performance.now()
   for (const [marker, a] of animatingMarkers) {
-    const t = Math.min(1, (now - a.startTime) / MARKER_ANIM_MS)
+    const t = Math.min(1, (now - a.startTime) / a.durationMs)
     const eased = 1 - Math.pow(1 - t, 2)  // easeOutQuad
     const lat = a.fromLat + (a.toLat - a.fromLat) * eased
     const lon = a.fromLon + (a.toLon - a.fromLon) * eased
@@ -142,6 +148,7 @@ function tickMarkerAnimations() {
 function animateMarkerTo(marker, toLat, toLon) {
   const from = marker.getLatLng()
   animatingMarkers.set(marker, {
+    durationMs: markerAnimMs,
     fromLat: from.lat, fromLon: from.lng, toLat, toLon,
     startTime: performance.now(),
   })
@@ -463,6 +470,14 @@ function LabelDeclutter() {
   return null
 }
 
+// Przesunięcie mapy musi odświeżyć zestaw widocznych znaczników — bez tego
+// po przesunięciu widoku nowe maszyny pojawiłyby się dopiero przy następnym
+// odświeżeniu danych (do 5 s).
+function MapViewTracker({ onMove }) {
+  useMapEvents({ moveend: onMove, zoomend: onMove })
+  return null
+}
+
 function ZoomTracker({ onZoomChange }) {
   const map = useMap()
   useEffect(() => {
@@ -474,7 +489,11 @@ function ZoomTracker({ onZoomChange }) {
   return null
 }
 
-function AircraftLayer({ aircraft, selectedHex, onSelect, zoomScale, dimmedHexes }) {
+// Zapas wokół widoku: znacznik tuż za krawędzią ma już swój marker, więc
+// przy przesuwaniu mapy nic nie „doskakuje" z opóźnieniem.
+const VIEW_PAD = 0.35
+
+function AircraftLayer({ aircraft, selectedHex, onSelect, zoomScale, dimmedHexes, viewTick }) {
   const map = useMap()
   const groupRef = useRef(null)
   const markersRef = useRef(new Map()) // hex → { marker, key }
@@ -503,9 +522,17 @@ function AircraftLayer({ aircraft, selectedHex, onSelect, zoomScale, dimmedHexes
     const additions = []
     const removals = []
 
-    for (const ac of aircraft) {
-      if (ac.lat == null || ac.lon == null) continue
-      if (!Number.isFinite(ac.lat) || !Number.isFinite(ac.lon)) continue
+    // Rysujemy tylko to, co widać (plus zapas). Przy 400 maszynach nad Europą
+    // 78% znaczników było poza ekranem, a mimo to miały swój węzeł w drzewie
+    // strony i były animowane co klatkę.
+    const view = map.getBounds().pad(VIEW_PAD)
+    const inView = ac => view.contains([ac.lat, ac.lon]) || ac.hex === selectedHex
+    const shown = aircraft.filter(ac =>
+      ac.lat != null && ac.lon != null &&
+      Number.isFinite(ac.lat) && Number.isFinite(ac.lon) && inView(ac))
+    markerAnimMs = shown.length > BUSY_MARKERS ? MARKER_ANIM_MS_BUSY : MARKER_ANIM_MS
+
+    for (const ac of shown) {
       next.add(ac.hex)
       const isSelected = ac.hex === selectedHex
       // T1: split keys — position changes are cheap (setLatLng), icon changes
@@ -580,7 +607,7 @@ function AircraftLayer({ aircraft, selectedHex, onSelect, zoomScale, dimmedHexes
       group.removeLayer(m)
     }
     for (const m of additions) group.addLayer(m)
-  }, [aircraft, selectedHex, zoomScale, onSelect, dimmedHexes])
+  }, [aircraft, selectedHex, zoomScale, onSelect, dimmedHexes, map, viewTick])
 
   return null
 }
@@ -592,6 +619,7 @@ export default function RadarMap({
 }) {
   const initialZoom = 6  // S4: was 5, but icons were too small at default view
   const [zoom, setZoom] = useState(initialZoom)
+  const [viewTick, setViewTick] = useState(0)
   const tileLayer = TILE_LAYERS.find(l => l.id === activeTileId) || TILE_LAYERS[0]
   const zoomScale = useMemo(() => iconScaleForZoom(zoom), [zoom])
   const mapRef = useRef(null)
@@ -759,7 +787,10 @@ export default function RadarMap({
           />
         )}
 
+        <MapViewTracker onMove={() => setViewTick(t => t + 1)} />
+
         <AircraftLayer
+          viewTick={viewTick}
           aircraft={aircraft}
           selectedHex={selectedHex}
           onSelect={onSelect}

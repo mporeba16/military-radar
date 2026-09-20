@@ -5,6 +5,7 @@
 const STRINGS = {
   pl: {
     APP_TITLE: 'RADAR WOJSKOWY',
+    LOADING_PANEL: '◌ Wczytywanie…',
     PANEL_SETTINGS: 'Ustawienia',
     PANEL_MAPS: 'Mapy',
     LOADING_AIRCRAFT: '◌ Ładowanie samolotów…',

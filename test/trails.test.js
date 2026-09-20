@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { currentFlightOnly, filterImplausibleJumps } from '../netlify/functions/aircraft.js'
+import { currentFlightOnly, filterImplausibleJumps, staleFallback } from '../netlify/functions/aircraft.js'
 
 const GAP = 10 * 60 * 1000 + 1  // just over FLIGHT_SPLIT_GAP_MS
 
@@ -60,5 +60,25 @@ describe('filterImplausibleJumps', () => {
       { lat: 52, lon: 30, ts: 40 * 60 * 1000 },  // far apart in time → not checked
     ]
     expect(filterImplausibleJumps(pts)).toHaveLength(2)
+  })
+})
+
+describe('staleFallback', () => {
+  const snap = { ts: 1_000_000, aircraft: [{ hex: 'ae0596' }], source: 'adsbfi' }
+
+  it('oddaje ostatnią migawkę, gdy źródła nie odpowiadają', () => {
+    const out = staleFallback(snap, snap.ts + 2 * 60_000)
+    expect(out.aircraft).toHaveLength(1)
+    expect(out._stale).toBe(true)
+    expect(out._ageMs).toBe(120_000)
+  })
+
+  it('nie oddaje migawki starszej niż 10 minut', () => {
+    expect(staleFallback(snap, snap.ts + 11 * 60_000)).toEqual({ aircraft: [], _source: 'unavailable' })
+  })
+
+  it('radzi sobie z brakiem migawki', () => {
+    expect(staleFallback(null, 1).aircraft).toEqual([])
+    expect(staleFallback({ ts: 1, aircraft: [] }, 2).aircraft).toEqual([])
   })
 })

@@ -1,9 +1,11 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react'
 import RadarMap from './components/RadarMap'
 import { MapMark, MapPanelButtons } from './components/MapChrome'
 import AircraftInfoPanel from './components/AircraftInfoPanel'
-import SettingsPanel from './components/SettingsPanel'
-import MapsPanel from './components/MapsPanel'
+// Panele otwiera się rzadko, a ważą swoje — niech dojdą przy pierwszym
+// otwarciu, a nie przy starcie aplikacji.
+const SettingsPanel = lazy(() => import('./components/SettingsPanel'))
+const MapsPanel = lazy(() => import('./components/MapsPanel'))
 import { useGeolocation } from './hooks/useGeolocation'
 import { usePushNotifications } from './hooks/usePushNotifications'
 import { useLocalStorage } from './hooks/useLocalStorage'
@@ -686,6 +688,7 @@ export default function App() {
             <button className="side-panel-close" onClick={() => setActivePanel(null)} aria-label={t('CLOSE_PANEL')}>✕</button>
           </div>
 
+          <Suspense fallback={<p className="panel-loading">{t('LOADING_PANEL')}</p>}>
           {activePanel === 'ustawienia' && (
             <SettingsPanel
               location={location}
@@ -740,6 +743,7 @@ export default function App() {
               bandCounts={bandCounts}
             />
           )}
+          </Suspense>
 
         </div>
       )}

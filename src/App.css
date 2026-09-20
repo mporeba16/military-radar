@@ -842,3 +842,11 @@
   font-size: var(--t-micro);
   color: var(--watch);
 }
+
+/* Krótki komunikat, zanim doładuje się panel (Ustawienia / Mapy). */
+.panel-loading {
+  margin: 24px 16px;
+  font-family: var(--font);
+  font-size: var(--t-small);
+  color: rgba(255, 255, 255, 0.5);
+}
