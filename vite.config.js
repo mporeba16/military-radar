@@ -27,7 +27,7 @@ export default defineConfig({
       includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
       manifest: {
         name: 'Radar Wojskowy',
-        short_name: 'Radar PL',
+        short_name: 'Radar',
         description: 'Śledzenie wojskowych samolotów w Polsce',
         theme_color: '#080f1c',
         background_color: '#080f1c',

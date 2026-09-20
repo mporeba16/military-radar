@@ -16,7 +16,7 @@ import { haversine, bearing } from './lib/geo'
 import { ALL_BANDS_ON, bandForAltM, normalizeBands, ALT_BANDS } from './lib/altBands'
 import { ARRIVAL_AIRPORTS, etaMinutes, airportByIcao } from './lib/inbound'
 import { ftToM } from './components/aircraftShapes'
-import { alertText, shortTypeName, CLOSE_RANGE_KM } from './lib/notifyText'
+import { alertText, shortTypeName, heliRole, CLOSE_RANGE_KM } from './lib/notifyText'
 import { t } from './i18n'
 import { version } from '../package.json'
 import './App.css'
@@ -651,7 +651,8 @@ export default function App() {
                 <div className="alert-toast-body">
                   <span className="alert-toast-tag">
                     <span className="alert-toast-dot" />
-                    {ac.kind === 'heli' ? t('FILTER_HELI')
+                    {/* Ta sama etykieta co w powiadomieniu: służba, nie kategoria. */}
+                    {ac.kind === 'heli' ? (heliRole(ac) || t('FILTER_HELI'))
                       : ac.kind === 'heavy' ? t('FILTER_HEAVY')
                       : isNear ? t('ALERT_TAG_NEAR') : t('ALERT_TAG')}
                   </span>

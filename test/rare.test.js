@@ -38,7 +38,7 @@ describe('rare push text', () => {
     const { title, body } = rareText(ac, 'Tankowiec', 'Łask')
     expect(title).toBe('Tankowiec · okolice Łask')
     expect(body).toMatch(/^QID71 · /)
-    expect(body).toContain('FL280')
+    expect(body).toContain('8534 m')
   })
 
   it('groups several', () => {

@@ -25,6 +25,8 @@ export function compassDir(track) {
   return COMPASS[Math.round(track / 45) % 8]
 }
 
+// Poziom lotu — zostaje jako pomocnik (żargon lotniczy), ale treści
+// powiadomień podają metry, tak jak reszta aplikacji.
 export function flightLevel(altBaroFt) {
   if (altBaroFt == null) return null
   return `FL${String(Math.round(altBaroFt / 100)).padStart(3, '0')}`
@@ -46,6 +48,27 @@ function callsign(ac) {
   return ac?.flight?.trim() || ac?.hex || '?'
 }
 
+// Kto lata tym śmigłowcem. „Śmigłowiec służbowy” nic nie mówił, a na ekranie
+// zegarka ucinał się w połowie — tytuł ma od razu nazwać służbę.
+// Rejestracja SN- noszą i policja, i Straż Graniczna, więc sama nie
+// rozstrzyga: wtedy zamiast zgadywać podajemy typ maszyny.
+export function heliRole(ac) {
+  const cs = (ac?.flight || '').trim().toUpperCase()
+  const reg = (ac?.reg || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+  if (/^(LPR|RATOWNIK|HEMS|MEDIC|RESCUE|LIFEGUARD|REGA|SAR)/.test(cs)) return 'Ratunkowy'
+  if (/^SP(HX|DX)/.test(reg)) return 'Ratunkowy'
+  if (/^(POLICJA|POLICE)/.test(cs)) return 'Policja'
+  if (/^(STRAZ|SG\d|BORDER)/.test(cs)) return 'Straż Graniczna'
+  return null
+}
+
+// Wysokość w metrach — tak jak w całej aplikacji. Wcześniej treść podawała
+// poziom lotu („FL013”), czyli żargon, którego karta nigdzie nie używa.
+export function altMetres(altBaroFt) {
+  if (altBaroFt == null) return null
+  return `${Math.round(altBaroFt * 0.3048).toLocaleString('pl-PL')} m`
+}
+
 // Pojedyncza maszyna: { title, body }.
 export function alertText(ac, distKm) {
   const kind = ac.kind || 'mil'
@@ -53,28 +76,34 @@ export function alertText(ac, distKm) {
   const name = shortTypeName(ac)
   const code = (ac.t || '').trim()
 
+  // Tytuł ma się zmieścić na ekranie zegarka — nazwa maszyny (albo służby)
+  // i dystans, bez kategorii, która i tak nic nie wnosi.
   let title
   let titleHasType = false
   if (kind === 'heavy') {
     title = `${name || 'Duży samolot'} · ${km}`
     titleHasType = !!name
   } else if (kind === 'heli') {
-    // Serwer nie wie, czy to pogotowie, policja czy Straż Graniczna, więc
-    // kategoria zostaje ogólna, a typ schodzi do treści.
-    title = `Śmigłowiec służbowy · ${km}`
+    const role = heliRole(ac)
+    // Bez rozpoznanej służby prowadzi nazwa maszyny — „Śmigłowiec Black Hawk”
+    // nie mieści się na zegarku, a słowo „śmigłowiec” i tak nic nie dodaje.
+    title = role ? `${role} · ${km}` : `${name || 'Śmigłowiec'} · ${km}`
+    titleHasType = !role && !!name
   } else if (distKm <= CLOSE_RANGE_KM) {
-    title = `Blisko · ${name || 'samolot wojskowy'} · ${km}`
+    // Bliżej niż 10 km — znak ostrzegawczy zamiast słowa, żeby zostało
+    // miejsce na nazwę maszyny.
+    title = `⚠ ${name || 'Samolot wojskowy'} · ${km}`
     titleHasType = !!name
   } else {
-    title = `Wojskowy ${name || 'samolot'} · ${km}`
+    title = `${name || 'Samolot wojskowy'} · ${km}`
     titleHasType = !!name
   }
 
   const parts = [callsign(ac)]
   // Kod powtórzyłby tytuł tylko wtedy, gdy nie znaleźliśmy nazwy własnej.
   if (code && !(titleHasType && name === code)) parts.push(code)
-  const fl = flightLevel(ac.alt_baro)
-  if (fl) parts.push(fl)
+  const alt = altMetres(ac.alt_baro)
+  if (alt) parts.push(alt)
   const dir = compassDir(ac.track)
   if (dir) parts.push(`kurs ${dir}`)
 
@@ -83,7 +112,7 @@ export function alertText(ac, distKm) {
 
 function groupWord(kind, n, near) {
   if (kind === 'heavy') return plForm(n, 'duży samolot', 'duże samoloty', 'dużych samolotów')
-  if (kind === 'heli') return plForm(n, 'śmigłowiec służbowy', 'śmigłowce służbowe', 'śmigłowców służbowych')
+  if (kind === 'heli') return plForm(n, 'śmigłowiec', 'śmigłowce', 'śmigłowców')
   const w = plForm(n, 'wojskowy', 'wojskowe', 'wojskowych')
   return near ? `${w} blisko` : w
 }
@@ -97,8 +126,8 @@ export function rareText(ac, role, nearName) {
   const title = `${role} · ${where}`
   const parts = [callsign(ac)]
   if (name) parts.push(name)
-  const fl = flightLevel(ac.alt_baro)
-  if (fl) parts.push(fl)
+  const alt = altMetres(ac.alt_baro)
+  if (alt) parts.push(alt)
   const dir = compassDir(ac.track)
   if (dir) parts.push(`kurs ${dir}`)
   return { title, body: parts.join(' · ') }
@@ -116,10 +145,10 @@ export function rareGroupText(list) {
 // i godzina lądowania — to jest wiadomość; w treści maszyna, skąd leci
 // i ile jeszcze.
 export function inboundText(x, airportName, clock, eta) {
-  const name = shortTypeName(x) || (x.t || '').trim()
+  const name = shortTypeName(x) || (x.t || '').trim() || 'transportowiec'
   const title = clock
-    ? `${airportName}: wielki transportowiec ok. ${clock}`
-    : `${airportName}: wielki transportowiec`
+    ? `${airportName}: ${name} ok. ${clock}`
+    : `${airportName}: ${name}`
   const parts = [callsign(x)]
   if (name) parts.push(name)
   const from = x.route?.fromCity || x.route?.from

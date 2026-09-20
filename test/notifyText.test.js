@@ -45,36 +45,51 @@ describe('shortTypeName', () => {
 describe('alertText — pojedyncza maszyna', () => {
   it('wojskowy w zasięgu ma dystans w tytule', () => {
     const { title, body } = alertText(herc, 48)
-    expect(title).toBe('Wojskowy Hercules · 48 km')
-    expect(body).toBe('KJD202 · C130 · FL220 · kurs SW')
+    expect(title).toBe('Hercules · 48 km')
+    expect(body).toBe('KJD202 · C130 · 6706 m · kurs SW')
   })
 
-  it('poniżej 10 km tytuł zaczyna się od słowa pilności', () => {
+  it('poniżej 10 km tytuł zaczyna się od znaku ostrzegawczego', () => {
     const { title, body } = alertText(bryza, 8)
-    expect(title).toBe('Blisko · M28 Bryza · 8 km')
-    expect(body).toBe('PLF283A · AN28 · FL033 · kurs N')
+    expect(title).toBe('⚠ M28 Bryza · 8 km')
+    expect(body).toBe('PLF283A · AN28 · 1006 m · kurs N')
   })
 
   it('duży samolot prowadzi nazwą własną, bo po to się wychodzi z domu', () => {
     expect(alertText(ruslan, 44).title).toBe('An-124 Rusłan · 44 km')
   })
 
-  it('śmigłowiec zostaje przy ogólnej kategorii, typ schodzi do treści', () => {
+  it('śmigłowiec nazywa służbę, nie kategorię', () => {
     const { title, body } = alertText(heli, 21)
-    expect(title).toBe('Śmigłowiec służbowy · 21 km')
-    expect(body).toBe('LPR11 · EC35 · FL012 · kurs SE')
+    expect(title).toBe('Ratunkowy · 21 km')
+    expect(body).toBe('LPR11 · EC35 · 366 m · kurs SE')
+  })
+
+  it('rozpoznaje policję i Straż Graniczną po znaku wywoławczym', () => {
+    expect(alertText({ ...heli, flight: 'POLICJA12' }, 8).title).toBe('Policja · 8 km')
+    expect(alertText({ ...heli, flight: 'STRAZ7' }, 8).title).toBe('Straż Graniczna · 8 km')
+  })
+
+  it('LPR poznaje też po rejestracji SP-HX', () => {
+    expect(alertText({ ...heli, flight: 'SPHXA', reg: 'SP-HXA' }, 5).title).toBe('Ratunkowy · 5 km')
+  })
+
+  it('nierozpoznana służba dostaje typ zamiast etykiety', () => {
+    const sn = { hex: '48aaaa', flight: 'SN51XP', t: 'S70', reg: 'SN-51XP', alt_baro: 1200, track: 10, kind: 'heli' }
+    // Nazwa maszyny zamiast etykiety kategorii — krótsza i konkretniejsza.
+    expect(alertText(sn, 9).title).toBe('Black Hawk · 9 km')
   })
 
   it('bez nazwy własnej kod nie dubluje się w tytule i treści', () => {
     const ac = { hex: 'ae9999', flight: 'RCH123', t: 'ZZZZ', alt_baro: 30000, track: 90, kind: 'mil' }
     const { title, body } = alertText(ac, 60)
-    expect(title).toBe('Wojskowy ZZZZ · 60 km')
-    expect(body).toBe('RCH123 · FL300 · kurs E')
+    expect(title).toBe('ZZZZ · 60 km')
+    expect(body).toBe('RCH123 · 9144 m · kurs E')
   })
 
   it('bez typu i bez callsignu zostaje sam heks', () => {
     const { title, body } = alertText({ hex: 'ae0001', kind: 'mil' }, 33)
-    expect(title).toBe('Wojskowy samolot · 33 km')
+    expect(title).toBe('Samolot wojskowy · 33 km')
     expect(body).toBe('ae0001')
   })
 
@@ -127,6 +142,6 @@ describe('groupText — kilka maszyn', () => {
     const heavies = [{ ...ruslan, _dist: 44 }, { ...ruslan, hex: 'x', _dist: 60 }]
     expect(groupText(heavies, 'heavy').title).toBe('2 duże samoloty · od 44 km')
     const helis = [{ ...heli, _dist: 12 }, { ...heli, hex: 'y', _dist: 30 }]
-    expect(groupText(helis, 'heli').title).toBe('2 śmigłowce służbowe · od 12 km')
+    expect(groupText(helis, 'heli').title).toBe('2 śmigłowce · od 12 km')
   })
 })

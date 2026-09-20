@@ -186,6 +186,9 @@ function mapADSBfi(a, lat, lon, radiusKm) {
     hex: a.hex,
     flight: (a.flight || a.hex || '').trim(),
     t: a.t || '',
+    // Rejestracja rozstrzyga, czyj to śmigłowiec (SP-HX = LPR), gdy znak
+    // wywoławczy nic nie mówi.
+    reg: a.r || null,
     lat: a.lat,
     lon: a.lon,
     alt_baro: typeof a.alt_baro === 'number' ? a.alt_baro : null,

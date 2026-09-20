@@ -84,7 +84,7 @@ describe('treść powiadomienia', () => {
   it('w tytule lotnisko i godzina, w treści maszyna i skąd', async () => {
     const { inboundText } = await import('../src/lib/notifyText.js')
     const { title, body } = inboundText(x, 'Rzeszów', '17:10', '3 h 13 min')
-    expect(title).toBe('Rzeszów: wielki transportowiec ok. 17:10')
+    expect(title).toBe('Rzeszów: Jumbo Jet ok. 17:10')
     expect(body).toContain('GTI4521')
     expect(body).toContain('z Chicago')
     expect(body).toContain('za 3 h 13 min')
@@ -92,6 +92,6 @@ describe('treść powiadomienia', () => {
 
   it('bez godziny nie zmyśla', async () => {
     const { inboundText } = await import('../src/lib/notifyText.js')
-    expect(inboundText(x, 'Kraków', null, null).title).toBe('Kraków: wielki transportowiec')
+    expect(inboundText(x, 'Kraków', null, null).title).toBe('Kraków: Jumbo Jet')
   })
 })
