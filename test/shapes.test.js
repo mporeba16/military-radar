@@ -198,6 +198,7 @@ describe('Mi-8 / Mi-17', () => {
     expect(getCommonName('MI8')).toBe('Mi-8 · Mi-17')
     // Etykieta na karcie nie może zgubić drugiego oznaczenia przy ucinaniu.
     expect(typeLabel('MI8')).toBe('Mi-8 · Mi-17')
-    expect(typeLabel('MI17')).toBe('Mi-8 · Mi-17')
+    // Kod MI17 jest jednoznaczny — wtedy podajemy konkretną wersję.
+    expect(typeLabel('MI17')).toBe('Mi-17')
   })
 })

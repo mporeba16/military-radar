@@ -334,6 +334,19 @@
 /* Kod typu obok znaku wywoławczego — przygaszony, bo to uzupełnienie nazwy,
    a nie druga nazwa. Ramka oddziela go od znaku, żeby przy długim callsignie
    nie zlały się w jeden ciąg znaków. */
+/* Jednostka — dopisana ręcznie (ADS-B jej nie niesie). Wyróżniona kolorem
+   kategorii wojskowej, żeby odróżnić ją od kodu typu obok. */
+.ac-info-unit {
+  flex: none;
+  padding: 1px 5px;
+  border: 1px solid rgba(0, 255, 136, 0.45);
+  border-radius: 3px;
+  font-size: var(--t-micro);
+  letter-spacing: 0.4px;
+  color: #6bffb8;
+  cursor: help;
+}
+
 .ac-info-type {
   flex: none;
   padding: 1px 5px;

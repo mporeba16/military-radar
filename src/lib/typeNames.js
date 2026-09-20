@@ -132,6 +132,9 @@ export function getCommonName(t) {
     // nie da się ich rozróżnić. Wcześniej karta pokazywała samo „Hip” — nazwę
     // kodową NATO, która nikomu nic nie mówi. Separator to kropka, nie ukośnik:
     // po ukośniku typeLabel ucina nazwę (patrz „M28 Bryza / An-28”).
+    // Sam kod MI17 (albo nasz wpis w knownAircraft) mówi wprost, która to
+    // wersja — wtedy nie ma po co pokazywać całej rodziny.
+    [/^MI17$|^MI171$|MI8MT/, 'Mi-17'],
     [/MI8|MI17/, 'Mi-8 · Mi-17'],
     [/MI28/, 'Havoc'],
     [/KA50|KA52/, 'Alligator'],

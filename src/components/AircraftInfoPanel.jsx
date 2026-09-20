@@ -6,6 +6,7 @@ import { scorePhotoMatch, photoHasMatchSignal, canVerifyPhotoMatch } from '../li
 import { t } from '../i18n'
 import { formatFlightTime } from '../lib/flightTime'
 import { typePhoto } from '../lib/typePhotos'
+import { knownAircraft, resolvedType } from '../lib/knownAircraft'
 import { airportByIcao, etaMinutes, formatEta, landingClock } from '../lib/inbound'
 import './AircraftInfoPanel.css'
 
@@ -123,8 +124,11 @@ export default function AircraftInfoPanel({ ac, flightStart, onClose }) {
   const altM = ftToM(ac.alt_baro)
   const kmh = knToKmh(ac.gs)
   const color = altToColor(altM)
-  const label = typeLabel(ac.t)
-  const fallback = typePhoto(ac.t)
+  // Rozpoznane ręcznie maszyny: własny typ (ADS-B podaje MI8 także dla Mi-17)
+  // i jednostka, której ADS-B nie niesie w ogóle.
+  const known = knownAircraft(ac.hex)
+  const label = typeLabel(resolvedType(ac))
+  const fallback = typePhoto(resolvedType(ac))
   const country = ac.country || countryFromHex(ac.hex)
   const flag = country ? countryFlag(country) : ''
   const landing = findLikelyLanding(ac)
@@ -177,6 +181,9 @@ export default function AircraftInfoPanel({ ac, flightStart, onClose }) {
               karcie „E3TF · Sentry (AWACS)" nie zmieści się w jednej linii
               obok znaku wywoławczego, a skracanie zjadałoby właśnie nazwę. */}
           {label && <span className="ac-info-type">{label}</span>}
+          {known?.unit && (
+            <span className="ac-info-unit" title={known.unitFull || known.unit}>{known.unit}</span>
+          )}
         </span>
         <button className="ac-info-close" onClick={onClose} aria-label={t('CLOSE_AIRCRAFT_PANEL')}>✕</button>
       </div>
