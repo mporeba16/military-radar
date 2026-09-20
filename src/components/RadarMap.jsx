@@ -384,8 +384,13 @@ function TileFilter({ filter }) {
 
 // Wybór maszyny spoza mapy — link z #hex albo kliknięte powiadomienie —
 // otwierał kartę, ale mapa zostawała, gdzie była, i nie było widać, gdzie ta
-// maszyna leci. Przesuwamy mapę raz na wybór i tylko wtedy, gdy maszyna jest
-// poza widokiem: kliknięcie w widoczną ikonę niczego nie rusza.
+// maszyna leci. Przesuwamy mapę raz na taki wybór i tylko wtedy, gdy maszyna
+// jest poza widokiem.
+//
+// Kliknięcie ikony NA MAPIE nie trafia tutaj (App ustawia `focusHex` tylko dla
+// wyboru spoza mapy) — wcześniej trafiało i mapa potrafiła nagle skoczyć pod
+// kliknięty samolot.
+//
 // Przy linku lista maszyn przychodzi dopiero po chwili, więc czekamy, aż
 // wybrana się w niej pojawi.
 function SelectionFocus({ aircraft, selectedHex }) {
@@ -582,7 +587,7 @@ function AircraftLayer({ aircraft, selectedHex, onSelect, zoomScale, dimmedHexes
 
 export default function RadarMap({
   aircraft, hasFetched, trails, serverTrails, center, gpsCenter, radius,
-  selectedHex, onSelect, activeTileId, showBases, showNatoBases, showRanges,
+  selectedHex, focusHex, onSelect, activeTileId, showBases, showNatoBases, showRanges,
   airspace, showAirspace, dimmedHexes, recenterRef,
 }) {
   const initialZoom = 6  // S4: was 5, but icons were too small at default view
@@ -715,7 +720,7 @@ export default function RadarMap({
         <MapClickHandler onSelect={onSelect} />
         <TileFilter filter={tileLayer.filter} />
         <ZoomTracker onZoomChange={setZoom} />
-        <SelectionFocus aircraft={aircraft} selectedHex={selectedHex} />
+        <SelectionFocus aircraft={aircraft} selectedHex={focusHex} />
         <LabelDeclutter />
 
         {showAirspace && airspace?.zones && (

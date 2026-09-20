@@ -39,6 +39,10 @@ export default function App() {
   const [soundOn, setSoundOn] = useLocalStorage('radar.sound', true)
   const [vibrateOn, setVibrateOn] = useLocalStorage('radar.vibrate', true)
   const [selectedHex, setSelectedHex] = useState(null)
+  // Maszyna, do której mapa ma dolecieć: TYLKO wybór spoza mapy (link #hex,
+  // kliknięte powiadomienie). Kliknięcie ikony na mapie nigdy nie przesuwa
+  // widoku — użytkownik patrzy tam, gdzie chce patrzeć.
+  const [focusHex, setFocusHex] = useState(null)
   const [serverTrails, setServerTrails] = useState(new Map())
   const [serverFlightStart, setServerFlightStart] = useState(null) // { hex, ts }
   const [activePanel, setActivePanel] = useState(null)
@@ -347,7 +351,7 @@ export default function App() {
   // shared or bookmarked.
   useEffect(() => {
     const m = window.location.hash.match(/[#?&]hex=([a-f0-9]{6})/i)
-    if (m) setSelectedHex(m[1].toLowerCase())
+    if (m) { setSelectedHex(m[1].toLowerCase()); setFocusHex(m[1].toLowerCase()) }
   }, [])
 
   // Tapping a push notification while the app is already open: the service
@@ -359,6 +363,7 @@ export default function App() {
       const d = e.data
       if (d?.type === 'select-hex' && /^[a-f0-9]{6}$/i.test(d.hex || '')) {
         setSelectedHex(d.hex.toLowerCase())
+        setFocusHex(d.hex.toLowerCase())
         setActivePanel(null)
       }
     }
@@ -555,10 +560,30 @@ export default function App() {
     setAlerts(prev => prev.filter(a => a.hex !== hex))
   }, [])
 
-  const openAlert = useCallback(hex => {
-    if (hex.startsWith('__')) return
-    setSelectedHex(hex)
-    setActivePanel(null)
+  // Komunikat o maszynie w zasięgu to TYLKO informacja (decyzja użytkownika):
+  // znika po pięciu sekundach albo od razu po kliknięciu, a maszynę użytkownik
+  // znajduje na mapie sam. Wcześniej klik zaznaczał maszynę i otwierał kartę.
+  const ALERT_AUTO_HIDE_MS = 5000
+  const alertTimersRef = useRef(new Map())
+  useEffect(() => {
+    const timers = alertTimersRef.current
+    for (const a of alerts) {
+      if (timers.has(a.hex)) continue
+      timers.set(a.hex, setTimeout(() => {
+        timers.delete(a.hex)
+        dismissAlert(a.hex)
+      }, ALERT_AUTO_HIDE_MS))
+    }
+    // Sprzątanie po komunikatach, które zniknęły wcześniej (klik, wylot z zasięgu).
+    const live = new Set(alerts.map(a => a.hex))
+    for (const [hex, id] of timers) {
+      if (!live.has(hex)) { clearTimeout(id); timers.delete(hex) }
+    }
+  }, [alerts, dismissAlert])
+
+  useEffect(() => {
+    const timers = alertTimersRef.current
+    return () => { for (const id of timers.values()) clearTimeout(id); timers.clear() }
   }, [])
 
   return (
@@ -572,6 +597,7 @@ export default function App() {
         gpsCenter={gpsCenter}
         radius={location ? radius : null}
         selectedHex={selectedHex}
+        focusHex={focusHex}
         onSelect={handleSelect}
         activeTileId={activeTileId}
         showBases={showBases}
@@ -616,9 +642,9 @@ export default function App() {
                 className={`alert-toast kind-${ac.kind || 'mil'}${isNear ? ' near' : ''}`}
                 role="button"
                 tabIndex={0}
-                onClick={() => openAlert(ac.hex)}
+                onClick={() => dismissAlert(hex)}
                 onKeyDown={e => {
-                  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openAlert(ac.hex) }
+                  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); dismissAlert(hex) }
                 }}>
                 <div className="alert-toast-body">
                   <span className="alert-toast-tag">
