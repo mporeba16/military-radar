@@ -452,6 +452,27 @@
 .icon-btn.active { background: rgba(0, 255, 136, 0.18); border-color: #00ff88; color: #00ff88; }
 .icon-btn:focus-visible { outline: 2px solid rgba(0, 255, 136, 0.7); outline-offset: 2px; }
 
+/* Kropka stanu alertów na dzwonku — żeby nie trzeba było otwierać panelu,
+   aby sprawdzić, czy powiadomienia w ogóle zadziałają. */
+.icon-btn { position: relative; }
+.icon-btn__dot {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.55);
+}
+.icon-btn__dot--ok { background: var(--kind-mil); }
+.icon-btn__dot--warn { background: var(--watch); }
+.icon-btn__dot--off { background: var(--alert); }
+
+/* GPS: przygaszony bez pozycji, zielony z pozycją — to on jest warunkiem
+   działania alertów zasięgowych. */
+.icon-btn.no-gps { color: rgba(255, 255, 255, 0.45); }
+.icon-btn.has-gps { color: var(--kind-mil); border-color: rgba(0, 255, 136, 0.45); }
+
 /* Alert toasts — below logo, center */
 .alert-stack {
   position: absolute;

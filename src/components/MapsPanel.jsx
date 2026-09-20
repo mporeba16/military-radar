@@ -3,6 +3,7 @@ import { useState } from 'react'
 import Toggle from './Toggle'
 import { t } from '../i18n'
 import { BASE_PL, BASE_NATO, RANGE, AIRSPACE } from '../lib/palette'
+import { KIND_ROWS } from '../lib/alertsState'
 import { ALT_BANDS } from '../lib/altBands'
 import { altToColor } from './aircraftShapes'
 
@@ -17,6 +18,7 @@ export default function MapsPanel({
   showNatoBases, setShowNatoBases,
   showRanges, setShowRanges,
   showAirspace, setShowAirspace, airspaceError,
+  kinds, setKinds,
   altBands, setAltBands, bandCounts,
 }) {
   const [baseOpen, setBaseOpen] = useState(false)
@@ -123,6 +125,30 @@ export default function MapsPanel({
         {showAirspace && airspaceError && (
           <p className="layer-note">{t('AIRSPACE_ERROR')}</p>
         )}
+      </section>
+
+      {/* Kategorie maszyn — sterują TYM, CO WIDAĆ na mapie (i przy okazji
+          powiadomieniami), więc mieszkają przy warstwach, a nie w alertach. */}
+      <section className="cp-section">
+        <div className="cp-label">{t('FILTER_LABEL')}</div>
+        <div className="toggle-list">
+          {KIND_ROWS.map(({ key, labelKey, color }) => (
+            <Toggle
+              key={key}
+              on={kinds[key]}
+              onToggle={() => setKinds(prev => ({ ...prev, [key]: !prev[key] }))}
+              label={t(labelKey)}
+              title={t('FILTER_HINT')}
+              style={{ opacity: kinds[key] ? 1 : 0.55 }}
+              marker={<span className="toggle-dot" style={{
+                background: kinds[key] ? color : 'transparent',
+                border: `2px solid ${color}`,
+              }} />}
+              state={kinds[key] ? '◉' : '○'}
+              stateColor={kinds[key] ? color : 'rgba(255,255,255,0.4)'}
+            />
+          ))}
+        </div>
       </section>
 
       <section className="cp-section">

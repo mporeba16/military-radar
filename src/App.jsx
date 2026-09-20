@@ -4,6 +4,7 @@ import { MapMark, MapPanelButtons } from './components/MapChrome'
 import AircraftInfoPanel from './components/AircraftInfoPanel'
 // Panele otwiera się rzadko, a ważą swoje — niech dojdą przy pierwszym
 // otwarciu, a nie przy starcie aplikacji.
+const AlertsPanel = lazy(() => import('./components/AlertsPanel'))
 const SettingsPanel = lazy(() => import('./components/SettingsPanel'))
 const MapsPanel = lazy(() => import('./components/MapsPanel'))
 import { useGeolocation } from './hooks/useGeolocation'
@@ -14,6 +15,7 @@ import { useInbound } from './hooks/useInbound'
 import { fetchMilitaryAircraft } from './api'
 import { haversine, bearing } from './lib/geo'
 import { ALL_BANDS_ON, bandForAltM, normalizeBands, ALT_BANDS } from './lib/altBands'
+import { readiness, kindsOnCount } from './lib/alertsState'
 import { ARRIVAL_AIRPORTS, etaMinutes, airportByIcao } from './lib/inbound'
 import { ftToM } from './components/aircraftShapes'
 import { alertText, shortTypeName, heliRole, CLOSE_RANGE_KM } from './lib/notifyText'
@@ -470,6 +472,16 @@ export default function App() {
     return merged
   }, [aircraft, inboundRaw, arrivals])
 
+  // Stan alertów pokazywany kropką na dzwonku — ta sama reguła, co karta
+  // w panelu Alerty.
+  const alertsLevel = useMemo(
+    () => readiness({
+      hasGps: !!location, pushOn: isSubscribed,
+      kindsOn: kindsOnCount(kinds), locationError,
+    }).level,
+    [location, isSubscribed, kinds, locationError]
+  )
+
   const selectedAc = useMemo(
     () => selectedHex ? (aircraftWithArrivals.find(ac => ac.hex === selectedHex) || null) : null,
     [aircraftWithArrivals, selectedHex]
@@ -617,6 +629,7 @@ export default function App() {
         onTogglePanel={togglePanel}
         onRecenter={() => recenterRef.current?.()}
         hasGps={!!location}
+        alertsLevel={alertsLevel}
       />
 
       {/* Karta maszyny — pływający panel przy lewej krawędzi, pod paskiem
@@ -683,6 +696,7 @@ export default function App() {
         <div className="side-panel">
           <div className="side-panel-header">
             <span className="side-panel-title">
+              {activePanel === 'alerty' && t('PANEL_ALERTS')}
               {activePanel === 'ustawienia' && t('PANEL_SETTINGS')}
               {activePanel === 'mapy' && t('PANEL_MAPS')}
             </span>
@@ -690,10 +704,9 @@ export default function App() {
           </div>
 
           <Suspense fallback={<p className="panel-loading">{t('LOADING_PANEL')}</p>}>
-          {activePanel === 'ustawienia' && (
-            <SettingsPanel
+          {activePanel === 'alerty' && (
+            <AlertsPanel
               location={location}
-              accuracy={accuracy}
               locationError={locationError}
               requestLocation={requestLocation}
               radius={radius}
@@ -714,6 +727,16 @@ export default function App() {
               setSoundOn={setSoundOn}
               vibrateOn={vibrateOn}
               setVibrateOn={setVibrateOn}
+            />
+          )}
+
+          {activePanel === 'ustawienia' && (
+            <SettingsPanel
+              location={location}
+              accuracy={accuracy}
+              requestLocation={requestLocation}
+              radius={radius}
+              isSubscribed={isSubscribed}
               error={error}
               debugUnlocked={debugUnlocked}
               fetchData={fetchData}
@@ -742,6 +765,8 @@ export default function App() {
               altBands={altBands}
               setAltBands={setAltBands}
               bandCounts={bandCounts}
+              kinds={kinds}
+              setKinds={setKinds}
             />
           )}
           </Suspense>

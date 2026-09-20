@@ -15,6 +15,19 @@ function IconSliders() {
   )
 }
 
+// Dzwonek z kropką stanu: zielona = alerty działają, bursztynowa = tylko
+// w aplikacji (push wyłączony), czerwona = brak GPS. Bez niej stan alertów
+// dało się sprawdzić dopiero po otwarciu panelu.
+function IconBell() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M18 8a6 6 0 0 0-12 0c0 5-2 6-2 6h16s-2-1-2-6" />
+      <path d="M10.3 20a2 2 0 0 0 3.4 0" />
+    </svg>
+  )
+}
+
 function IconLayers() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -69,27 +82,29 @@ function IconCrosshair() {
   )
 }
 
-export function MapPanelButtons({ activePanel, onTogglePanel, onRecenter, hasGps }) {
+// Kolejność od góry: Mapa, Alerty, Ustawienia, GPS. Najczęściej używany
+// (GPS) najniżej — najbliżej kciuka na telefonie.
+export function MapPanelButtons({ activePanel, onTogglePanel, onRecenter, hasGps, alertsLevel }) {
+  const panelBtn = (id, label, icon, extra = null) => (
+    <button
+      className={`icon-btn ${activePanel === id ? 'active' : ''}`}
+      aria-expanded={activePanel === id}
+      aria-label={label}
+      title={label}
+      onClick={() => onTogglePanel(id)}>
+      {icon}
+      {extra}
+    </button>
+  )
+
   return (
     <div className="map-ctrl-btns">
+      {panelBtn('mapy', t('NAV_MAPS_A11Y'), <IconLayers />)}
+      {panelBtn('alerty', t('NAV_ALERTS_A11Y'), <IconBell />,
+        <span className={`icon-btn__dot icon-btn__dot--${alertsLevel}`} aria-hidden="true" />)}
+      {panelBtn('ustawienia', t('NAV_SETTINGS_A11Y'), <IconSliders />)}
       <button
-        className={`icon-btn ${activePanel === 'ustawienia' ? 'active' : ''}`}
-        aria-expanded={activePanel === 'ustawienia'}
-        aria-label={t('NAV_SETTINGS_A11Y')}
-        title={t('NAV_SETTINGS_A11Y')}
-        onClick={() => onTogglePanel('ustawienia')}>
-        <IconSliders />
-      </button>
-      <button
-        className={`icon-btn ${activePanel === 'mapy' ? 'active' : ''}`}
-        aria-expanded={activePanel === 'mapy'}
-        aria-label={t('NAV_MAPS_A11Y')}
-        title={t('NAV_MAPS_A11Y')}
-        onClick={() => onTogglePanel('mapy')}>
-        <IconLayers />
-      </button>
-      <button
-        className="icon-btn"
+        className={`icon-btn ${hasGps ? 'has-gps' : 'no-gps'}`}
         aria-label={hasGps ? t('NAV_RECENTER_GPS_A11Y') : t('NAV_RECENTER_PL_A11Y')}
         title={hasGps ? t('NAV_RECENTER_GPS_A11Y') : t('NAV_RECENTER_PL_A11Y')}
         onClick={onRecenter}>
