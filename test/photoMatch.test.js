@@ -180,3 +180,15 @@ describe('Learjet C-21', () => {
     expect(photoHasMatchSignal(photo, ac)).toBe(true)
   })
 })
+
+describe('kolizje numerów wojskowych', () => {
+  const gaf = { hex: '3e95ca', t: 'GLEX', reg: '14+05', flight: 'GAF616' }
+  const niemiecki = { link: 'https://www.planespotters.net/photo/1/14-05-luftwaffe-german-air-force-bombardier-global-6000-bd-700-1a10', _src: 'hex' }
+  const polski = { link: 'https://www.planespotters.net/photo/2/1405-polish-air-force-pzl-mielec-ts-11-iskra-bis-df', _src: 'reg' }
+
+  it('wybiera maszynę właściwego operatora, nie tę spod rejestracji', () => {
+    expect(scorePhotoMatch(niemiecki, gaf)).toBeGreaterThan(scorePhotoMatch(polski, gaf))
+    expect(photoHasMatchSignal(niemiecki, gaf)).toBe(true)
+    expect(photoHasMatchSignal(polski, gaf)).toBe(false)
+  })
+})

@@ -161,6 +161,10 @@ export const TYPE_SLUG_ALIASES = {
   LJ35: ['learjet-35', 'learjet', 'c-21'], LJ36: ['learjet-36', 'learjet'],
   LJ45: ['learjet-45', 'learjet'], LJ60: ['learjet-60', 'learjet'],
   LJ31: ['learjet-31', 'learjet'], LJ55: ['learjet-55', 'learjet'],
+  // Bombardier Global: w adresie „global-6000” albo „bd-700”, nigdy „glex”.
+  GLEX: ['global-6000', 'global-5000', 'global-express', 'bd-700', 'global'],
+  GL5T: ['global-5000', 'bd-700', 'global'], GL7T: ['global-7500', 'bd-700'],
+  CL30: ['challenger-300'], CL35: ['challenger-350'], CL60: ['challenger-60'],
   C560: ['citation', 'uc-35'], C56X: ['citation', 'uc-35'], C550: ['citation'],
   C525: ['citation'], C510: ['citation'], C750: ['citation'],
 }
@@ -192,7 +196,12 @@ export function scorePhotoMatch(photo, ac) {
   const callsign = (ac.flight || '').toUpperCase()
   for (const [re, hint] of OPERATOR_HINT_BY_CALLSIGN) {
     if (re.test(callsign)) {
+      // Zgodność operatora punktuje, NIEZGODNOŚĆ odejmuje — inaczej zdjęcie
+      // spod rejestracji wygrywało samym bonusem źródła, choć pokazywało
+      // maszynę innego kraju. Niemiecki Global 6000 „14+05” (GAF616) dostawał
+      // tak polską Iskrę TS-11 „1405”: ten sam numer bez znaku plus.
       if (link.includes(hint)) score += 50
+      else score -= 40
       break
     }
   }
