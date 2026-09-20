@@ -74,3 +74,24 @@ describe('funkcja inbound', () => {
     expect(body.inbound[0].etaMin).toBeGreaterThan(20)
   }, 30000)
 })
+
+describe('treść powiadomienia', () => {
+  const x = {
+    hex: 'a0b1c2', flight: 'GTI4521', t: 'B748',
+    route: { from: 'KORD', fromCity: 'Chicago', to: 'EPRZ' },
+  }
+
+  it('w tytule lotnisko i godzina, w treści maszyna i skąd', async () => {
+    const { inboundText } = await import('../src/lib/notifyText.js')
+    const { title, body } = inboundText(x, 'Rzeszów', '17:10', '3 h 13 min')
+    expect(title).toBe('Rzeszów: wielki transportowiec ok. 17:10')
+    expect(body).toContain('GTI4521')
+    expect(body).toContain('z Chicago')
+    expect(body).toContain('za 3 h 13 min')
+  })
+
+  it('bez godziny nie zmyśla', async () => {
+    const { inboundText } = await import('../src/lib/notifyText.js')
+    expect(inboundText(x, 'Kraków', null, null).title).toBe('Kraków: wielki transportowiec')
+  })
+})

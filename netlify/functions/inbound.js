@@ -85,7 +85,12 @@ async function fetchRoute(callsign, store) {
   return route
 }
 
-async function collect() {
+// Migawka leży w Blobs, żeby czytał ją też cron powiadomień — inaczej każdy
+// przebieg notify (co minutę) musiałby sam pytać adsb.lol.
+export const SNAPSHOT_STORE = 'inbound-snapshot'
+export const SNAPSHOT_KEY = 'latest'
+
+export async function collect() {
   let store = null
   try { store = getStore('flight-routes') } catch { /* bez cache też zadziała */ }
 
@@ -140,7 +145,15 @@ export const handler = async (event) => {
   const now = Date.now()
   if (!cache || now - cache.at > FRESH_MS) {
     try {
-      cache = { at: now, body: JSON.stringify({ updated: new Date(now).toISOString(), inbound: await collect() }) }
+      // Najpierw migawka z crona (inbound-collect co 10 min) — wtedy otwarcie
+      // aplikacji nie generuje ani jednego zapytania na zewnątrz.
+      let inbound = null
+      try {
+        const snap = await getStore(SNAPSHOT_STORE).get(SNAPSHOT_KEY, { type: 'json' })
+        if (snap && now - snap.at < 15 * 60 * 1000) inbound = snap.inbound
+      } catch { /* brak migawki → pobierzemy sami */ }
+      if (!inbound) inbound = await collect()
+      cache = { at: now, body: JSON.stringify({ updated: new Date(now).toISOString(), inbound }) }
     } catch (err) {
       if (!cache || now - cache.at > STALE_MAX_MS) {
         console.error('[inbound]', err.message)

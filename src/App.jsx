@@ -89,7 +89,7 @@ export default function App() {
   const {
     isSubscribed, subResolved, isSubscribing, subscribe, unsubscribe, sendTestPush,
     permissionState, subscribeError, syncError, serverStatus,
-  } = usePushNotifications(location, radius, kinds)
+  } = usePushNotifications(location, radius, kinds, arrivals)
 
   // Gdy aktywny jest push serwerowy, NIE strzelamy też lokalnym powiadomieniem
   // systemowym — inaczej (w foreground) ten sam samolot daje dwa komunikaty.

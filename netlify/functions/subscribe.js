@@ -3,6 +3,14 @@ import crypto from 'crypto'
 import { corsHeaders, isValidPushEndpoint, rateLimit } from './lib/security.js'
 import { normalizeKinds } from './lib/military.js'
 
+// Preferencje przylotów: obiekt { EPRZ: bool, EPKK: bool }. Brak klucza
+// oznacza włączone — tak samo jak przy kategoriach maszyn.
+function normalizeArrivals(v) {
+  const out = {}
+  for (const icao of ['EPRZ', 'EPKK']) out[icao] = !(v && typeof v === 'object' && v[icao] === false)
+  return out
+}
+
 export const handler = async (event) => {
   connectLambda(event)
   const headers = corsHeaders(event)
@@ -39,7 +47,7 @@ export const handler = async (event) => {
     }
   }
 
-  const { subscription, lat, lon, radius, deviceId, kinds } = body
+  const { subscription, lat, lon, radius, deviceId, kinds, arrivals } = body
 
   if (!subscription?.endpoint) {
     return { statusCode: 400, headers, body: JSON.stringify({ error: 'missing-endpoint' }) }
@@ -108,6 +116,9 @@ export const handler = async (event) => {
     // wysyła je razem z pozycją; starszy klient nie wysyła nic i wtedy zostaje
     // to, co już zapisano, a w ostateczności komplet włączonych kategorii.
     kinds: normalizeKinds(kinds ?? existing?.kinds),
+    // Lotniska, o których przylotach wielkich transportowców to urządzenie
+    // chce wiedzieć. Brak pola = zostaje poprzednie, a domyślnie oba włączone.
+    arrivals: normalizeArrivals(arrivals ?? existing?.arrivals),
   }
 
   let serialized

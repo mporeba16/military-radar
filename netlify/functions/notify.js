@@ -6,7 +6,9 @@ import { rareRole } from '../../src/lib/rareTypes.js'
 import { AIRFIELDS } from '../../src/airfields.js'
 // Treść alertów mieszka we wspólnym module — ten sam kod składa push z serwera
 // i lokalne powiadomienie w otwartej aplikacji, więc nie mogą się rozjechać.
-import { alertText, groupText, rareText, rareGroupText } from '../../src/lib/notifyText.js'
+import { alertText, groupText, rareText, rareGroupText, inboundText } from '../../src/lib/notifyText.js'
+import { airportByIcao, etaMinutes, formatEta, landingClock } from '../../src/lib/inbound.js'
+import { SNAPSHOT_STORE, SNAPSHOT_KEY } from './inbound.js'
 
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY
@@ -29,6 +31,12 @@ const MAX_COVERAGE_KM = 1500      // clamp for the shared fetch bounding circle
 const RARE_COOLDOWN_MS = 12 * 60 * 60 * 1000
 const RARE_GROUP_THRESHOLD = 2
 const RARE_NEAR_AIRFIELD_KM = 80
+// Wielkie transportowce: jeden alert na lot. Cooldown dłuższy niż najdłuższy
+// przelot, żeby ta sama maszyna nie zaalarmowała drugi raz po drodze.
+const INBOUND_COOLDOWN_MS = 18 * 60 * 60 * 1000
+// Zbyt wcześnie nie ma sensu: przy dwunastu godzinach do lądowania szacunek
+// jest bardzo zgrubny, a maszyna może jeszcze zawrócić.
+const INBOUND_MAX_ETA_MIN = 10 * 60
 const PL_AIRFIELDS = AIRFIELDS.filter(a => a.icao.startsWith('EP'))
 
 // Rzadkie maszyny w powietrzu nad Polską z listy /mil. Czysta funkcja, żeby
@@ -234,6 +242,13 @@ export const handler = async (event) => {
     }
   }
 
+  // Pass 4 — jumbo jety i An-124 z celem w Rzeszowie/Krakowie. Czyta migawkę
+  // z crona `inbound-collect`, więc nie odpytuje niczego na zewnątrz.
+  await processInbound(loaded, subsStore, alertedStore, stats).catch(err => {
+    console.error('[notify] inbound pass failed:', err.message)
+    stats.inboundError = err.message
+  })
+
   // Pass 3 — rzadkie maszyny nad całą Polską. Nie zależą od pozycji
   // użytkownika, więc idą też do subskrypcji bez GPS.
   await processRare(loaded, subsStore, alertedStore, stats).catch(err => {
@@ -258,6 +273,60 @@ export const handler = async (event) => {
 
   await writeRunStats(stats, runStart)
   return { statusCode: 200, body: JSON.stringify(stats) }
+}
+
+async function processInbound(loaded, subsStore, alertedStore, stats) {
+  const snap = await getStore(SNAPSHOT_STORE).get(SNAPSHOT_KEY, { type: 'json' }).catch(() => null)
+  const list = snap?.inbound || []
+  if (!list.length) return
+
+  const now = Date.now()
+  const store = getStore('push-inbound')
+  const prev = (await store.get('alerted', { type: 'json' }).catch(() => null))?.alerted || {}
+
+  const fresh = []
+  const next = {}
+  for (const [hex, ts] of Object.entries(prev)) if (now - ts <= INBOUND_COOLDOWN_MS) next[hex] = ts
+  for (const x of list) {
+    const airport = airportByIcao(x.route?.to)
+    if (!airport) continue
+    const min = etaMinutes(x, airport)
+    if (min == null || min > INBOUND_MAX_ETA_MIN) continue
+    const key = `${x.hex}|${x.route.to}`
+    if (!prev[key] || now - prev[key] > INBOUND_COOLDOWN_MS) fresh.push({ x, airport, min })
+    next[key] = now
+  }
+  await store.set('alerted', JSON.stringify({ alerted: next, ts: now }))
+  if (!fresh.length) return
+
+  stats.inboundSent = 0
+  const recipients = dedupeByDevice(loaded.filter(v => v.raw?.subscription))
+  await Promise.allSettled(recipients.map(async v => {
+    for (const { x, airport, min } of fresh) {
+      // Przełącznik lotniska z ustawień urządzenia; brak pola = włączone.
+      if (v.raw.arrivals?.[airport.icao] === false) continue
+      const payload = {
+        ...inboundText(x, airport.name, landingClock(min, now), formatEta(min)),
+        tag: `inbound-${x.hex}`, hex: x.hex,
+      }
+      try {
+        await webpush.sendNotification(v.raw.subscription, JSON.stringify(payload))
+        stats.inboundSent++
+        stats.notificationsSent++
+      } catch (err) {
+        stats.pushErrors++
+        const status = err.statusCode || 0
+        if (status === 410 || status === 404) {
+          await subsStore.delete(v.key).catch(() => {})
+          await alertedStore.delete(v.key).catch(() => {})
+          stats.expiredRemoved++
+          return
+        }
+        console.error(`[notify] inbound push FAIL ${v.key} status=${status} msg=${err.message}`)
+      }
+    }
+  }))
+  console.log(`[notify] inbound: ${fresh.map(f => `${f.x.flight}→${f.airport.icao}`).join(', ')} → ${recipients.length} subs`)
 }
 
 async function processRare(loaded, subsStore, alertedStore, stats) {

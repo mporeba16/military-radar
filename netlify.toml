@@ -29,6 +29,9 @@
 [functions."collect"]
   schedule = "*/2 * * * *"
 
+[functions."inbound-collect"]
+  schedule = "*/10 * * * *"
+
 [dev]
   command = "npm run dev"
   port = 8080

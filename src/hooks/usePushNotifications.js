@@ -37,14 +37,14 @@ function getDeviceId() {
   } catch { return null }
 }
 
-async function syncToServer(sub, lat, lon, radius, kinds) {
+async function syncToServer(sub, lat, lon, radius, kinds, arrivals) {
   if (!sub) return { ok: false, error: 'no-subscription' }
   try {
     const res = await fetch('/.netlify/functions/subscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        subscription: sub.toJSON(), lat, lon, radius, kinds, deviceId: getDeviceId(),
+        subscription: sub.toJSON(), lat, lon, radius, kinds, arrivals, deviceId: getDeviceId(),
       }),
     })
     let payload = null
@@ -75,7 +75,7 @@ async function fetchStatus(sub) {
   }
 }
 
-export function usePushNotifications(location, radius, kinds) {
+export function usePushNotifications(location, radius, kinds, arrivals) {
   const [isSubscribed, setIsSubscribed] = useState(false)
   // Czy znamy już stan subskrypcji? Zanim asynchroniczne getSubscription() się
   // rozwiąże, isSubscribed jest false — gdyby klient w tym oknie odpalił lokalne
@@ -100,6 +100,8 @@ export function usePushNotifications(location, radius, kinds) {
   const wantHeli = kinds?.heli !== false
   const wantHeavy = kinds?.heavy !== false
   const wantRare = kinds?.rare !== false
+  // Serializowane, żeby efekt reagował na zmianę wartości, a nie referencji.
+  const arrivalsKey = arrivals ? JSON.stringify(arrivals) : ''
 
   // On mount: restore existing subscription. Re-sync handled by the
   // separate effect below, which reacts to location/radius changes.
@@ -133,12 +135,12 @@ export function usePushNotifications(location, radius, kinds) {
     const id = setTimeout(() => {
       syncToServer(subRef.current, syncLat, syncLon, radius, {
         mil: wantMil, heli: wantHeli, heavy: wantHeavy, rare: wantRare,
-      }).then(res => {
+      }, arrivalsKey ? JSON.parse(arrivalsKey) : undefined).then(res => {
         setSyncError(res.ok ? null : res.error)
       })
     }, SYNC_DEBOUNCE_MS)
     return () => clearTimeout(id)
-  }, [isSubscribed, syncLat, syncLon, radius, wantMil, wantHeli, wantHeavy, wantRare])
+  }, [isSubscribed, syncLat, syncLon, radius, wantMil, wantHeli, wantHeavy, wantRare, arrivalsKey])
 
   // Diagnostyka serwerowa, odświeżana co minutę. Zależy WYŁĄCZNIE od stanu
   // subskrypcji: gdyby zależała też od pozycji, każdy fix GPS zerowałby

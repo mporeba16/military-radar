@@ -112,6 +112,22 @@ export function rareGroupText(list) {
   return { title, body: `${names.join(' · ')}${extra > 0 ? ` +${extra}` : ''}` }
 }
 
+// Jumbo jet albo An-124 z celem w Rzeszowie/Krakowie. W tytule lotnisko
+// i godzina lądowania — to jest wiadomość; w treści maszyna, skąd leci
+// i ile jeszcze.
+export function inboundText(x, airportName, clock, eta) {
+  const name = shortTypeName(x) || (x.t || '').trim()
+  const title = clock
+    ? `${airportName}: wielki transportowiec ok. ${clock}`
+    : `${airportName}: wielki transportowiec`
+  const parts = [callsign(x)]
+  if (name) parts.push(name)
+  const from = x.route?.fromCity || x.route?.from
+  if (from) parts.push(`z ${from}`)
+  if (eta) parts.push(`za ${eta}`)
+  return { title, body: parts.join(' · ') }
+}
+
 // Kilka maszyn w jednym przebiegu: dystans najbliższej w tytule, reszta listą.
 export function groupText(list, kind) {
   const sorted = [...list].sort((a, b) => a._dist - b._dist)

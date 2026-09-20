@@ -41,7 +41,7 @@ Each category can be switched off — it then disappears from the map and stops 
 - **Aircraft card** — photo from Planespotters, type, country, altitude with climb/descent trend, speed, flight time and likely landing airfield
 - **Flight trail** — up to 4 hours of history stored server-side, recorded even when nobody has the app open
 - **Push notifications** — an alert when an aircraft enters a chosen radius around your position, even with the app closed (on iPhone after adding it to the home screen)
-- **Inbound heavies** — Boeing 747s and An-124s whose flight plan says Rzeszów (EPRZ) or Kraków (EPKK): shown on the map hours before they reach Polish airspace, with destination, estimated landing time and time to go; per-airport switches
+- **Inbound heavies** — Boeing 747s and An-124s whose flight plan says Rzeszów (EPRZ) or Kraków (EPKK): shown on the map hours before they reach Polish airspace, with destination, estimated landing time and time to go, plus a push alert; per-airport switches
 - **Rare aircraft alerts** — tankers, AWACS, reconnaissance, bombers and surveillance drones anywhere over Poland, regardless of your position (one alert per aircraft per 12 h)
 - **Overlays** — Polish military airfield grounds (red), major NATO bases (purple) and 12 military training areas (orange, hatched)
 - **Airspace active now** — military zones (TSA, TRA, D, R) reserved for specific hours right now in the Polish airspace use plan (drone corridors and all-day blanket reservations are left out), with hours, altitudes, the reserving base and aircraft type (e.g. *TS7 · F-35 · Łask · 10:00–11:00*)
@@ -84,7 +84,8 @@ flowchart LR
 | `collect` | records trails in the background every 2 minutes |
 | `notify` | checks every subscriber's radius each minute and sends push alerts |
 | `airspace` | proxies and trims the PANSA airspace use plan (no CORS upstream), cached 10 min |
-| `inbound` | finds 747s and An-124s bound for Rzeszów or Kraków (adsb.lol + adsbdb), cached 3 min |
+| `inbound` | serves 747s and An-124s bound for Rzeszów or Kraków |
+| `inbound-collect` | refreshes that list every 10 minutes (adsb.lol + adsbdb) so page traffic never reaches those services |
 | `subscribe` / `status` / `test-push` | subscription storage, diagnostics, test push |
 
 ## Running locally
