@@ -19,6 +19,7 @@ import { readiness, kindsOnCount } from './lib/alertsState'
 import { ARRIVAL_AIRPORTS } from './lib/inbound'
 import { ftToM } from './components/aircraftShapes'
 import { alertText, shortTypeName, heliRole, CLOSE_RANGE_KM } from './lib/notifyText'
+import { countryCodeFromHex } from './lib/countries'
 import { t } from './i18n'
 import { version } from '../package.json'
 import './App.css'
@@ -651,7 +652,10 @@ export default function App() {
                       tak samo jak w powiadomieniu systemowym. Znak wywoławczy
                       jest na karcie, po kliknięciu maszyny na mapie. */}
                   <span className="alert-toast-call">
-                    {heliRole(ac) || shortTypeName(ac) || (ac.t || '').trim() || '?'}
+                    {/* Skrót kraju z adresu ICAO przed nazwą — tak samo jak
+                        w powiadomieniu systemowym. */}
+                    {[countryCodeFromHex(ac.hex), heliRole(ac) || shortTypeName(ac) || (ac.t || '').trim() || '?']
+                      .filter(Boolean).join(' ')}
                   </span>
                   <span className="alert-toast-detail">{Math.round(dist)} km</span>
                 </div>

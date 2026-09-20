@@ -1,5 +1,6 @@
 import { getCommonName } from './typeNames'
 import { plForm } from './plural'
+import { countryCodeFromHex } from './countries'
 
 // Treść powiadomień — JEDNO miejsce dla pusha z serwera i dla lokalnego
 // powiadomienia klienta. Wcześniej te same napisy składały się w dwóch plikach
@@ -69,6 +70,14 @@ export function altMetres(altBaroFt) {
   return `${Math.round(altBaroFt * 0.3048).toLocaleString('pl-PL')} m`
 }
 
+// Skrót kraju rejestracji przed nazwą maszyny („PL CASA CN-295”, „UA An-26”).
+// Adres ICAO niesie kraj rejestracji, więc wiadomo to zawsze, nawet gdy
+// maszyna nie podaje znaku wywoławczego ani typu.
+function withCountry(hex, name) {
+  const code = countryCodeFromHex(hex)
+  return code ? `${code} ${name}` : name
+}
+
 // Pojedyncza maszyna: { title, body }.
 export function alertText(ac, distKm) {
   const kind = ac.kind || 'mil'
@@ -81,21 +90,21 @@ export function alertText(ac, distKm) {
   let title
   let titleHasType = false
   if (kind === 'heavy') {
-    title = `${name || 'Duży samolot'} · ${km}`
+    title = `${withCountry(ac.hex, name || 'Duży samolot')} · ${km}`
     titleHasType = !!name
   } else if (kind === 'heli') {
     const role = heliRole(ac)
     // Bez rozpoznanej służby prowadzi nazwa maszyny — „Śmigłowiec Black Hawk”
     // nie mieści się na zegarku, a słowo „śmigłowiec” i tak nic nie dodaje.
-    title = role ? `${role} · ${km}` : `${name || 'Śmigłowiec'} · ${km}`
+    title = `${withCountry(ac.hex, role || name || 'Śmigłowiec')} · ${km}`
     titleHasType = !role && !!name
   } else if (distKm <= CLOSE_RANGE_KM) {
     // Bliżej niż 10 km — znak ostrzegawczy zamiast słowa, żeby zostało
     // miejsce na nazwę maszyny.
-    title = `⚠ ${name || 'Samolot wojskowy'} · ${km}`
+    title = `⚠ ${withCountry(ac.hex, name || 'Samolot wojskowy')} · ${km}`
     titleHasType = !!name
   } else {
-    title = `${name || 'Samolot wojskowy'} · ${km}`
+    title = `${withCountry(ac.hex, name || 'Samolot wojskowy')} · ${km}`
     titleHasType = !!name
   }
 

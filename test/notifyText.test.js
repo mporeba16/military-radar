@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { alertText, groupText, shortTypeName, flightLevel, compassDir } from '../src/lib/notifyText.js'
 
 const herc = { hex: 'ae1234', flight: 'KJD202 ', t: 'C130', alt_baro: 22000, track: 225, kind: 'mil' }
-const bryza = { hex: '485849', flight: 'PLF283A', t: 'AN28', alt_baro: 3300, track: 352, kind: 'mil' }
+const bryza = { hex: '48d123', flight: 'PLF283A', t: 'AN28', alt_baro: 3300, track: 352, kind: 'mil' }
 const heli = { hex: '48d001', flight: 'LPR11', t: 'EC35', alt_baro: 1200, track: 135, kind: 'heli' }
 const ruslan = { hex: '508035', flight: 'ADB3467', t: 'A124', alt_baro: 31000, track: 270, kind: 'heavy' }
 
@@ -45,51 +45,51 @@ describe('shortTypeName', () => {
 describe('alertText — pojedyncza maszyna', () => {
   it('wojskowy w zasięgu ma dystans w tytule', () => {
     const { title, body } = alertText(herc, 48)
-    expect(title).toBe('Hercules · 48 km')
+    expect(title).toBe('US Hercules · 48 km')
     expect(body).toBe('C130 · 6706 m · kurs SW')
   })
 
   it('poniżej 10 km tytuł zaczyna się od znaku ostrzegawczego', () => {
     const { title, body } = alertText(bryza, 8)
-    expect(title).toBe('⚠ M28 Bryza · 8 km')
+    expect(title).toBe('⚠ PL M28 Bryza · 8 km')
     expect(body).toBe('AN28 · 1006 m · kurs N')
   })
 
   it('duży samolot prowadzi nazwą własną, bo po to się wychodzi z domu', () => {
-    expect(alertText(ruslan, 44).title).toBe('An-124 Rusłan · 44 km')
+    expect(alertText(ruslan, 44).title).toBe('UA An-124 Rusłan · 44 km')
   })
 
   it('śmigłowiec nazywa służbę, nie kategorię', () => {
     const { title, body } = alertText(heli, 21)
-    expect(title).toBe('Ratunkowy · 21 km')
+    expect(title).toBe('PL Ratunkowy · 21 km')
     expect(body).toBe('EC35 · 366 m · kurs SE')
   })
 
   it('rozpoznaje policję i Straż Graniczną po znaku wywoławczym', () => {
-    expect(alertText({ ...heli, flight: 'POLICJA12' }, 8).title).toBe('Policja · 8 km')
-    expect(alertText({ ...heli, flight: 'STRAZ7' }, 8).title).toBe('Straż Graniczna · 8 km')
+    expect(alertText({ ...heli, flight: 'POLICJA12' }, 8).title).toBe('PL Policja · 8 km')
+    expect(alertText({ ...heli, flight: 'STRAZ7' }, 8).title).toBe('PL Straż Graniczna · 8 km')
   })
 
   it('LPR poznaje też po rejestracji SP-HX', () => {
-    expect(alertText({ ...heli, flight: 'SPHXA', reg: 'SP-HXA' }, 5).title).toBe('Ratunkowy · 5 km')
+    expect(alertText({ ...heli, flight: 'SPHXA', reg: 'SP-HXA' }, 5).title).toBe('PL Ratunkowy · 5 km')
   })
 
   it('nierozpoznana służba dostaje typ zamiast etykiety', () => {
     const sn = { hex: '48aaaa', flight: 'SN51XP', t: 'S70', reg: 'SN-51XP', alt_baro: 1200, track: 10, kind: 'heli' }
     // Nazwa maszyny zamiast etykiety kategorii — krótsza i konkretniejsza.
-    expect(alertText(sn, 9).title).toBe('Black Hawk · 9 km')
+    expect(alertText(sn, 9).title).toBe('PL Black Hawk · 9 km')
   })
 
   it('bez nazwy własnej kod nie dubluje się w tytule i treści', () => {
     const ac = { hex: 'ae9999', flight: 'RCH123', t: 'ZZZZ', alt_baro: 30000, track: 90, kind: 'mil' }
     const { title, body } = alertText(ac, 60)
-    expect(title).toBe('ZZZZ · 60 km')
+    expect(title).toBe('US ZZZZ · 60 km')
     expect(body).toBe('9144 m · kurs E')
   })
 
   it('bez typu treść jest pusta, a tytuł nadal mówi, co i jak daleko', () => {
     const { title, body } = alertText({ hex: 'ae0001', kind: 'mil' }, 33)
-    expect(title).toBe('Samolot wojskowy · 33 km')
+    expect(title).toBe('US Samolot wojskowy · 33 km')
     expect(body).toBe('')
   })
 
@@ -144,5 +144,14 @@ describe('groupText — kilka maszyn', () => {
     expect(groupText(heavies, 'heavy').title).toBe('2 duże samoloty · od 44 km')
     const helis = [{ ...heli, _dist: 12 }, { ...heli, hex: 'y', _dist: 30 }]
     expect(groupText(helis, 'heli').title).toBe('2 śmigłowce · od 12 km')
+  })
+})
+
+describe('skrót kraju w tytule', () => {
+  it('bierze kraj z adresu ICAO, nie ze znaku wywoławczego', () => {
+    // Ukraiński An-124 z callsignem linii (ADB) — kraj rozstrzyga adres.
+    expect(alertText(ruslan, 20).title.startsWith('UA ')).toBe(true)
+    // Adres spoza przydziałów: bez skrótu, ale tytuł nadal działa.
+    expect(alertText({ hex: 'ffffff', t: 'C130', kind: 'mil' }, 12).title).toBe('Hercules · 12 km')
   })
 })
