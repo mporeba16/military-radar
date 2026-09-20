@@ -4,7 +4,7 @@ import { typeLabel } from '../lib/typeNames'
 import { findLikelyLanding } from '../airfields'
 import { scorePhotoMatch, photoHasMatchSignal, canVerifyPhotoMatch } from '../lib/photoMatch'
 import { t } from '../i18n'
-import { formatFlightTime } from '../lib/flightTime'
+import { compassDir } from '../lib/notifyText'
 import { typePhoto } from '../lib/typePhotos'
 import { knownAircraft, resolvedType } from '../lib/knownAircraft'
 import { airportByIcao, etaMinutes, formatEta, landingClock } from '../lib/inbound'
@@ -118,7 +118,7 @@ function verticalTrend(ac) {
   return { dir: 'level', icon: '→', label: t('INFO_LEVEL') }
 }
 
-export default function AircraftInfoPanel({ ac, flightStart, onClose }) {
+export default function AircraftInfoPanel({ ac, onClose }) {
   const { photo, state: photoState } = useAircraftPhoto(ac.hex, ac.reg, ac)
   const [imgError, setImgError] = useState(false)
   const altM = ftToM(ac.alt_baro)
@@ -133,7 +133,11 @@ export default function AircraftInfoPanel({ ac, flightStart, onClose }) {
   const flag = country ? countryFlag(country) : ''
   const landing = findLikelyLanding(ac)
   const trend = altM != null ? verticalTrend(ac) : null
-  const flightTime = formatFlightTime(flightStart)
+  // Kurs zamiast czasu lotu: czas liczyliśmy od pierwszego znanego punktu
+  // trasy, a przy przerwach w odbiorze zaczynał się od nowa — maszyna na
+  // 10 000 m dostawała „1 min”, co było po prostu nieprawdą. Kurs jest
+  // w danych prawie zawsze i mówi, gdzie patrzeć na niebie.
+  const dir = ac.track != null ? compassDir(ac.track) : null
   // Cel z planu lotu (jumbo jety i An-124 lecące do Rzeszowa/Krakowa). Czas
   // dolotu liczymy TU, z bieżącej pozycji — wartość z serwera jest sprzed
   // najwyżej trzech minut, a maszyna w tym czasie przelatuje ~50 km.
@@ -278,12 +282,12 @@ export default function AircraftInfoPanel({ ac, flightStart, onClose }) {
           </span>
           <span className="ac-info-metric__label">{t('INFO_SPEED')}</span>
         </div>
-        <div className="ac-info-metric" title={t('INFO_FLIGHT_TIME_HINT')}>
+        <div className="ac-info-metric" title={t('INFO_TRACK_HINT')}>
           <span className="ac-info-metric__line">
-            <span className="ac-info-metric__val">{flightTime ? flightTime.val : '—'}</span>
-            {flightTime && <span className="ac-info-metric__unit">{flightTime.unit}</span>}
+            <span className="ac-info-metric__val">{ac.track != null ? Math.round(ac.track) : '—'}</span>
+            {dir && <span className="ac-info-metric__unit">°{dir}</span>}
           </span>
-          <span className="ac-info-metric__label">{t('INFO_FLIGHT_TIME')}</span>
+          <span className="ac-info-metric__label">{t('INFO_TRACK')}</span>
         </div>
       </div>
 

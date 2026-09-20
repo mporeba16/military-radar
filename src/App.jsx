@@ -48,7 +48,6 @@ export default function App() {
   // widoku — użytkownik patrzy tam, gdzie chce patrzeć.
   const [focusHex, setFocusHex] = useState(null)
   const [serverTrails, setServerTrails] = useState(new Map())
-  const [serverFlightStart, setServerFlightStart] = useState(null) // { hex, ts }
   const [activePanel, setActivePanel] = useState(null)
   const [activeTileId, setActiveTileId] = useLocalStorage('radar.tile', 'osm-adsbx')
   const [altBandsRaw, setAltBands] = useLocalStorage('radar.altBands', ALL_BANDS_ON)
@@ -88,7 +87,6 @@ export default function App() {
   const dismissedAlertsRef = useRef(new Set(loadDismissed()))
   const selectionMissCountRef = useRef(0)
   const trailsRef = useRef(new Map())
-  const firstSeenRef = useRef(new Map())
   const isMountedRef = useRef(false)
   const fetchDataRef = useRef(null)
   const fetchAbortRef = useRef(null)
@@ -183,9 +181,6 @@ export default function App() {
       })
       const now = Date.now()
       const enriched = dedup.map(ac => {
-        if (!firstSeenRef.current.has(ac.hex)) {
-          firstSeenRef.current.set(ac.hex, now)
-        }
         if (location) {
           const dist = haversine(location.lat, location.lon, ac.lat, ac.lon)
           const brg = bearing(location.lat, location.lon, ac.lat, ac.lon)
@@ -216,8 +211,6 @@ export default function App() {
       const currentHexes = new Set(enriched.map(a => a.hex))
       for (const hex of trailsRef.current.keys())
         if (!currentHexes.has(hex)) trailsRef.current.delete(hex)
-      for (const hex of firstSeenRef.current.keys())
-        if (!currentHexes.has(hex)) firstSeenRef.current.delete(hex)
       setAircraft(enriched)
       setHasFetched(true)
       setLastUpdated(new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
@@ -407,9 +400,8 @@ export default function App() {
     const fetchTrail = async () => {
       try {
         const r = await fetch(`/.netlify/functions/aircraft?hex=${selectedHex}`, { signal: ctrl.signal })
-        const { trail, flightStartTs } = await r.json()
+        const { trail } = await r.json()
         if (ctrl.signal.aborted) return
-        if (flightStartTs) setServerFlightStart({ hex: selectedHex, ts: flightStartTs })
         if (trail?.length) {
           setServerTrails(prev => { const next = new Map(prev); next.set(selectedHex, trail); return next })
         }
@@ -434,19 +426,6 @@ export default function App() {
     () => location ? [location.lat, location.lon] : null,
     [location?.lat, location?.lon]
   )
-
-  // Czas lotu: ADS-B nie niesie godziny startu, więc liczymy od najwcześniejszego
-  // punktu, jaki znamy — trasy z serwera (cron zapisuje wojsko w tle) albo
-  // pierwszego odczytu w tej sesji. To dolna granica, nie czas od startu.
-  // `partial`: znamy tylko odczyt z tej sesji — karta pokaże „≥”, bo C-17
-  // w połowie lotu nad Atlantykiem miał inaczej „0 min”.
-  function flightStartFor(hex) {
-    const local = firstSeenRef.current.get(hex)
-    const server = serverFlightStart?.hex === hex ? serverFlightStart.ts : null
-    const known = [local, server].filter(Boolean)
-    if (!known.length) return null
-    return { ts: Math.min(...known), partial: !server }
-  }
 
   // Maszyny z celem w Rzeszowie/Krakowie dochodzą do listy z radaru: te, które
   // są już w naszym obszarze, dostają tylko informację o celu (pozycja z
@@ -638,7 +617,6 @@ export default function App() {
         <AircraftInfoPanel
           key={selectedAc.hex}
           ac={selectedAc}
-          flightStart={flightStartFor(selectedAc.hex)}
           onClose={() => setSelectedHex(null)}
         />
       )}
