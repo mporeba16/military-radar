@@ -216,8 +216,23 @@ function buildIconSvg(ac, isSelected, zoomScale) {
   const paths = Array.isArray(shape.path) ? shape.path : [shape.path]
   const tx = `scale(${scale * zoomScale}) translate(${-cx} ${-cy})`
 
+  // Kategorie poza wojskiem (śmigłowce służbowe, duże samoloty) niosą swój
+  // kolor OBWÓDKĄ sylwetki, nie kółkiem wokół niej (decyzja użytkownika):
+  // kółko zasłaniało ikonę i przy gęstym ruchu zlewało się z zaznaczeniem.
+  // Wypełnienie dalej koduje wysokość, więc jedno spojrzenie daje i kategorię,
+  // i pułap.
+  const KIND_OUTLINE = { heli: KIND_COLORS.heli, heavy: KIND_COLORS.heavy }
+  const outline = KIND_OUTLINE[ac.kind]
+  const strokeW = (outline ? 1.6 : 0.7) / (scale * zoomScale)
+  // Ciemny kontur pod spodem zostaje także przy kolorowej obwódce — bez niego
+  // cyjan albo bursztyn ginie na jasnym podkładzie (satelita, płótno Esri).
+  const outlinePaths = outline
+    ? paths.map(d =>
+      `<path d="${d}" fill="none" stroke="rgba(0,0,0,0.65)" stroke-width="${strokeW * 2.1}" stroke-linejoin="round"/>`
+    ).join('')
+    : ''
   const mainPaths = paths.map(d =>
-    `<path d="${d}" fill="${color}" stroke="rgba(0,0,0,0.55)" stroke-width="${0.7 / (scale * zoomScale)}" stroke-linejoin="round"/>`
+    `<path d="${d}" fill="${color}" stroke="${outline || 'rgba(0,0,0,0.55)'}" stroke-width="${strokeW}" stroke-linejoin="round"/>`
   ).join('')
   const shadowPaths = paths.map(d => `<path d="${d}" fill="rgba(0,0,0,0.4)"/>`).join('')
   const ringR = Math.min(16 * zoomScale, half - 2)
@@ -233,14 +248,6 @@ function buildIconSvg(ac, isSelected, zoomScale) {
          <animate attributeName="opacity" from="0.7" to="0" dur="1.4s" repeatCount="indefinite"/>
        </circle>`
     : ''
-  // Kategorie poza wojskiem dostają kolorową obwódkę, by wyróżniały się na mapie
-  // (wojsko = bazowy wygląd bez obwódki). Pomijamy gdy ikona jest zaznaczona.
-  const KIND_RING = { heli: KIND_COLORS.heli, heavy: KIND_COLORS.heavy }
-  const kindRingColor = !isSelected ? KIND_RING[ac.kind] : null
-  const kindRing = kindRingColor
-    ? `<circle r="${ringR}" fill="none" stroke="${kindRingColor}" stroke-width="2" opacity="0.85"/>`
-    : ''
-
   // S3: clamp tap padding so total target is always >= MIN_TAP_TARGET
   const tapPad = Math.max(6, Math.ceil((MIN_TAP_TARGET - effectiveSz) / 2))
   const hitR = half + tapPad
@@ -268,10 +275,9 @@ function buildIconSvg(ac, isSelected, zoomScale) {
           <g transform="rotate(${heading})"><g transform="${tx}">${shadowPaths}</g></g>
         </g>
         <g transform="rotate(${heading})">
-          <g transform="${tx}">${mainPaths}</g>
+          <g transform="${tx}">${outlinePaths}${mainPaths}</g>
         </g>
       </g>
-      ${kindRing}
       ${selectionRing}
       ${alertBadge}
     </svg>`
