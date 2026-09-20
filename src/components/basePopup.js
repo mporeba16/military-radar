@@ -14,7 +14,7 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
 }[c]))
 
-export function basePopupHtml(base, variant, { zones, aircraft, now }) {
+export function basePopupHtml(base, variant, { zones, zonesError, aircraft, now }) {
   const parts = [
     `<div class="base-pop">`,
     `<div class="base-pop__title">${esc(base.name)} <span class="base-pop__icao">${esc(base.icao)}</span></div>`,
@@ -24,7 +24,9 @@ export function basePopupHtml(base, variant, { zones, aircraft, now }) {
   if (variant === 'pl') {
     parts.push(`<div class="base-pop__head">${t('BASE_PLAN_TITLE')}</div>`)
     if (!zones) {
-      parts.push(`<div class="base-pop__empty">${t('BASE_PLAN_LOADING')}</div>`)
+      // Rozróżniamy „jeszcze nie przyszło" od „nie przyjdzie": przy awarii
+      // PAŻP dymek mówił „Wczytywanie planu…" bez końca.
+      parts.push(`<div class="base-pop__empty">${zonesError ? t('BASE_PLAN_ERROR') : t('BASE_PLAN_LOADING')}</div>`)
     } else {
       const plan = basePlan(base.icao, zones, now)
       if (!plan.length) parts.push(`<div class="base-pop__empty">${t('BASE_PLAN_EMPTY')}</div>`)

@@ -388,7 +388,10 @@ export const handler = async (event) => {
     result = staleFallback(stale, Date.now())
   }
 
-  if (snapStore && result._source !== 'unavailable') {
+  // Migawki awaryjnej NIE zapisujemy z nowym znacznikiem czasu: inaczej każde
+  // nieudane pobranie odmładzałoby ją o kolejne 10 minut i przy dłuższej
+  // awarii źródeł mapa mogłaby tkwić na zamrożonych pozycjach bez końca.
+  if (snapStore && !result._stale && result._source !== 'unavailable') {
     await snapStore.set(snapKey, JSON.stringify({ ts: Date.now(), aircraft: result.aircraft, source: result._source })).catch(() => {})
   }
 
@@ -397,7 +400,9 @@ export const handler = async (event) => {
   // watching), so writing trails here on every call just duplicated the cron's
   // work. Throttle to once per 60 s per warm instance — enough to keep the
   // server trail denser than the cron alone, without the per-fetch overhead.
-  if (Date.now() - lastLiveTrailSave >= LIVE_TRAIL_SAVE_INTERVAL_MS) {
+  // Z tego samego powodu stare pozycje nie mogą dopisywać się do tras —
+  // byłyby w nich nowym punktem w miejscu, w którym maszyny już nie ma.
+  if (!result._stale && Date.now() - lastLiveTrailSave >= LIVE_TRAIL_SAVE_INTERVAL_MS) {
     lastLiveTrailSave = Date.now()
     await Promise.race([saveTrails(result.aircraft).catch(() => {}), new Promise(r => setTimeout(r, 3000))])
   }

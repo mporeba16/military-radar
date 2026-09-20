@@ -1,4 +1,4 @@
-import { TILE_LAYERS, tileThumbUrl } from './RadarMap'
+import { TILE_LAYERS, tileThumbUrl, resolveTileId } from './RadarMap'
 import { useState } from 'react'
 import Toggle from './Toggle'
 import { t } from '../i18n'
@@ -22,7 +22,7 @@ export default function MapsPanel({
   altBands, setAltBands, bandCounts,
 }) {
   const [baseOpen, setBaseOpen] = useState(false)
-  const active = TILE_LAYERS.find(l => l.id === activeTileId) || TILE_LAYERS[0]
+  const active = TILE_LAYERS.find(l => l.id === resolveTileId(activeTileId)) || TILE_LAYERS[0]
 
   return (
     <div className="panel-body">

@@ -127,3 +127,14 @@ describe('helpers', () => {
     expect(shortName('EPTS7')).toBe('TS7')
   })
 })
+
+describe('podkłady wycofane', () => {
+  it('stary wybór podkładu dostaje następcę, nie pierwszą pozycję listy', async () => {
+    const { resolveTileId } = await import('../src/lib/tiles.js')
+    expect(resolveTileId('esri-light')).toBe('esri-hybrid')
+    expect(resolveTileId('opentopo')).toBe('esri-topo')
+    expect(resolveTileId('esri-satellite')).toBe('esri-satellite')
+    // nieznane id nadal wraca do pierwszego podkładu
+    expect(resolveTileId('cokolwiek')).toBe('osm-adsbx')
+  })
+})
