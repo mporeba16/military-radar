@@ -54,7 +54,7 @@
 
 .base-tooltip--nato.leaflet-tooltip {
   color: #cfb0ff;
-  border-color: rgba(155, 93, 229, 0.55);
+  border-color: rgba(124, 58, 237, 0.65);
 }
 .base-tooltip.leaflet-tooltip-top::before {
   border-top-color: rgba(255, 179, 0, 0.45);
@@ -262,7 +262,7 @@
 
 /* ── Dymek lotniska ──────────────────────────────────────────────────────── */
 .base-popup .leaflet-popup-content-wrapper { border-color: rgba(220, 47, 61, 0.5); }
-.base-popup--nato .leaflet-popup-content-wrapper { border-color: rgba(155, 93, 229, 0.5); }
+.base-popup--nato .leaflet-popup-content-wrapper { border-color: rgba(124, 58, 237, 0.6); }
 
 .base-pop {
   font-family: var(--font);

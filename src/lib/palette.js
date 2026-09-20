@@ -25,10 +25,10 @@ export const KIND_COLORS = {
 // ginął na zielono-szarym podkładzie). Ciemniejsza i chłodniejsza od ALERT,
 // żeby stały teren nie udawał zdarzenia. Obrys i podpis lotniska mają ten kolor.
 export const BASE_PL = '#dc2f3d'
-// Bazy NATO: fiolet (decyzja użytkownika — szaroniebieski prawie nie było
-// widać). Jaśniejszy i bardziej niebieski od fioletu najwyższego pułapu
-// maszyn (180, 0, 210), a kreskowanie i tak odróżnia teren od ikony.
-export const BASE_NATO = '#9b5de5'
+// Bazy NATO: ciemny, nasycony fiolet (decyzja użytkownika — jaśniejszy
+// #9b5de5 gubił się na podkładach). Ciemniejszy od fioletu najwyższego
+// pułapu maszyn (180, 0, 210), a kreskowanie i tak odróżnia teren od ikony.
+export const BASE_NATO = '#7c3aed'
 
 // Poligony: pomarańcz (decyzja użytkownika). Wyraźnie czerwieńszy od bursztynu
 // dużych samolotów (#ffb300), a czerwień alarmu zostaje dla zdarzeń.
