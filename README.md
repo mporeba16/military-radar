@@ -46,7 +46,7 @@ Each category can be switched off — it then disappears from the map and stops 
 - **Overlays** — Polish military airfield grounds (red), major NATO bases (purple) and 12 military training areas (orange, hatched)
 - **Airspace active now** — military zones (TSA, TRA, D, R) reserved for specific hours right now in the Polish airspace use plan (drone corridors and all-day blanket reservations are left out), with hours, altitudes, the reserving base and aircraft type (e.g. *TS7 · F-35 · Łask · 10:00–11:00*)
 - **Airfield card** — tap a military airfield to see what is planned from it today in the PANSA plan (e.g. *F-35 · 10:00–12:10 · TS6, TS7*) and what is airborne within 50 km
-- **Six base maps** — dark, classic, satellite, neutral dark, neutral light, terrain
+- **Six base maps** — dark, classic, satellite, neutral dark, satellite with labels (hybrid), terrain
 - **PWA** — installs like a native app on phone and desktop
 
 ## Data sources

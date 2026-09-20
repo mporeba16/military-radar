@@ -67,25 +67,31 @@ export const TILE_LAYERS = [
     filter: '',
   },
   {
-    id: 'esri-light',
-    name: 'Esri Light Gray',
-    label: 'Neutralna jasna',
-    sub: 'Esri Light Gray Canvas',
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
-    overlay: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
-    attribution: 'Tiles &copy; Esri &mdash; Esri, HERE, Garmin, &copy; OpenStreetMap contributors',
-    maxZoom: 16,
+    // Satelita z nazwami — odpowiednik „hybrydy" z Google Maps. Zdjęcia bez
+    // opisów (osobny podkład wyżej) trudno czytać: nie wiadomo, nad którym
+    // miastem się patrzy. Opisy i granice to osobna warstwa Esri.
+    id: 'esri-hybrid',
+    name: 'Esri Hybrid',
+    label: 'Satelita z nazwami',
+    sub: 'Esri World Imagery + opisy',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    overlay: 'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+    attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP',
+    maxZoom: 18,
     filter: '',
   },
   {
-    id: 'opentopo',
-    ownAreaLabels: true,
-    name: 'OpenTopoMap',
+    // Teren w stylu Google Terrain: cieniowany relief z drogami i nazwami.
+    // Wcześniej był tu OpenTopoMap — mapa turystyczna z gęstymi poziomicami,
+    // czytelna dopiero z bliska, a do tego utrzymywana z darowizn i proszona
+    // o oszczędne korzystanie; nasza aplikacja odpytuje kafelki bez przerwy.
+    id: 'esri-topo',
+    name: 'Esri Topo',
     label: 'Teren',
-    sub: 'OpenTopoMap',
-    url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
-    attribution: 'Mapa: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA), dane: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-    maxZoom: 17,
+    sub: 'Esri World Topographic',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
+    attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ, USGS, NRCAN, METI, iPC',
+    maxZoom: 19,
     filter: '',
   },
 ]
