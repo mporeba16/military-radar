@@ -37,7 +37,7 @@ describe('rare push text', () => {
   it('puts the role and region in the title', () => {
     const { title, body } = rareText(ac, 'Tankowiec', 'Łask')
     expect(title).toBe('Tankowiec · okolice Łask')
-    expect(body).toMatch(/^QID71 · /)
+    expect(body).toMatch(/^Stratotanker · /)
     expect(body).toContain('8534 m')
   })
 

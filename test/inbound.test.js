@@ -85,7 +85,7 @@ describe('treść powiadomienia', () => {
     const { inboundText } = await import('../src/lib/notifyText.js')
     const { title, body } = inboundText(x, 'Rzeszów', '17:10', '3 h 13 min')
     expect(title).toBe('Rzeszów: Jumbo Jet ok. 17:10')
-    expect(body).toContain('GTI4521')
+    expect(body).not.toContain('GTI4521')
     expect(body).toContain('z Chicago')
     expect(body).toContain('za 3 h 13 min')
   })

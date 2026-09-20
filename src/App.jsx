@@ -642,15 +642,18 @@ export default function App() {
                 <div className="alert-toast-body">
                   <span className="alert-toast-tag">
                     <span className="alert-toast-dot" />
-                    {/* Ta sama etykieta co w powiadomieniu: służba, nie kategoria. */}
-                    {ac.kind === 'heli' ? (heliRole(ac) || t('FILTER_HELI'))
-                      : ac.kind === 'heavy' ? t('FILTER_HEAVY')
-                      : isNear ? t('ALERT_TAG_NEAR') : t('ALERT_TAG')}
+                    {/* Nagłówek mówi, DLACZEGO widzisz komunikat (w zasięgu /
+                        blisko), a nie co to za maszyna — nazwa jest niżej.
+                        Kategorię niesie kolor kropki i ramki. */}
+                    {isNear ? t('ALERT_TAG_NEAR') : t('ALERT_TAG')}
                   </span>
-                  <span className="alert-toast-call">{ac.flight?.trim() || ac.hex}</span>
-                  {/* Ta sama nazwa, co w powiadomieniu systemowym — wcześniej
-                      push mówił „Hercules", a toast obok „C130". */}
-                  <span className="alert-toast-detail">{shortTypeName(ac) || '?'} · {Math.round(dist)} km</span>
+                  {/* Nazwa maszyny (albo służby) zamiast znaku wywoławczego —
+                      tak samo jak w powiadomieniu systemowym. Znak wywoławczy
+                      jest na karcie, po kliknięciu maszyny na mapie. */}
+                  <span className="alert-toast-call">
+                    {heliRole(ac) || shortTypeName(ac) || (ac.t || '').trim() || '?'}
+                  </span>
+                  <span className="alert-toast-detail">{Math.round(dist)} km</span>
                 </div>
                 <button className="alert-toast-close"
                   aria-label={t('DISMISS_NOTIFICATION')}

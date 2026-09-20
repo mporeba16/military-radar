@@ -99,7 +99,10 @@ export function alertText(ac, distKm) {
     titleHasType = !!name
   }
 
-  const parts = [callsign(ac)]
+  // Bez znaku wywoławczego (decyzja użytkownika): „RCH744” nic nie mówi
+  // komuś, kto patrzy w niebo, a zjadał pierwsze miejsce w treści. Tożsamość
+  // maszyny jest na karcie po kliknięciu powiadomienia.
+  const parts = []
   // Kod powtórzyłby tytuł tylko wtedy, gdy nie znaleźliśmy nazwy własnej.
   if (code && !(titleHasType && name === code)) parts.push(code)
   const alt = altMetres(ac.alt_baro)
@@ -124,7 +127,7 @@ export function rareText(ac, role, nearName) {
   const name = shortTypeName(ac)
   const where = nearName ? `okolice ${nearName}` : 'nad Polską'
   const title = `${role} · ${where}`
-  const parts = [callsign(ac)]
+  const parts = []
   if (name) parts.push(name)
   const alt = altMetres(ac.alt_baro)
   if (alt) parts.push(alt)
@@ -149,7 +152,7 @@ export function inboundText(x, airportName, clock, eta) {
   const title = clock
     ? `${airportName}: ${name} ok. ${clock}`
     : `${airportName}: ${name}`
-  const parts = [callsign(x)]
+  const parts = []
   if (name) parts.push(name)
   const from = x.route?.fromCity || x.route?.from
   if (from) parts.push(`z ${from}`)
@@ -165,8 +168,9 @@ export function groupText(list, kind) {
 
   const title = `${n} ${groupWord(kind || 'mil', n, near)} · od ${Math.round(sorted[0]._dist)} km`
 
+  // Nazwy maszyn zamiast znaków wywoławczych — spójnie z pojedynczym alertem.
   const names = sorted.slice(0, LIST_MAX)
-    .map(a => [callsign(a), (a.t || '').trim()].filter(Boolean).join(' '))
+    .map(a => heliRole(a) || shortTypeName(a) || (a.t || '').trim() || '?')
   const extra = n - names.length
 
   return { title, body: `${names.join(' · ')}${extra > 0 ? ` +${extra}` : ''}` }

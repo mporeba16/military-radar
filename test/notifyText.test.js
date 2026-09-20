@@ -46,13 +46,13 @@ describe('alertText — pojedyncza maszyna', () => {
   it('wojskowy w zasięgu ma dystans w tytule', () => {
     const { title, body } = alertText(herc, 48)
     expect(title).toBe('Hercules · 48 km')
-    expect(body).toBe('KJD202 · C130 · 6706 m · kurs SW')
+    expect(body).toBe('C130 · 6706 m · kurs SW')
   })
 
   it('poniżej 10 km tytuł zaczyna się od znaku ostrzegawczego', () => {
     const { title, body } = alertText(bryza, 8)
     expect(title).toBe('⚠ M28 Bryza · 8 km')
-    expect(body).toBe('PLF283A · AN28 · 1006 m · kurs N')
+    expect(body).toBe('AN28 · 1006 m · kurs N')
   })
 
   it('duży samolot prowadzi nazwą własną, bo po to się wychodzi z domu', () => {
@@ -62,7 +62,7 @@ describe('alertText — pojedyncza maszyna', () => {
   it('śmigłowiec nazywa służbę, nie kategorię', () => {
     const { title, body } = alertText(heli, 21)
     expect(title).toBe('Ratunkowy · 21 km')
-    expect(body).toBe('LPR11 · EC35 · 366 m · kurs SE')
+    expect(body).toBe('EC35 · 366 m · kurs SE')
   })
 
   it('rozpoznaje policję i Straż Graniczną po znaku wywoławczym', () => {
@@ -84,13 +84,13 @@ describe('alertText — pojedyncza maszyna', () => {
     const ac = { hex: 'ae9999', flight: 'RCH123', t: 'ZZZZ', alt_baro: 30000, track: 90, kind: 'mil' }
     const { title, body } = alertText(ac, 60)
     expect(title).toBe('ZZZZ · 60 km')
-    expect(body).toBe('RCH123 · 9144 m · kurs E')
+    expect(body).toBe('9144 m · kurs E')
   })
 
-  it('bez typu i bez callsignu zostaje sam heks', () => {
+  it('bez typu treść jest pusta, a tytuł nadal mówi, co i jak daleko', () => {
     const { title, body } = alertText({ hex: 'ae0001', kind: 'mil' }, 33)
     expect(title).toBe('Samolot wojskowy · 33 km')
-    expect(body).toBe('ae0001')
+    expect(body).toBe('')
   })
 
   it('żaden tytuł nie kończy się wykrzyknikiem', () => {
@@ -115,7 +115,8 @@ describe('groupText — kilka maszyn', () => {
   it('dystans najbliższej trafia do tytułu', () => {
     const { title, body } = groupText(list, 'mil')
     expect(title).toBe('3 wojskowe · od 36 km')
-    expect(body).toBe('KJD202 C130 · LPR11 EC35 · ADB3467 A124')
+    // Nazwy maszyn zamiast znaków wywoławczych.
+    expect(body).toBe('Hercules · Ratunkowy · An-124 Rusłan')
   })
 
   it('sortuje po dystansie niezależnie od kolejności wejściowej', () => {
