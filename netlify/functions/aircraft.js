@@ -217,13 +217,27 @@ async function tryADSBfi(lamin, lomin, lamax, lomax) {
   try {
     const headers = { 'User-Agent': 'MilitaryRadarPL/1.0', 'Accept': 'application/json' }
 
-    // Zapytanie 1: globalny endpoint /mil (baza adsb.fi)
-    const milRes = await fetch('https://opendata.adsb.fi/api/v2/mil', {
-      signal: AbortSignal.timeout(10000), headers
-    })
-    if (!milRes.ok) return null
-    const milData = await milRes.json()
-    const milAircraft = (milData.ac || []).filter(a =>
+    // Zapytanie 1: globalne listy wojskowe. DWA źródła, bo każde opiera się
+    // na własnej sieci odbiorników i mają różne dziury: włoski C-130J
+    // (IAM4640) nad Adriatykiem był w adsb.lol, a w adsb.fi go nie było.
+    // Na 147 maszyn w adsb.fi i 143 w adsb.lol wspólnych jest 121.
+    const [fiRes, lolRes] = await Promise.allSettled([
+      fetch('https://opendata.adsb.fi/api/v2/mil', { signal: AbortSignal.timeout(10000), headers }),
+      fetch('https://api.adsb.lol/v2/mil', { signal: AbortSignal.timeout(8000), headers }),
+    ])
+    const readMil = async (r) => {
+      if (r.status !== 'fulfilled' || !r.value.ok) return []
+      try { return (await r.value.json()).ac || [] } catch { return [] }
+    }
+    const [fiMil, lolMil] = [await readMil(fiRes), await readMil(lolRes)]
+    // Padły oba — dopiero to jest awaria źródła (wyżej zadziała wtedy
+    // ostatnia migawka zamiast pustej mapy).
+    if (!fiMil.length && !lolMil.length) return null
+    const byHex = new Map()
+    for (const a of [...fiMil, ...lolMil]) {
+      if (a?.hex && !byHex.has(a.hex)) byHex.set(a.hex, a)
+    }
+    const milAircraft = [...byHex.values()].filter(a =>
       isADSBfiRecordInBox(a, lamin, lomin, lamax, lomax) && passesTypeNoise(a) &&
       !isTrainingAircraft(a.t))
     milAircraft.forEach(a => { a._kind = 'mil' })

@@ -60,7 +60,7 @@ Each category can be switched off — it then disappears from the map and stops 
 | [Wikimedia Commons](https://commons.wikimedia.org) | freely licensed type photos shown when no photo of the individual airframe exists (credited on the card) |
 | [OpenStreetMap](https://www.openstreetmap.org) | airfield and training-area outlines |
 | [PANSA AUP/UUP](https://airspace.pansa.pl) | daily airspace use plan — which military zones are reserved, when and by whom (informative only) |
-| [adsb.lol](https://api.adsb.lol) | global lookup by aircraft type — a 747 over the Atlantic is outside the app's usual area |
+| [adsb.lol](https://api.adsb.lol) | second global military list (different receiver network — each source has its own gaps) and lookup by aircraft type |
 | [adsbdb](https://api.adsbdb.com) | flight routes by callsign — ADS-B itself carries no destination |
 
 ADS-B does not carry a take-off time, so **flight time** counts from the earliest trail point the server knows — a lower bound, not an exact value.
