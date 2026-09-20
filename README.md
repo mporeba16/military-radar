@@ -57,6 +57,7 @@ Each category can be switched off — it then disappears from the map and stops 
 | [adsb.fi](https://opendata.adsb.fi) `/v2/lat/…/lon/…/dist/250` | all traffic over Poland — catches military aircraft that `/mil` does not tag |
 | [OpenSky Network](https://opensky-network.org) | fallback when adsb.fi is down (no type or registration) |
 | [Planespotters.net](https://www.planespotters.net) | aircraft photos |
+| [Wikimedia Commons](https://commons.wikimedia.org) | freely licensed type photos shown when no photo of the individual airframe exists (credited on the card) |
 | [OpenStreetMap](https://www.openstreetmap.org) | airfield and training-area outlines |
 | [PANSA AUP/UUP](https://airspace.pansa.pl) | daily airspace use plan — which military zones are reserved, when and by whom (informative only) |
 | [adsb.lol](https://api.adsb.lol) | global lookup by aircraft type — a 747 over the Atlantic is outside the app's usual area |

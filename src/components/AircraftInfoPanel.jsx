@@ -5,6 +5,7 @@ import { findLikelyLanding } from '../airfields'
 import { scorePhotoMatch, photoHasMatchSignal, canVerifyPhotoMatch } from '../lib/photoMatch'
 import { t } from '../i18n'
 import { formatFlightTime } from '../lib/flightTime'
+import { typePhoto } from '../lib/typePhotos'
 import { airportByIcao, etaMinutes, formatEta, landingClock } from '../lib/inbound'
 import './AircraftInfoPanel.css'
 
@@ -123,6 +124,7 @@ export default function AircraftInfoPanel({ ac, flightStart, onClose }) {
   const kmh = knToKmh(ac.gs)
   const color = altToColor(altM)
   const label = typeLabel(ac.t)
+  const fallback = typePhoto(ac.t)
   const country = ac.country || countryFromHex(ac.hex)
   const flag = country ? countryFlag(country) : ''
   const landing = findLikelyLanding(ac)
@@ -199,9 +201,18 @@ export default function AircraftInfoPanel({ ac, flightStart, onClose }) {
         </a>
       )}
 
-      {photoState === 'not-found' && (
+      {photoState === 'not-found' && (fallback ? (
+        // Zdjęcie INNEGO egzemplarza tego typu — karta mówi to wprost, żeby
+        // nikt nie wziął go za tę konkretną maszynę.
+        <a className="ac-info-photo-wrap" href={fallback.source} target="_blank" rel="noopener noreferrer">
+          <img src={fallback.src} alt={label || ac.t} className="ac-info-photo" />
+          <span className="ac-info-photo-credit">
+            {t('PHOTO_GENERIC')} · {fallback.author} · {fallback.license}
+          </span>
+        </a>
+      ) : (
         <div className="ac-info-photo-empty">{t('PHOTO_NOT_FOUND')}</div>
-      )}
+      ))}
 
       {photoState === 'error' && (
         <div className="ac-info-photo-empty" style={{ color: '#ffb74d', borderColor: 'rgba(255,183,77,0.3)' }}>

@@ -103,6 +103,7 @@ const STRINGS = {
     INFO_CLIMBING: 'Wznosi się',
     INFO_DESCENDING: 'Obniża pułap',
     INFO_LEVEL: 'Lot poziomy',
+    PHOTO_GENERIC: 'zdjęcie poglądowe',
     PHOTO_NOT_FOUND: '🛩 Brak zdjęcia w planespotters.net',
     PHOTO_ERROR: '⚠ Nie udało się pobrać zdjęcia (sieć / timeout)',
     EXT_LINK: 'Otwórz w ADS-B Exchange ↗',

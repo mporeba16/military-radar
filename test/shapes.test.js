@@ -192,3 +192,12 @@ describe('FLAG_MAP — kody krajów', () => {
     expect(countryFlag('France')).toBe('🇫🇷')
   })
 })
+
+describe('Mi-8 / Mi-17', () => {
+  it('nazywa rodzinę oboma oznaczeniami, nie samym „Hip”', () => {
+    expect(getCommonName('MI8')).toBe('Mi-8 · Mi-17')
+    // Etykieta na karcie nie może zgubić drugiego oznaczenia przy ucinaniu.
+    expect(typeLabel('MI8')).toBe('Mi-8 · Mi-17')
+    expect(typeLabel('MI17')).toBe('Mi-8 · Mi-17')
+  })
+})

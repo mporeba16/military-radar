@@ -128,7 +128,11 @@ export function getCommonName(t) {
     [/MQ1|PREDATOR/, 'Predator'],
     [/RQ4|GLOBALHAWK/, 'Global Hawk'],
     [/W3A?$/, 'Sokół'],
-    [/MI8|MI17/, 'Hip'],
+    // adsb.fi podaje MI8 dla całej rodziny (Mi-8 i eksportowy Mi-17) i z ADS-B
+    // nie da się ich rozróżnić. Wcześniej karta pokazywała samo „Hip” — nazwę
+    // kodową NATO, która nikomu nic nie mówi. Separator to kropka, nie ukośnik:
+    // po ukośniku typeLabel ucina nazwę (patrz „M28 Bryza / An-28”).
+    [/MI8|MI17/, 'Mi-8 · Mi-17'],
     [/MI28/, 'Havoc'],
     [/KA50|KA52/, 'Alligator'],
     // W polskim lotnictwie ta maszyna to po prostu „Casa" — nazwa wytwórni
