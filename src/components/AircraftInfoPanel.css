@@ -35,6 +35,28 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+.ac-info-arrival {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 8px 12px 0;
+  padding: 7px 9px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.35;
+  color: #fff;
+  background: rgba(255, 179, 0, 0.12);
+  border: 1px solid rgba(255, 179, 0, 0.45);
+}
+
+.ac-info-arrival-ico { font-size: 15px; flex-shrink: 0; }
+.ac-info-arrival-from { color: rgba(255, 255, 255, 0.7); }
+.ac-info-arrival-eta {
+  margin-top: 2px;
+  color: rgba(255, 255, 255, 0.8);
+  font-variant-numeric: tabular-nums;
+}
+
 .ac-info-landing {
   display: flex;
   align-items: center;

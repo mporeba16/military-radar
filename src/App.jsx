@@ -8,9 +8,11 @@ import { useGeolocation } from './hooks/useGeolocation'
 import { usePushNotifications } from './hooks/usePushNotifications'
 import { useLocalStorage } from './hooks/useLocalStorage'
 import { useAirspace } from './hooks/useAirspace'
+import { useInbound } from './hooks/useInbound'
 import { fetchMilitaryAircraft } from './api'
 import { haversine, bearing } from './lib/geo'
 import { ALL_BANDS_ON, bandForAltM, normalizeBands, ALT_BANDS } from './lib/altBands'
+import { ARRIVAL_AIRPORTS, etaMinutes, airportByIcao } from './lib/inbound'
 import { ftToM } from './components/aircraftShapes'
 import { alertText, shortTypeName, CLOSE_RANGE_KM } from './lib/notifyText'
 import { t } from './i18n'
@@ -49,6 +51,14 @@ export default function App() {
   // Plan PAŻP zasila też dymek polskiej bazy („co dziś stąd lata”), więc
   // pobieramy go, gdy włączona jest którakolwiek z tych warstw.
   const airspace = useAirspace(showAirspace || showBases)
+  // Jumbo jety i An-124 z celem w Rzeszowie albo Krakowie — osobno dla każdego
+  // lotniska, bo maszyna bywa widoczna na godziny przed wejściem w nasz obszar.
+  const [arrivals, setArrivals] = useLocalStorage('radar.arrivals', { EPRZ: true, EPKK: true })
+  const inboundRaw = useInbound(ARRIVAL_AIRPORTS.some(a => arrivals[a.icao] !== false))
+  const inboundHexesRef = useRef(new Set())
+  useEffect(() => {
+    inboundHexesRef.current = new Set(inboundRaw.map(x => x.hex))
+  }, [inboundRaw])
   const [lastUpdated, setLastUpdated] = useState(null)
   const [alerts, setAlerts] = useState([])
   const [inRangeCount, setInRangeCount] = useState(0)
@@ -203,9 +213,12 @@ export default function App() {
       setAircraft(enriched)
       setHasFetched(true)
       setLastUpdated(new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
-      // B4: grace period — don't immediately drop selection if aircraft missing for one cycle
+      // B4: grace period — don't immediately drop selection if aircraft missing for one cycle.
+      // Maszyna z celem w Rzeszowie/Krakowie bywa poza naszym obszarem przez
+      // większość lotu (747 nad Atlantykiem), więc jej zaznaczenie musi
+      // przetrwać brak w danych radaru — inaczej karta znikała od razu.
       setSelectedHex(prev => {
-        if (!prev || currentHexes.has(prev)) {
+        if (!prev || currentHexes.has(prev) || inboundHexesRef.current.has(prev)) {
           selectionMissCountRef.current = 0
           return prev
         }
@@ -426,17 +439,41 @@ export default function App() {
     return { ts: Math.min(...known), partial: !server }
   }
 
+  // Maszyny z celem w Rzeszowie/Krakowie dochodzą do listy z radaru: te, które
+  // są już w naszym obszarze, dostają tylko informację o celu (pozycja z
+  // radaru jest świeższa), pozostałe dokładamy jako osobne znaczniki — to
+  // sedno funkcji, bo 747 z Chicago jest poza obszarem przez większość lotu.
+  const aircraftWithArrivals = useMemo(() => {
+    const wanted = inboundRaw.filter(x => arrivals[x.route?.to] !== false)
+    if (!wanted.length) return aircraft
+    const byHex = new Map(wanted.map(x => [x.hex, x]))
+    const merged = aircraft.map(ac => {
+      const x = byHex.get(ac.hex)
+      if (!x) return ac
+      byHex.delete(ac.hex)
+      return { ...ac, arrival: x.route }
+    })
+    for (const x of byHex.values()) {
+      merged.push({
+        hex: x.hex, flight: x.flight, t: x.t, reg: x.reg,
+        lat: x.lat, lon: x.lon, alt_baro: x.alt_baro, gs: x.gs, track: x.track,
+        on_ground: x.on_ground, mlat: false, kind: 'heavy', arrival: x.route,
+      })
+    }
+    return merged
+  }, [aircraft, inboundRaw, arrivals])
+
   const selectedAc = useMemo(
-    () => selectedHex ? (aircraft.find(ac => ac.hex === selectedHex) || null) : null,
-    [aircraft, selectedHex]
+    () => selectedHex ? (aircraftWithArrivals.find(ac => ac.hex === selectedHex) || null) : null,
+    [aircraftWithArrivals, selectedHex]
   )
 
   // Filtr kategorii — mapa pokazuje tylko włączone typy. Zaznaczony samolot
   // zostaje widoczny, nawet gdy jego kategoria jest wyłączona (żeby nie znikał
   // panel informacyjny po przełączeniu filtra).
   const visibleAircraft = useMemo(
-    () => aircraft.filter(ac => kinds[ac.kind || 'mil'] || ac.hex === selectedHex),
-    [aircraft, kinds, selectedHex]
+    () => aircraftWithArrivals.filter(ac => kinds[ac.kind || 'mil'] || ac.hex === selectedHex),
+    [aircraftWithArrivals, kinds, selectedHex]
   )
 
   // Filtr wysokości z panelu Mapy PRZYGASZA, nie usuwa: maszyna poza włączonym
@@ -635,6 +672,8 @@ export default function App() {
               alertsCount={alerts.length}
               kinds={kinds}
               setKinds={setKinds}
+              arrivals={arrivals}
+              setArrivals={setArrivals}
               permissionState={permissionState}
               isSubscribed={isSubscribed}
               isSubscribing={isSubscribing}

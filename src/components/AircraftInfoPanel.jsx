@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { altToColor, ftToM, knToKmh, countryFromHex, countryFlag } from './aircraftShapes'
 import { typeLabel } from '../lib/typeNames'
 import { findLikelyLanding } from '../airfields'
 import { scorePhotoMatch, photoHasMatchSignal, canVerifyPhotoMatch } from '../lib/photoMatch'
 import { t } from '../i18n'
 import { formatFlightTime } from '../lib/flightTime'
+import { airportByIcao, etaMinutes, formatEta, landingClock } from '../lib/inbound'
 import './AircraftInfoPanel.css'
 
 // V4: ICAO special transponder codes that mean something serious
@@ -127,6 +128,20 @@ export default function AircraftInfoPanel({ ac, flightStart, onClose }) {
   const landing = findLikelyLanding(ac)
   const trend = altM != null ? verticalTrend(ac) : null
   const flightTime = formatFlightTime(flightStart)
+  // Cel z planu lotu (jumbo jety i An-124 lecące do Rzeszowa/Krakowa). Czas
+  // dolotu liczymy TU, z bieżącej pozycji — wartość z serwera jest sprzed
+  // najwyżej trzech minut, a maszyna w tym czasie przelatuje ~50 km.
+  const arrival = useMemo(() => {
+    const airport = airportByIcao(ac.arrival?.to)
+    if (!airport) return null
+    const min = etaMinutes(ac, airport)
+    return {
+      airport,
+      from: ac.arrival.fromCity || ac.arrival.from || null,
+      eta: formatEta(min),
+      clock: landingClock(min),
+    }
+  }, [ac])
 
   useEffect(() => { setImgError(false) }, [photo])
 
@@ -194,7 +209,22 @@ export default function AircraftInfoPanel({ ac, flightStart, onClose }) {
         </div>
       )}
 
-      {landing && (
+      {arrival && (
+        <div className="ac-info-arrival">
+          <span className="ac-info-arrival-ico">🛬</span>
+          <span>
+            {t('INFO_ARRIVAL')} <strong>{arrival.airport.name}</strong>
+            {arrival.from && <span className="ac-info-arrival-from"> {t('INFO_ARRIVAL_FROM')} {arrival.from}</span>}
+            {arrival.clock && (
+              <div className="ac-info-arrival-eta">
+                {t('INFO_ARRIVAL_AT')} <strong>{arrival.clock}</strong> · {t('INFO_ARRIVAL_IN')} {arrival.eta}
+              </div>
+            )}
+          </span>
+        </div>
+      )}
+
+      {!arrival && landing && (
         <div className={`ac-info-landing${landing.onApproach ? ' approach' : ''}`}>
           <span className="ac-info-landing-ico">🛬</span>
           <span>

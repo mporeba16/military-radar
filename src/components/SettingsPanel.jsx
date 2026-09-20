@@ -4,6 +4,7 @@ import RangeSlider from './RangeSlider'
 import { t } from '../i18n'
 import { planeWord } from '../lib/plural'
 import { KIND_COLORS } from '../lib/palette'
+import { ARRIVAL_AIRPORTS } from '../lib/inbound'
 import { readViewportReport } from '../lib/viewportProbe'
 
 // iPadOS 13+ reports as "MacIntel" but has a touch screen — catch it too.
@@ -93,6 +94,7 @@ export default function SettingsPanel({
   error,
   debugUnlocked, fetchData, handleTestPush, testPushStatus, syncError, serverStatus,
   version, bumpVersionTap,
+  arrivals, setArrivals,
 }) {
   const [gpsOpen, setGpsOpen] = useState(false)
   const [debugOpen, setDebugOpen] = useState(false)
@@ -198,7 +200,30 @@ export default function SettingsPanel({
         </div>
       </section>
 
-      {/* 5. Kategorie — sterują mapą i powiadomieniami naraz. */}
+      {/* 5. Wielkie transportowce z celem w Polsce — osobno dla każdego
+          lotniska, bo interesujący bywa tylko jeden kierunek. */}
+      <section className="cp-section">
+        <div className="cp-label">{t('ARRIVALS_LABEL')}</div>
+        <div className="toggle-list">
+          {ARRIVAL_AIRPORTS.map(ap => {
+            const on = arrivals[ap.icao] !== false
+            return (
+              <Toggle
+                key={ap.icao}
+                on={on}
+                onToggle={() => setArrivals(prev => ({ ...prev, [ap.icao]: prev[ap.icao] === false }))}
+                label={`${ap.name} (${ap.icao})`}
+                title={t('ARRIVALS_HINT')}
+                marker={<span className="toggle-ico">🛬</span>}
+                state={on ? t('SOUND_ON') : t('SOUND_OFF')}
+                stateColor={on ? KIND_COLORS.heavy : 'rgba(255,255,255,0.4)'}
+              />
+            )
+          })}
+        </div>
+      </section>
+
+      {/* 6. Kategorie — sterują mapą i powiadomieniami naraz. */}
       <section className="cp-section">
         <div className="cp-label">{t('FILTER_LABEL')}</div>
         <div className="toggle-list">
