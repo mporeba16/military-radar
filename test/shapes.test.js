@@ -173,3 +173,22 @@ describe('countryFromHex — tabela ICAO', () => {
     expect(countryFromHex('')).toBeNull()
   })
 })
+
+describe('FLAG_MAP — kody krajów', () => {
+  // Wycofane kody ISO 3166-1: mają w Intl te same nazwy co obowiązujące, ale
+  // żaden system nie ma dla nich flagi — zamiast niej widać dwa kwadraty.
+  const RETIRED = ['FX', 'AN', 'CS', 'YU', 'SU', 'ZR', 'TP', 'DD', 'BU', 'NT', 'UK', 'EU']
+  const codeOf = flag => [...flag].map(ch => String.fromCharCode(ch.codePointAt(0) - 0x1F1E6 + 65)).join('')
+
+  it('nie używa wycofanych kodów', () => {
+    for (const country of ['France', 'Germany', 'Poland', 'United States', 'Oman', 'Serbia']) {
+      const flag = countryFlag(country)
+      expect(flag, country).not.toBe('')
+      expect(RETIRED, `${country} → ${codeOf(flag)}`).not.toContain(codeOf(flag))
+    }
+  })
+
+  it('Francja ma FR', () => {
+    expect(countryFlag('France')).toBe('🇫🇷')
+  })
+})

@@ -668,6 +668,11 @@ export function countryFromHex(hex) {
 }
 
 // Flagi wygenerowane z kodów ISO 3166-1 dla nazw z tabeli ICAO powyżej.
+// Uwaga: generator pytał Intl.DisplayNames o nazwę każdego dwuliterowego
+// kodu, a wycofane kody mają te same nazwy co obowiązujące — „FX” (Francja
+// metropolitalna) nadpisał „FR” i telefon rysował zamiast flagi dwa kwadraty
+// z literami. Test w test/shapes.test.js pilnuje, żeby żaden wycofany kod tu
+// nie wrócił.
 const FLAG_MAP = {
   'Afghanistan': '🇦🇫',
   'Albania': '🇦🇱',
@@ -728,7 +733,7 @@ const FLAG_MAP = {
   'Ethiopia': '🇪🇹',
   'Fiji': '🇫🇯',
   'Finland': '🇫🇮',
-  'France': '🇫🇽',
+  'France': '🇫🇷',
   'Gabon': '🇬🇦',
   'Gambia': '🇬🇲',
   'Georgia': '🇬🇪',
