@@ -81,6 +81,18 @@ const TYPE_NAMES = {
 }
 const DROP = /^(W|CLN|OATC|DS|NOT\..*|SUP\d+|\d+|ACSL|LAW)$/
 
+// Odsyłacz do dokumentu, na którym stoi rezerwacja: „NOT.D6513/26/ORZEL” to
+// NOTAM D6513/26, „SUP145/26/ORZEL” to suplement do AIP 145/26. Sam kryptonim
+// (ORZEL) nic nie mówi — dopiero numer pozwala dojść, co to za ćwiczenie.
+export function documentRef(remarks) {
+  const s = String(remarks || '').toUpperCase()
+  const notam = s.match(/NOT\.?([A-Z]?\d+\/\d+)/)
+  if (notam) return { kind: 'NOTAM', id: notam[1] }
+  const sup = s.match(/SUP\s?(\d+\/\d+)/)
+  if (sup) return { kind: 'SUP', id: sup[1] }
+  return null
+}
+
 export function describeRemarks(remarks) {
   if (!remarks) return []
   const out = []

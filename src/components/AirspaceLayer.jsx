@@ -4,8 +4,8 @@ import L from 'leaflet'
 import { AIRSPACE } from '../lib/palette'
 import { MIL_BASES_PL } from '../airfields'
 import {
-  activeReservation, describeRemarks, formatAltRange, groupKey, shortName,
-  unitLabel, TYPE_LABELS,
+  activeReservation, describeRemarks, documentRef, formatAltRange, groupKey,
+  shortName, unitLabel, TYPE_LABELS,
 } from '../lib/airspace'
 import { AREA_LABEL_ZOOM } from './MilRangesLayer'
 import { t } from '../i18n'
@@ -111,6 +111,15 @@ function ZoneGroupPopup({ group, now }) {
     if (same) same.ids.push(z.id)
     else rows.push({ line, ids: [z.id], r: z.cur })
   }
+  // Numer dokumentu, z którego wynika rezerwacja — po nim można dojść, co
+  // oznacza kryptonim w rodzaju „ORZEL”.
+  const refs = []
+  for (const z of group.members) {
+    const r = documentRef(z.cur.rem)
+    const label = r && `${r.kind} ${r.id}`
+    if (label && !refs.includes(label)) refs.push(label)
+  }
+
   const later = []
   for (const z of group.members) {
     for (const r of z.res) {
@@ -135,6 +144,11 @@ function ZoneGroupPopup({ group, now }) {
           </div>
         </div>
       ))}
+      {refs.length > 0 && (
+        <div className="airspace-pop__refs">
+          {t('AIRSPACE_BASIS')} {refs.join(', ')}
+        </div>
+      )}
       {later.length > 0 && (
         <div className="airspace-pop__later">
           {t('AIRSPACE_NEXT')} {later.map(r => `${formatSpan(r)} (${whoLabel(r)})`).join('; ')}

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  documentRef,
   altToMetres, formatAltRange, describeRemarks, isMilitaryReservation,
   activeReservation, groupKey, shortName, trimZones, milUnitSet,
 } from '../src/lib/airspace.js'
@@ -43,6 +44,16 @@ describe('describeRemarks', () => {
 
   it('handles empty remarks', () => {
     expect(describeRemarks(null)).toEqual([])
+  })
+})
+
+describe('documentRef', () => {
+  it('reads the NOTAM or AIP supplement a reservation stands on', () => {
+    expect(documentRef('NOT.D6513/26/ORZEL')).toEqual({ kind: 'NOTAM', id: 'D6513/26' })
+    expect(documentRef('SUP145/26/ORZEL')).toEqual({ kind: 'SUP', id: '145/26' })
+    expect(documentRef('OATC/SUP09/26')).toEqual({ kind: 'SUP', id: '09/26' })
+    expect(documentRef('F35/W')).toBeNull()
+    expect(documentRef(null)).toBeNull()
   })
 })
 

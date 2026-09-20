@@ -333,3 +333,10 @@
   color: rgba(255, 255, 255, 0.45);
   font-variant-numeric: tabular-nums;
 }
+
+.airspace-pop__refs {
+  margin-top: 8px;
+  font-size: var(--t-micro);
+  color: rgba(255, 255, 255, 0.5);
+  font-variant-numeric: tabular-nums;
+}

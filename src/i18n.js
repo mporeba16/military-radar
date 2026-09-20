@@ -77,6 +77,7 @@ const STRINGS = {
     AIRSPACE_HINT: 'Plan użycia przestrzeni PAŻP, odświeżany co 10 min. Rezerwacja to plan — nie znaczy, że ktoś akurat tam leci. Mapa ma charakter informacyjny.',
     AIRSPACE_ERROR: 'Plan PAŻP chwilowo niedostępny.',
     AIRSPACE_NEXT: 'Dalej dziś:',
+    AIRSPACE_BASIS: 'Podstawa:',
     BASE_PLAN_TITLE: 'Dziś wg planu PAŻP',
     BASE_PLAN_LOADING: 'Wczytywanie planu…',
     BASE_PLAN_EMPTY: 'Brak rezerwacji stref do końca dnia.',
