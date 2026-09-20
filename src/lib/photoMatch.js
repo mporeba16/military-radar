@@ -29,7 +29,8 @@ export const OPERATOR_HINT_BY_CALLSIGN = [
   [/^ROTAF/, 'romanian'],
   [/^(FNY|FINAF)/, 'finnish'],
   [/^(NRAF|SAVER)/, 'norwegian'],
-  [/^SWAF/, 'swedish'],
+  // SVF = szwedzkie siły powietrzne (Svenska Flygvapnet) — SVF631 to Saab 340.
+  [/^(SWAF|SVF)/, 'swedish'],
   [/^LTAF/, 'lithuanian'],
   [/^LVAF/, 'latvian'],
   [/^EEAF/, 'estonian'],
@@ -152,6 +153,9 @@ export const TYPE_SLUG_ALIASES = {
   // Wojskowe Citationy: USAF i US Army latają nimi jako UC-35, a planespotters
   // pisze „cessna-uc-35a-citation-ultra”. Sam kod C560 w adresie nie występuje,
   // więc zdjęcie SPAR95 (adfebb) było odrzucane.
+  // Szwedzkie Saaby: w adresie zdjęcia stoi oznaczenie wojskowe („saab-tp-100c
+  // -340b”, „s-100b-argus”), nie kod ICAO.
+  SF34: ['saab-340', '340b', 'tp-100', 's-100'], SB20: ['saab-2000', '2000', 'tp-102'],
   C560: ['citation', 'uc-35'], C56X: ['citation', 'uc-35'], C550: ['citation'],
   C525: ['citation'], C510: ['citation'], C750: ['citation'],
 }

@@ -158,3 +158,17 @@ describe('military designators that differ from the slug', () => {
     expect(photoHasMatchSignal(photo, ac)).toBe(false)
   })
 })
+
+describe('szwedzkie Saaby', () => {
+  it('przyjmuje zdjęcie Tp 100 dla SF34 (SVF631)', () => {
+    const ac = { hex: '4a81f4', t: 'SF34', reg: '100008', flight: 'SVF631' }
+    const photo = { link: 'https://www.planespotters.net/photo/1/100008-swedish-air-force-saab-tp-100c-340b', _src: 'reg' }
+    expect(photoHasMatchSignal(photo, ac)).toBe(true)
+  })
+
+  it('nie przyjmuje obcego płatowca o tym samym numerze', () => {
+    const ac = { hex: '4a81f4', t: 'SF34', reg: '100008', flight: 'SVF631' }
+    const photo = { link: 'https://www.planespotters.net/photo/2/100008-hellenic-air-force-lockheed-c-130h' }
+    expect(photoHasMatchSignal(photo, ac)).toBe(false)
+  })
+})
