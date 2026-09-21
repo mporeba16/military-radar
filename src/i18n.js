@@ -94,6 +94,7 @@ const STRINGS = {
     AIRSPACE_SOURCE: 'Plan PAŻP (AUP/UUP) — informacyjnie. Rezerwacja to plan, nie lot.',
     INFO_ARRIVAL: 'Cel:',
     INFO_ARRIVAL_GUESS: 'Podchodzi do lądowania:',
+    INFO_ARRIVAL_LEARNED: 'Prawdopodobny cel (tam już siadał):',
     INFO_ARRIVAL_FROM: 'z',
     INFO_ARRIVAL_AT: 'ląduje ok.',
     INFO_ARRIVAL_IN: 'za',

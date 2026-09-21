@@ -16,6 +16,7 @@ import { getStore, connectLambda } from '@netlify/blobs'
 import { corsHeaders } from './lib/security.js'
 import {
   WATCHED_TYPES, ARRIVAL_AIRPORTS, etaMinutes, distanceKm, isWatchedType, approachGuess,
+  airportByIcao,
 } from '../../src/lib/inbound.js'
 
 const UA = { 'User-Agent': 'MilitaryRadarPL/1.0 (+https://radar-wojskowy.netlify.app)', Accept: 'application/json' }
@@ -108,6 +109,65 @@ async function fetchRoute(callsign, store) {
   return route
 }
 
+// ── Pamięć lądowań ───────────────────────────────────────────────────────
+// Czartery towarowe do Rzeszowa nie mają trasy w ŻADNEJ darmowej bazie:
+// adsbdb nie zna ani CMB336 (Kalitta, Dover → Rzeszów), ani NCR844, ani
+// K4336; baza tras adsb.lol nie odpowiada. Bez trasy jedyne, co zostaje, to
+// geometria podejścia — a ta działa dopiero kilkadziesiąt kilometrów przed
+// lotniskiem, czyli kwadrans przed lądowaniem.
+//
+// Ale te rejsy się powtarzają pod tym samym znakiem wywoławczym. Skoro raz
+// widzieliśmy, jak CMB336 siada w Rzeszowie, to następnym razem wiemy o tym
+// już przy starcie z Dover — a startujący samolot widać: zasięg ADS-B nad
+// Ameryką jest gęsty (nie ma go dopiero nad środkiem Atlantyku).
+//
+// To przesłanka, nie plan lotu: ten sam znak może kiedyś polecieć gdzie
+// indziej. Dlatego powiadomienie mówi wprost, skąd wiemy.
+const LEARNED_TTL_MS = 90 * 24 * 60 * 60 * 1000
+const LEARN_MAX_KM = 12
+const LEARN_MAX_FT = 2500
+
+const learnedMem = new Map() // callsign → { at, to } | null
+
+const learnedKey = callsign => `landed-${callsign}`
+
+// Zapamiętuje lądowanie: maszyna obserwowanego typu tuż przy lotnisku i nisko
+// (albo już na ziemi) — to podejście końcowe, nie przelot.
+export async function learnLandings(records, store, now = Date.now()) {
+  if (!store) return []
+  const learned = []
+  for (const a of records) {
+    const callsign = (a.flight || '').trim()
+    if (!callsign) continue
+    const onGround = a.alt_baro === 'ground' || a.on_ground === true
+    const alt = typeof a.alt_baro === 'number' ? a.alt_baro : null
+    if (!onGround && (alt == null || alt > LEARN_MAX_FT)) continue
+    const airport = ARRIVAL_AIRPORTS.find(ap => distanceKm(a, ap) <= LEARN_MAX_KM)
+    if (!airport) continue
+    const rec = { at: now, to: airport.icao }
+    const prev = learnedMem.get(callsign)
+    learnedMem.set(callsign, rec)
+    learned.push(`${callsign}→${airport.icao}`)
+    // Zapis tylko przy zmianie albo raz na dobę — inaczej co dwie minuty
+    // pisalibyśmy to samo przez cały postój maszyny na płycie.
+    if (prev?.to === airport.icao && now - prev.at < 24 * 60 * 60 * 1000) continue
+    await store.set(learnedKey(callsign), JSON.stringify(rec)).catch(() => {})
+  }
+  return learned
+}
+
+async function learnedRoute(callsign, store, now = Date.now()) {
+  let rec = learnedMem.get(callsign)
+  if (rec === undefined) {
+    rec = (await store?.get(learnedKey(callsign), { type: 'json' }).catch(() => null)) || null
+    learnedMem.set(callsign, rec)
+  }
+  if (!rec || now - rec.at > LEARNED_TTL_MS) return null
+  const airport = airportByIcao(rec.to)
+  if (!airport) return null
+  return { from: null, fromCity: null, to: airport.icao, toCity: airport.name, learned: true }
+}
+
 // Migawka leży w Blobs, żeby czytał ją też cron powiadomień — inaczej każdy
 // przebieg notify (co minutę) musiałby sam pytać adsb.lol.
 export const SNAPSHOT_STORE = 'inbound-snapshot'
@@ -119,9 +179,11 @@ export const SNAPSHOT_KEY = 'latest'
 // przebieg (jedno zapytanie do adsb.fi o ruch nad Polską) chodzi co dwie
 // minuty, a ciężki (zapytania o typy do adsb.lol, które limituje ruch)
 // dokłada się do niego tylko co dziesięć.
-export async function collect({ deep = true } = {}) {
-  let store = null
-  try { store = getStore('flight-routes') } catch { /* bez cache też zadziała */ }
+export async function collect({ deep = true, store: injected = null } = {}) {
+  let store = injected
+  if (!store) {
+    try { store = getStore('flight-routes') } catch { /* bez cache też zadziała */ }
+  }
 
   const seen = new Map()
   if (deep) {
@@ -135,7 +197,12 @@ export async function collect({ deep = true } = {}) {
     }
   }
 
-  for (const a of await fetchNearPoland()) {
+  const nearPoland = await fetchNearPoland()
+  // Zanim cokolwiek policzymy: zapamiętaj, kto właśnie siada w Rzeszowie
+  // albo Krakowie. To wiedza na następny raz.
+  const learned = await learnLandings(nearPoland, store)
+  if (learned.length) console.log(`[inbound] zapamiętane lądowania: ${learned.join(', ')}`)
+  for (const a of nearPoland) {
     if (!seen.has(a.hex)) seen.set(a.hex, a)
   }
 
@@ -166,10 +233,19 @@ export async function collect({ deep = true } = {}) {
       route = known
       airport = ARRIVAL_AIRPORTS.find(x => x.icao === known.to)
     } else {
+      // Bez trasy z bazy: najpierw geometria (pewna, ale tylko z bliska),
+      // potem pamięć wcześniejszych lądowań (niepewna, za to działa już
+      // po starcie po drugiej stronie oceanu).
       const guess = approachGuess(ac)
-      if (!guess) continue
-      airport = guess.airport
-      route = { from: null, fromCity: null, to: airport.icao, toCity: airport.name, guess: true }
+      if (guess) {
+        airport = guess.airport
+        route = { from: null, fromCity: null, to: airport.icao, toCity: airport.name, guess: true }
+      } else {
+        const remembered = await learnedRoute(callsign, store)
+        if (!remembered) continue
+        airport = airportByIcao(remembered.to)
+        route = remembered
+      }
     }
 
     out.push({

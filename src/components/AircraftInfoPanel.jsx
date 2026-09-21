@@ -150,8 +150,10 @@ export default function AircraftInfoPanel({ ac, onClose }) {
       from: ac.arrival.fromCity || ac.arrival.from || null,
       eta: formatEta(min),
       clock: landingClock(min),
-      // Cel wzięty z geometrii lotu, a nie z planu — karta mówi to wprost.
+      // Cel wzięty z geometrii lotu albo z pamięci wcześniejszych lądowań,
+      // a nie z planu — karta mówi to wprost.
       guess: ac.arrival.guess === true,
+      learned: ac.arrival.learned === true,
     }
   }, [ac])
 
@@ -238,7 +240,9 @@ export default function AircraftInfoPanel({ ac, onClose }) {
         <div className="ac-info-arrival">
           <span className="ac-info-arrival-ico">🛬</span>
           <span>
-            {arrival.guess ? t('INFO_ARRIVAL_GUESS') : t('INFO_ARRIVAL')} <strong>{arrival.airport.name}</strong>
+            {arrival.guess ? t('INFO_ARRIVAL_GUESS')
+              : arrival.learned ? t('INFO_ARRIVAL_LEARNED')
+                : t('INFO_ARRIVAL')} <strong>{arrival.airport.name}</strong>
             {arrival.from && <span className="ac-info-arrival-from"> {t('INFO_ARRIVAL_FROM')} {arrival.from}</span>}
             {arrival.clock && (
               <div className="ac-info-arrival-eta">

@@ -177,6 +177,15 @@ describe('treść powiadomienia', () => {
     expect(body).toContain('za 22 min')
   })
 
+  it('cel z pamięci mówi, skąd go zna', async () => {
+    const { inboundText } = await import('../src/lib/notifyText.js')
+    const zPamieci = { ...x, route: { to: 'EPRZ', learned: true } }
+    const { title, body } = inboundText(zPamieci, 'Rzeszów', '17:10', '6 h 20 min')
+    expect(title).toBe('Jumbo Jet → Rzeszów ok. 17:10')
+    expect(body).toContain('cel z wcześniejszych lotów')
+    expect(body).toContain('za 6 h 20 min')
+  })
+
   it('bez godziny nie zmyśla', async () => {
     const { inboundText } = await import('../src/lib/notifyText.js')
     expect(inboundText(x, 'Kraków', null, null).title).toBe('Kraków: Jumbo Jet')
@@ -195,4 +204,69 @@ describe('carryForward', () => {
     const out = carryForward(fresh, prev)
     expect(out.map(x => x.hex)).toEqual(['a1', 'b2'])
   })
+})
+
+describe('pamięć lądowań', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  // Sklep Blobs udawany w pamięci — interesuje nas, CO zapisujemy i czy
+  // potrafimy to odczytać przy następnym locie.
+  const fakeStore = () => {
+    const data = new Map()
+    return {
+      data,
+      get: async (k) => data.get(k) ?? null,
+      set: async (k, v) => { data.set(k, JSON.parse(v)); return { catch: () => {} } },
+    }
+  }
+
+  it('zapamiętuje maszynę, która siada w Rzeszowie', async () => {
+    vi.resetModules()
+    const { learnLandings } = await import('../netlify/functions/inbound.js')
+    const store = fakeStore()
+    const zapis = await learnLandings([
+      // Na progu pasa w Rzeszowie — to lądowanie.
+      { flight: 'CMB336', t: 'B744', lat: 50.11, lon: 22.02, alt_baro: 800 },
+      // Przelot nad Rzeszowem na wysokości przelotowej — nie liczy się.
+      { flight: 'CAO1189', t: 'B744', lat: 50.11, lon: 22.02, alt_baro: 35000 },
+      // Nisko, ale 200 km od obserwowanych lotnisk.
+      { flight: 'GTI999', t: 'B744', lat: 52.2, lon: 21.0, alt_baro: 900 },
+    ], store)
+
+    expect(zapis).toEqual(['CMB336→EPRZ'])
+    expect(store.data.get('landed-CMB336')).toMatchObject({ to: 'EPRZ' })
+    expect(store.data.has('landed-CAO1189')).toBe(false)
+    expect(store.data.has('landed-GTI999')).toBe(false)
+  })
+
+  it('następnym razem alarmuje zaraz po starcie, zza oceanu', async () => {
+    // Ten sam znak wywoławczy, tym razem nad Atlantykiem tuż po starcie
+    // z Dover. Żadna baza tras go nie zna, geometria podejścia milczy
+    // (4000 km od Rzeszowa) — zostaje pamięć wcześniejszego lądowania.
+    const daleko = [{
+      hex: 'a9876e', flight: 'CMB336 ', t: 'B744', r: 'N713CK',
+      lat: 45.0, lon: -40.0, gs: 500, track: 60, alt_baro: 35000,
+    }]
+    vi.stubGlobal('fetch', async (url) => {
+      const u = String(url)
+      if (/v2\/type\//.test(u)) return { ok: true, status: 200, json: async () => ({ ac: daleko }) }
+      if (/adsb\.fi/.test(u)) return { ok: true, status: 200, json: async () => ({ ac: [] }) }
+      return { ok: true, status: 200, json: async () => ({ response: { flightroute: null } }) }
+    })
+
+    // Lądowanie zapamiętuje JEDEN przebieg, a lot sprzed oceanu widzi inny,
+    // wiele godzin później — czyli inna instancja funkcji, z pustą pamięcią
+    // podręczną. Dlatego uczymy w jednym module, a pytamy w świeżo wczytanym:
+    // liczy się to, co przetrwało w Blobs.
+    const store = fakeStore()
+    vi.resetModules()
+    const uczacy = await import('../netlify/functions/inbound.js')
+    await uczacy.learnLandings([{ flight: 'CMB336', t: 'B744', lat: 50.11, lon: 22.02, alt_baro: 800 }], store)
+
+    vi.resetModules()
+    const mod = await import('../netlify/functions/inbound.js')
+    const out = await mod.collect({ deep: true, store })
+    expect(out).toHaveLength(1)
+    expect(out[0]).toMatchObject({ flight: 'CMB336', route: { to: 'EPRZ', learned: true } })
+  }, 30000)
 })

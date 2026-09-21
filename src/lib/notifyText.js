@@ -158,19 +158,24 @@ export function rareGroupText(list) {
 // i ile jeszcze.
 export function inboundText(x, airportName, clock, eta) {
   const name = shortTypeName(x) || (x.t || '').trim() || 'transportowiec'
-  // Cel rozpoznany z samego lotu (bez wpisu w bazie tras) to przesłanka, nie
-  // pewnik — i komunikat ma to mówić wprost, zamiast obiecywać lądowanie,
-  // którego nikt nie zgłosił.
+  // Trzy stopnie pewności i każdy mówi o sobie prawdę:
+  //   plan lotu  — „Rzeszów: Jumbo Jet ok. 17:10"
+  //   podejście  — „Jumbo Jet podchodzi: Rzeszów" (widać to z geometrii lotu)
+  //   pamięć     — „Jumbo Jet → Rzeszów" (ten znak wywoławczy tam już siadał)
   const guess = x.route?.guess === true
+  const learned = x.route?.learned === true
   const title = guess
     ? `${name} podchodzi: ${airportName}`
-    : (clock ? `${airportName}: ${name} ok. ${clock}` : `${airportName}: ${name}`)
+    : learned
+      ? (clock ? `${name} → ${airportName} ok. ${clock}` : `${name} → ${airportName}`)
+      : (clock ? `${airportName}: ${name} ok. ${clock}` : `${airportName}: ${name}`)
   const parts = []
-  if (!guess) parts.push(name)
+  if (!guess && !learned) parts.push(name)
   const from = x.route?.fromCity || x.route?.from
   if (from) parts.push(`z ${from}`)
   if (guess && clock) parts.push(`ok. ${clock}`)
   if (eta) parts.push(`za ${eta}`)
+  if (learned) parts.push('cel z wcześniejszych lotów')
   return { title, body: parts.join(' · ') }
 }
 
