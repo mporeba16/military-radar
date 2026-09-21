@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import {
   etaMinutes, distanceKm, formatEta, landingClock, isWatchedType, airportByIcao,
+  approachGuess, headingDiff,
 } from '../src/lib/inbound.js'
 
 const EPRZ = airportByIcao('EPRZ')
@@ -43,6 +44,59 @@ describe('isWatchedType', () => {
   })
 })
 
+// 70 km na zachód od Rzeszowa (ten sam równoleżnik) — kurs na lotnisko to 90°,
+// a Rzeszów jest stąd najbliższym dużym lotniskiem.
+const westOfEPRZ = extra => ({
+  lat: 50.11, lon: 21.04, gs: 300, track: 90, alt_baro: 8000, ...extra,
+})
+
+describe('approachGuess', () => {
+  it('rozpoznaje podejście bez trasy z bazy', () => {
+    const g = approachGuess(westOfEPRZ())
+    expect(g?.airport.icao).toBe('EPRZ')
+    expect(g.etaMin).toBeGreaterThan(3)
+    expect(g.etaMin).toBeLessThan(15)
+  })
+
+  it('nie bierze przelotu na wysokości przelotowej', () => {
+    // Cargo Air China nad Polską w drodze do Chin: ten sam kurs, FL350.
+    expect(approachGuess(westOfEPRZ({ alt_baro: 35000 }))).toBeNull()
+  })
+
+  it('nie bierze maszyny lecącej w drugą stronę', () => {
+    expect(approachGuess(westOfEPRZ({ track: 270 }))).toBeNull()
+  })
+
+  it('nie bierze maszyny na ziemi ani bez kursu', () => {
+    expect(approachGuess(westOfEPRZ({ on_ground: true }))).toBeNull()
+    expect(approachGuess(westOfEPRZ({ track: null }))).toBeNull()
+  })
+
+  it('nie sięga poza okolice Polski', () => {
+    // Nad Atlantykiem kurs może się zgadzać, ale to jeszcze nie podejście.
+    expect(approachGuess({ lat: 50, lon: 0, gs: 480, track: 90, alt_baro: 20000 })).toBeNull()
+  })
+
+  it('odrzuca cel, gdy bliżej maszyny jest inne duże lotnisko', () => {
+    // Nad Lubelszczyzną, kursem na południe: kurs celuje w Rzeszów, ale
+    // Lublin jest trzy razy bliżej — to tam ta maszyna schodzi.
+    expect(approachGuess({ lat: 51.0, lon: 22.4, gs: 300, track: 180, alt_baro: 10000 })).toBeNull()
+  })
+
+  it('wskazuje Kraków maszynie podchodzącej od zachodu', () => {
+    const g = approachGuess({ lat: 50.08, lon: 19.3, gs: 250, track: 90, alt_baro: 5000 })
+    expect(g?.airport.icao).toBe('EPKK')
+  })
+})
+
+describe('headingDiff', () => {
+  it('liczy różnicę przez zero', () => {
+    expect(headingDiff(350, 10)).toBe(20)
+    expect(headingDiff(10, 350)).toBe(20)
+    expect(headingDiff(0, 180)).toBe(180)
+  })
+})
+
 describe('funkcja inbound', () => {
   afterEach(() => vi.unstubAllGlobals())
 
@@ -73,6 +127,30 @@ describe('funkcja inbound', () => {
     expect(body.inbound[0]).toMatchObject({ hex: 'a1', flight: 'GTI123', route: { to: 'EPRZ', fromCity: 'Chicago' } })
     expect(body.inbound[0].etaMin).toBeGreaterThan(20)
   }, 30000)
+
+  it('łapie czarter bez wpisu w bazie tras, gdy podchodzi do lądowania', async () => {
+    // NCR844 — National Airlines, typowy czarter towarowy do Rzeszowa.
+    // adsbdb takiego znaku nie zna, więc liczy się wyłącznie geometria lotu.
+    const near = [{
+      hex: 'b7', flight: 'NCR844 ', t: 'B744', r: 'N729CA',
+      lat: 50.11, lon: 21.04, gs: 300, track: 90, alt_baro: 8000,
+    }]
+    vi.stubGlobal('fetch', async (url) => {
+      const u = String(url)
+      if (/v2\/type\//.test(u)) return { ok: true, status: 200, json: async () => ({ ac: [] }) }
+      if (/adsb\.fi/.test(u)) return { ok: true, status: 200, json: async () => ({ ac: near }) }
+      return { ok: true, status: 200, json: async () => ({ response: { flightroute: null } }) }
+    })
+
+    vi.resetModules()
+    const { handler } = await import('../netlify/functions/inbound.js')
+    const res = await handler({ httpMethod: 'GET', headers: {} })
+    const body = JSON.parse(res.body)
+    expect(body.inbound).toHaveLength(1)
+    expect(body.inbound[0]).toMatchObject({
+      flight: 'NCR844', route: { to: 'EPRZ', guess: true },
+    })
+  }, 30000)
 })
 
 describe('treść powiadomienia', () => {
@@ -90,8 +168,31 @@ describe('treść powiadomienia', () => {
     expect(body).toContain('za 3 h 13 min')
   })
 
+  it('przy celu zgadniętym z lotu nie obiecuje planu', async () => {
+    const { inboundText } = await import('../src/lib/notifyText.js')
+    const guessed = { ...x, route: { to: 'EPRZ', guess: true } }
+    const { title, body } = inboundText(guessed, 'Rzeszów', '17:10', '22 min')
+    expect(title).toBe('Jumbo Jet podchodzi: Rzeszów')
+    expect(body).toContain('ok. 17:10')
+    expect(body).toContain('za 22 min')
+  })
+
   it('bez godziny nie zmyśla', async () => {
     const { inboundText } = await import('../src/lib/notifyText.js')
     expect(inboundText(x, 'Kraków', null, null).title).toBe('Kraków: Jumbo Jet')
+  })
+})
+
+describe('carryForward', () => {
+  it('przenosi maszyny z trasy, gubi stare zgadnięte podejścia', async () => {
+    const { carryForward } = await import('../netlify/functions/inbound.js')
+    const fresh = [{ hex: 'a1', etaMin: 5, route: { to: 'EPRZ', guess: true } }]
+    const prev = [
+      { hex: 'a1', etaMin: 40, route: { to: 'EPRZ', guess: true } },
+      { hex: 'b2', etaMin: 200, route: { to: 'EPRZ' } },
+      { hex: 'c3', etaMin: 9, route: { to: 'EPKK', guess: true } },
+    ]
+    const out = carryForward(fresh, prev)
+    expect(out.map(x => x.hex)).toEqual(['a1', 'b2'])
   })
 })

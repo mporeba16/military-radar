@@ -158,13 +158,18 @@ export function rareGroupText(list) {
 // i ile jeszcze.
 export function inboundText(x, airportName, clock, eta) {
   const name = shortTypeName(x) || (x.t || '').trim() || 'transportowiec'
-  const title = clock
-    ? `${airportName}: ${name} ok. ${clock}`
-    : `${airportName}: ${name}`
+  // Cel rozpoznany z samego lotu (bez wpisu w bazie tras) to przesłanka, nie
+  // pewnik — i komunikat ma to mówić wprost, zamiast obiecywać lądowanie,
+  // którego nikt nie zgłosił.
+  const guess = x.route?.guess === true
+  const title = guess
+    ? `${name} podchodzi: ${airportName}`
+    : (clock ? `${airportName}: ${name} ok. ${clock}` : `${airportName}: ${name}`)
   const parts = []
-  if (name) parts.push(name)
+  if (!guess) parts.push(name)
   const from = x.route?.fromCity || x.route?.from
   if (from) parts.push(`z ${from}`)
+  if (guess && clock) parts.push(`ok. ${clock}`)
   if (eta) parts.push(`za ${eta}`)
   return { title, body: parts.join(' · ') }
 }

@@ -30,7 +30,7 @@
   schedule = "*/2 * * * *"
 
 [functions."inbound-collect"]
-  schedule = "*/10 * * * *"
+  schedule = "*/2 * * * *"
 
 [dev]
   command = "npm run dev"

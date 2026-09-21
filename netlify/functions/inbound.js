@@ -1,20 +1,21 @@
 // Jumbo jety i An-124 lecące do Rzeszowa albo Krakowa.
 //
-// Dwa zewnętrzne źródła, oba darmowe i społecznościowe:
-//   - adsb.lol  /v2/type/{typ} — globalnie wszystkie maszyny danego typu
-//     (adsb.fi, z którego korzysta reszta aplikacji, nie ma pytania po typie,
-//     a nasz zwykły pobór obejmuje tylko okolice Polski),
+// Trzy zewnętrzne źródła, wszystkie darmowe i społecznościowe:
+//   - adsb.lol  /v2/type/{typ} — globalnie wszystkie maszyny danego typu;
+//     łapie 747 jeszcze nad Atlantykiem (adsb.fi nie ma pytania po typie),
+//   - adsb.fi   /v2/lat/lon/dist — ruch nad Polską; łapie maszynę, która jest
+//     już blisko, także wtedy, gdy adsb.lol akurat odmówił,
 //   - adsbdb.com /v0/callsign/{znak} — trasa lotu; ADS-B nie niesie celu.
 //
-// Zapytania idą wyłącznie stąd i mają pamięć podręczną, więc ruch na stronie
-// nie przekłada się na obciążenie tych serwisów: jeden przebieg to sześć
-// zapytań o typy i tylko tyle zapytań o trasy, ile nowych znaków
-// wywoławczych (trasa raz poznana leży w Blobs przez dobę).
+// Cel ustalamy dwiema drogami: z trasy w bazie, a gdy jej nie ma (czartery
+// towarowe rzadko tam są) — z geometrii podejścia do lądowania. Zapytania
+// idą wyłącznie stąd i mają pamięć podręczną, więc ruch na stronie nie
+// przekłada się na obciążenie tych serwisów.
 
 import { getStore, connectLambda } from '@netlify/blobs'
 import { corsHeaders } from './lib/security.js'
 import {
-  WATCHED_TYPES, ARRIVAL_AIRPORTS, etaMinutes, distanceKm,
+  WATCHED_TYPES, ARRIVAL_AIRPORTS, etaMinutes, distanceKm, isWatchedType, approachGuess,
 } from '../../src/lib/inbound.js'
 
 const UA = { 'User-Agent': 'MilitaryRadarPL/1.0 (+https://radar-wojskowy.netlify.app)', Accept: 'application/json' }
@@ -44,6 +45,28 @@ async function fetchType(type) {
   const data = await res.json()
   return (data.ac || []).filter(a =>
     typeof a.lat === 'number' && typeof a.lon === 'number' && (a.flight || '').trim())
+}
+
+// Drugie źródło: ruch nad Polską z adsb.fi. Nie zabiera limitu adsb.lol
+// (a ten potrafi odpowiedzieć 429 w środku przebiegu) i łapie maszynę, która
+// jest już blisko — czyli dokładnie tę, o której powiadomienie ma sens.
+// Antonow Airlines (ADB) bierzemy po znaku wywoławczym, bo pole typu bywa puste.
+const POLAND = { lat: '52.0', lon: '19.4', nm: 250 }
+
+async function fetchNearPoland() {
+  try {
+    const res = await fetch(
+      `https://opendata.adsb.fi/api/v2/lat/${POLAND.lat}/lon/${POLAND.lon}/dist/${POLAND.nm}`,
+      { signal: AbortSignal.timeout(8000), headers: UA },
+    )
+    if (!res.ok) return []
+    const data = await res.json()
+    return (data.ac || data.aircraft || []).filter(a =>
+      typeof a.lat === 'number' && typeof a.lon === 'number' && (a.flight || '').trim() &&
+      (isWatchedType(a.t) || /^ADB\d/.test((a.flight || '').trim().toUpperCase())))
+  } catch {
+    return []
+  }
 }
 
 // Trasa bywa nieznana (loty bez planu w bazie) — zapamiętujemy też ten brak,
@@ -90,26 +113,35 @@ async function fetchRoute(callsign, store) {
 export const SNAPSHOT_STORE = 'inbound-snapshot'
 export const SNAPSHOT_KEY = 'latest'
 
-export async function collect() {
+// Dwa tempa. Podejście do lądowania widać dopiero kilkadziesiąt kilometrów
+// przed lotniskiem, czyli przez jakieś dziesięć minut lotu — przy zbieraniu
+// co 10 minut maszyna potrafiłaby przemknąć między przebiegami. Dlatego lekki
+// przebieg (jedno zapytanie do adsb.fi o ruch nad Polską) chodzi co dwie
+// minuty, a ciężki (zapytania o typy do adsb.lol, które limituje ruch)
+// dokłada się do niego tylko co dziesięć.
+export async function collect({ deep = true } = {}) {
   let store = null
   try { store = getStore('flight-routes') } catch { /* bez cache też zadziała */ }
 
-  // Typy pobieramy po kolei, z odstępem — adsb.lol to serwis społecznościowy
-  // i po trzech zapytaniach pod rząd zaczyna odpowiadać 429.
   const seen = new Map()
-  for (const type of WATCHED_TYPES) {
-    for (const a of await fetchType(type)) {
-      if (!seen.has(a.hex)) seen.set(a.hex, a)
+  if (deep) {
+    // Typy pobieramy po kolei, z odstępem — adsb.lol to serwis społecznościowy
+    // i po kilku zapytaniach pod rząd zaczyna odpowiadać 429.
+    for (const type of WATCHED_TYPES) {
+      for (const a of await fetchType(type)) {
+        if (!seen.has(a.hex)) seen.set(a.hex, a)
+      }
+      await sleep(1200)
     }
-    await sleep(1200)
+  }
+
+  for (const a of await fetchNearPoland()) {
+    if (!seen.has(a.hex)) seen.set(a.hex, a)
   }
 
   const out = []
   for (const a of seen.values()) {
     const callsign = (a.flight || '').trim()
-    const route = await fetchRoute(callsign, store)
-    if (!route || !DEST.has(route.to)) continue
-    const airport = ARRIVAL_AIRPORTS.find(x => x.icao === route.to)
     const ac = {
       hex: a.hex,
       flight: callsign,
@@ -122,6 +154,24 @@ export async function collect() {
       track: a.track != null ? Math.round(a.track) : null,
       on_ground: a.alt_baro === 'ground',
     }
+
+    // Trasa z bazy ma pierwszeństwo: mówi wprost, dokąd lot jest zgłoszony,
+    // i działa już nad Atlantykiem. Dopiero gdy jej nie ma, patrzymy, czy
+    // maszyna nie podchodzi właśnie do lądowania.
+    const known = await fetchRoute(callsign, store)
+    let route = null
+    let airport = null
+    if (known) {
+      if (!DEST.has(known.to)) continue
+      route = known
+      airport = ARRIVAL_AIRPORTS.find(x => x.icao === known.to)
+    } else {
+      const guess = approachGuess(ac)
+      if (!guess) continue
+      airport = guess.airport
+      route = { from: null, fromCity: null, to: airport.icao, toCity: airport.name, guess: true }
+    }
+
     out.push({
       ...ac,
       route,
@@ -132,6 +182,17 @@ export async function collect() {
   // Najbliżej lądowania na górze.
   out.sort((x, y) => (x.etaMin ?? 1e9) - (y.etaMin ?? 1e9))
   return out
+}
+
+// Lekki przebieg nie pyta adsb.lol, więc nie widzi maszyn spoza okolic
+// Polski — a to właśnie one są w migawce najdłużej (747 zza oceanu). Bez
+// przeniesienia znikałyby z mapy na kilka minut i wracały przy każdym pełnym
+// przebiegu. Pozycja bywa wtedy sprzed kilku minut; to ta sama umowa, na
+// której migawka działała od początku.
+export function carryForward(fresh, prev = []) {
+  const have = new Set(fresh.map(x => x.hex))
+  const carried = prev.filter(x => x && !have.has(x.hex) && x.route?.guess !== true)
+  return [...fresh, ...carried].sort((x, y) => (x.etaMin ?? 1e9) - (y.etaMin ?? 1e9))
 }
 
 export const handler = async (event) => {
@@ -145,7 +206,7 @@ export const handler = async (event) => {
   const now = Date.now()
   if (!cache || now - cache.at > FRESH_MS) {
     try {
-      // Najpierw migawka z crona (inbound-collect co 10 min) — wtedy otwarcie
+      // Najpierw migawka z crona (inbound-collect co 2 min) — wtedy otwarcie
       // aplikacji nie generuje ani jednego zapytania na zewnątrz.
       let inbound = null
       try {
