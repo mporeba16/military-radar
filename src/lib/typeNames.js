@@ -104,10 +104,16 @@ export function getCommonName(t) {
     [/^T45[A-Z]?$|GOSHAWK/, 'Goshawk'],
     [/^YK130$|^YAK130$|YAK130/, 'Yak-130'],
     [/^TUCA$|TUCANO/, 'Tucano'],
-    [/AH64|APACHE/, 'Apache'],
-    [/CH47|CHINOOK/, 'Chinook'],
-    [/CH53E?|STALLION/, 'Super Stallion'],
-    [/UH60|HH60|^S70[A-Z]?$|BLACKHAWK/, 'Black Hawk'],
+    // Rodzina H-60/H-47/H-64 przychodzi z ADS-B także pod samym kodem rodziny
+    // (H60, H47, H64, H53 — tak stanowi doc 8643 ICAO), bez litery roli
+    // z przodu. Te maszyny zostawały więc bez nazwy własnej: GRZLY81 był
+    // „H47" zamiast „Chinook", DRAGO67 „H60" zamiast „Black Hawk".
+    // UWAGA: pod H60 kryje się też morski MH-60R Seahawk — kod rodziny go nie
+    // rozróżnia, a pola z pełnym opisem nie dostajemy.
+    [/AH64|^H64$|APACHE/, 'Apache'],
+    [/CH47|^H47$|CHINOOK/, 'Chinook'],
+    [/CH53E?|^H53$|STALLION/, 'Super Stallion'],
+    [/UH60|HH60|MH60|^H60$|^S70[A-Z]?$|BLACKHAWK/, 'Black Hawk'],
     [/MI24|HIND/, 'Hind'],
     [/^MI2$/, 'Hoplite'],
     [/^B412$/, 'Bell 412'],

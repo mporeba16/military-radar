@@ -76,6 +76,25 @@ describe('getCommonName — desygnatory ICAO z adsb.fi', () => {
     expect(getCommonName('E8C')).toBe('J-STARS')
   })
 
+  it('nazywa śmigłowce podane samym kodem rodziny', () => {
+    // ADS-B podaje H60/H47/H64/H53 bez litery roli — te maszyny zostawały
+    // wtedy bez nazwy własnej (GRZLY81 jako „H47", DRAGO67 jako „H60").
+    expect(getCommonName('H60')).toBe('Black Hawk')
+    expect(getCommonName('H47')).toBe('Chinook')
+    expect(getCommonName('H64')).toBe('Apache')
+    expect(getCommonName('H53')).toBe('Super Stallion')
+    expect(getCommonName('MH60')).toBe('Black Hawk')
+    expect(typeLabel('H47')).toBe('H47 · Chinook')
+  })
+
+  it('nie myli kodów rodziny z cywilnymi Airbusami H1xx', () => {
+    // H125/H135/H145/H160/H175 to Eurocopter/Airbus — nie wolno ich wciągnąć
+    // pod wojskową regułę na „H" plus liczba.
+    expect(getCommonName('H145')).toBe('H145')
+    expect(getCommonName('H160')).toBe('H160')
+    expect(getCommonName('H125')).toBeNull()
+  })
+
   it('nie łapie przy okazji maszyn cywilnych', () => {
     expect(getCommonName('B738')).toBeNull()
     expect(getCommonName('A332')).toBeNull()
