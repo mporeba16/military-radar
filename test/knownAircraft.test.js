@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { knownAircraft, resolvedType } from '../src/lib/knownAircraft.js'
+import { knownAircraft, resolvedType, applyKnown } from '../src/lib/knownAircraft.js'
 import { typeLabel } from '../src/lib/typeNames.js'
 import { typePhoto } from '../src/lib/typePhotos.js'
 
@@ -20,6 +20,23 @@ describe('knownAircraft', () => {
     const t = resolvedType({ hex: '48da45', t: 'MI8' })
     expect(typeLabel(t)).toBe('Mi-17')
     expect(typePhoto(t)).not.toBeNull()
+  })
+
+  it('zna PLF252 jako polskiego Herculesa', () => {
+    // Ta maszyna nadaje bez pola typu — bez wpisu zostawała bezimienna
+    // na mapie i w powiadomieniu.
+    expect(knownAircraft('48d8ef')).toMatchObject({ type: 'C130' })
+    expect(typeLabel(resolvedType({ hex: '48d8ef', t: '' }))).toBe('C130 · Hercules')
+  })
+
+  it('applyKnown uzupełnia pusty typ, ale nie nadpisuje danych z ADS-B', () => {
+    // Gdyby adsb.fi kiedyś zaczęło podawać typ tej maszyny, ich dane wygrywają
+    // — nasza tabela jest łatką na brak, nie nadrzędnym źródłem prawdy.
+    expect(applyKnown({ hex: '48d8ef', t: '', flight: 'PLF252' }).t).toBe('C130')
+    expect(applyKnown({ hex: '48d8ef', t: 'C30J' }).t).toBe('C30J')
+    // Rekord nieznanej maszyny wraca bez zmian (ten sam obiekt).
+    const obcy = { hex: 'abcdef', t: '' }
+    expect(applyKnown(obcy)).toBe(obcy)
   })
 
   it('nie zmyśla dla nieznanych maszyn', () => {

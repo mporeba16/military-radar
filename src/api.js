@@ -1,3 +1,5 @@
+import { applyKnown } from './lib/knownAircraft'
+
 const API_BASE = '/.netlify/functions'
 
 export async function fetchMilitaryAircraft(center, radiusKm, signal) {
@@ -14,7 +16,9 @@ export async function fetchMilitaryAircraft(center, radiusKm, signal) {
   }
   const data = await res.json()
   return {
-    aircraft: data.aircraft || [],
+    // Maszyny nadające bez pola typu dostają go z naszej tabeli — zanim
+    // ktokolwiek w aplikacji spojrzy na rekord.
+    aircraft: (data.aircraft || []).map(applyKnown),
     source: data._source || (data._demo ? 'demo' : 'unknown'),
     isDemo: !!data._demo,
   }

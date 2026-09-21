@@ -19,6 +19,27 @@ const PHOTOS = [
     source: 'https://commons.wikimedia.org/wiki/File:Lithuanian_Air_Force,_02,_Let_L-410UVP_Turbolet.jpg',
   },
   {
+    // Polski C-130E „1502". PLF252 nadaje bez typu i bez rejestracji, więc
+    // ani planespotters, ani adsbdb nie mają jak zwrócić jego zdjęcia.
+    // Świadomie tylko C130: C-130J (kod C30J) ma sześciołopatowe śmigła
+    // i wygląda inaczej.
+    match: /^C130$/,
+    src: '/photos/c130-pl.jpg',
+    author: 'Gerard van der Schaaf',
+    license: 'CC BY 2.0',
+    source: 'https://commons.wikimedia.org/wiki/File:Polish_Air_Force_(1502)_C-130E_Hercules_at_Frisian_Flag_2015.jpg',
+  },
+  {
+    // Rodzina H-60. Wojskowe Black Hawki rzadko mają zdjęcie w planespotters:
+    // lecą pod numerem taktycznym zamiast rejestracji, a adres ICAO bywa
+    // nieznany bazie. Zdjęcie sił zbrojnych USA — domena publiczna.
+    match: /^(H60|UH60|MH60|HH60|SH60|S70|S70I|S70A)$/,
+    src: '/photos/uh60-us.jpg',
+    author: 'Sgt. Isaac Lamberth (US Marine Corps)',
+    license: 'domena publiczna',
+    source: 'https://commons.wikimedia.org/wiki/File:501st_brings_it_to_Miramar_140911-M-VP013-010.jpg',
+  },
+  {
     // adsb.fi podaje MI8 także dla Mi-17 (eksportowy Mi-8MT) — jedna rodzina.
     match: /^(MI8|MI17|MI171)$/,
     src: '/photos/mi17-pl.jpg',

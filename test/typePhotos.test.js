@@ -22,13 +22,30 @@ describe('typePhoto', () => {
     expect(isSameAirframe(typePhoto('MI8'), '48da45')).toBe(false)
   })
 
+  it('ma polskiego Herculesa dla C130, ale nie dla C-130J', () => {
+    // PLF252 nadaje bez typu i bez rejestracji — żadna baza zdjęć go nie zna.
+    expect(typePhoto('C130')?.author).toBe('Gerard van der Schaaf')
+    // C-130J ma sześciołopatowe śmigła; zdjęcie C-130E byłoby mylące.
+    expect(typePhoto('C30J')).toBeNull()
+  })
+
+  it('ma Black Hawka dla całej rodziny H-60', () => {
+    const p = typePhoto('H60')
+    expect(p?.license).toBe('domena publiczna')
+    for (const t of ['UH60', 'MH60', 'HH60', 'S70', 's70i']) {
+      expect(typePhoto(t)?.src).toBe(p.src)
+    }
+    // Cywilne Airbusy H1xx nie należą do tej rodziny.
+    expect(typePhoto('H145')).toBeNull()
+  })
+
   it('nie zmyśla dla typów, których nie mamy', () => {
     expect(typePhoto('F16')).toBeNull()
     expect(typePhoto('')).toBeNull()
   })
 
   it('każdy wpis ma plik na dysku, autora, licencję i źródło', () => {
-    for (const t of ['MI8', 'L410']) {
+    for (const t of ['MI8', 'L410', 'C130', 'H60', 'UH60', 'S70']) {
       const p = typePhoto(t)
       expect(p.author && p.license && p.source).toBeTruthy()
       // Plik musi istnieć — inaczej karta pokazałaby pustą ramkę.

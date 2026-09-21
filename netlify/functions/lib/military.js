@@ -1,5 +1,7 @@
 // Shared military aircraft filtering and fetching — kept in sync with aircraft.js
 
+import { knownAircraft } from '../../../src/lib/knownAircraft.js'
+
 // Tylko 'ae' (US military) jest blokiem wyłącznie wojskowym. Europejskie
 // "podbloki" były błędne/mieszane (cywilne false-positivy) — patrz aircraft.js.
 const MILITARY_HEX_PREFIXES = [
@@ -185,7 +187,9 @@ function mapADSBfi(a, lat, lon, radiusKm) {
   return {
     hex: a.hex,
     flight: (a.flight || a.hex || '').trim(),
-    t: a.t || '',
+    // Tytuł powiadomienia mówi nazwę maszyny, a nie znak wywoławczy — dla
+    // maszyny nadającej bez typu (polski Hercules PLF252) byłby pusty.
+    t: a.t || knownAircraft(a.hex)?.type || '',
     // Rejestracja rozstrzyga, czyj to śmigłowiec (SP-HX = LPR), gdy znak
     // wywoławczy nic nie mówi.
     reg: a.r || null,
