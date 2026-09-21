@@ -21,7 +21,8 @@ export const OPERATOR_HINT_BY_CALLSIGN = [
   [/^(FRAF|CTM|COTAM|FNAV|FMRN)/, 'french'],  // CTM/COTAM = francuski transport wojskowy, FNAV/FMRN = lotnictwo MW
   [/^BAF\d/, 'belgian'],
   [/^DAMP/, 'danish'],
-  [/^CZAF/, 'czech'],
+  // CEF to znak wywoławczy czeskich sił powietrznych (obok CZAF).
+  [/^(CZAF|CEF\d)/, 'czech'],
   [/^SLAF/, 'slovak'],
   [/^HUNAF/, 'hungarian'],
   [/^BUAF/, 'bulgarian'],
@@ -80,6 +81,10 @@ export const TYPE_SLUG_ALIASES = {
   C160: ['c-160', 'transall'],
   A400: ['a400m', 'a-400'], A400M: ['a400m'],
   // Fighters where dashes / numbers vary
+  // Embraer C-390: adsb.fi podaje E390, a w adresie zdjęcia stoi „kc-390"
+  // albo „c-390-millennium" — kod ICAO nie pada tam nigdy.
+  E390: ['kc-390', 'c-390', 'millennium'],
+  L410: ['l-410', 'turbolet'], L610: ['l-610'],
   C295: ['c-295', 'cn-295'], C235: ['cn-235'], CN35: ['cn-235'], C212: ['c-212'],
   F35: ['f-35'], F16: ['f-16'], F15: ['f-15'], F18: ['f-18', 'fa-18'],
   F22: ['f-22'], F4: ['f-4'], F14: ['f-14'], F2: ['f-2'], F5: ['f-5'],

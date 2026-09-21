@@ -192,3 +192,25 @@ describe('kolizje numerów wojskowych', () => {
     expect(photoHasMatchSignal(polski, gaf)).toBe(false)
   })
 })
+
+describe('Embraer C-390 (CEF206)', () => {
+  // W adresie zdjęcia stoi „embraer-kcv-390-millennium” — ani kod ICAO E390,
+  // ani nawet „c-390” tam nie pada, więc bez aliasu zdjęcie tej maszyny było
+  // odrzucane jako cudze i karta pokazywała „brak zdjęcia”.
+  const ac = { hex: '4984f0', t: 'E390', reg: '0520', flight: 'CEF206' }
+  const czeskie = { link: 'https://www.planespotters.net/photo/1963337/0520-czech-air-force-embraer-kcv-390-millennium', _src: 'hex' }
+
+  it('przyjmuje zdjęcie czeskiego C-390', () => {
+    expect(photoHasMatchSignal(czeskie, ac)).toBe(true)
+  })
+})
+
+describe('L-410 z cudzą rejestracją (LF345)', () => {
+  // „02 BLUE” nosi też ukraiński An-26 — i tylko on jest w planespotters.
+  const ac = { hex: '503fd9', t: 'L410', reg: '02 BLUE', flight: 'LF345' }
+  const cudzy = { link: 'https://www.planespotters.net/photo/1646427/02-blue-ukrainian-air-force-antonov-an-26', _src: 'reg' }
+
+  it('odrzuca An-26 podstawionego pod tę samą rejestrację', () => {
+    expect(photoHasMatchSignal(cudzy, ac)).toBe(false)
+  })
+})

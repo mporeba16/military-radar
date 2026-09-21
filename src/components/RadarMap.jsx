@@ -124,8 +124,13 @@ function buildIconSvg(ac, isSelected, zoomScale) {
   // Wypełnienie dalej koduje wysokość, więc jedno spojrzenie daje i kategorię,
   // i pułap.
   const KIND_OUTLINE = { heli: KIND_COLORS.heli, heavy: KIND_COLORS.heavy }
-  const outline = KIND_OUTLINE[ac.kind]
-  const strokeW = (outline ? 1.6 : 0.7) / (scale * zoomScale)
+  // Alarmowy squawk bierze obwódkę dla siebie — sam wykrzyknik w rogu ikony
+  // ginął w gęstym ruchu, a to jedyna rzecz na mapie, której nie wolno
+  // przeoczyć. Ma pierwszeństwo przed kolorem kategorii: maszyna w kłopocie
+  // jest ważniejsza niż to, czy jest służbowa, czy duża.
+  const alertColor = squawkAlertColor(ac.squawk)
+  const outline = alertColor || KIND_OUTLINE[ac.kind]
+  const strokeW = (alertColor ? 2.3 : outline ? 1.6 : 0.7) / (scale * zoomScale)
   // Ciemny kontur pod spodem zostaje także przy kolorowej obwódce — bez niego
   // cyjan albo bursztyn ginie na jasnym podkładzie (satelita, płótno Esri).
   const outlinePaths = outline
@@ -160,7 +165,7 @@ function buildIconSvg(ac, isSelected, zoomScale) {
 
   // Wykrzyknik dla maszyn z alarmowym squawkiem (7500/7600/7700/7400) — w prawym
   // górnym rogu ikony, NIE obraca się z dziobem (to oznaczenie UI, nie część maszyny).
-  const alertColor = squawkAlertColor(ac.squawk)
+  // Zostaje obok obwódki, bo mówi CO się dzieje, a nie tylko że coś się dzieje.
   const badgeR = Math.max(5.5, 6.5 * zoomScale)
   const alertBadge = alertColor
     ? `<g transform="translate(${ringR},${-ringR})">

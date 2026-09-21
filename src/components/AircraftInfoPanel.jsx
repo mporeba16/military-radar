@@ -5,7 +5,7 @@ import { findLikelyLanding } from '../airfields'
 import { scorePhotoMatch, photoHasMatchSignal, canVerifyPhotoMatch } from '../lib/photoMatch'
 import { t } from '../i18n'
 import { compassDir } from '../lib/notifyText'
-import { typePhoto } from '../lib/typePhotos'
+import { typePhoto, isSameAirframe } from '../lib/typePhotos'
 import { knownAircraft, resolvedType } from '../lib/knownAircraft'
 import { airportByIcao, etaMinutes, formatEta, landingClock } from '../lib/inbound'
 import './AircraftInfoPanel.css'
@@ -150,6 +150,8 @@ export default function AircraftInfoPanel({ ac, onClose }) {
       from: ac.arrival.fromCity || ac.arrival.from || null,
       eta: formatEta(min),
       clock: landingClock(min),
+      // Cel wzięty z geometrii lotu, a nie z planu — karta mówi to wprost.
+      guess: ac.arrival.guess === true,
     }
   }, [ac])
 
@@ -218,7 +220,8 @@ export default function AircraftInfoPanel({ ac, onClose }) {
         <a className="ac-info-photo-wrap" href={fallback.source} target="_blank" rel="noopener noreferrer">
           <img src={fallback.src} alt={label || ac.t} className="ac-info-photo" />
           <span className="ac-info-photo-credit">
-            {t('PHOTO_GENERIC')} · {fallback.author} · {fallback.license}
+            {isSameAirframe(fallback, ac.hex) ? t('PHOTO_SAME_AIRFRAME') : t('PHOTO_GENERIC')}
+            {' · '}{fallback.author} · {fallback.license}
           </span>
         </a>
       ) : (
@@ -235,7 +238,7 @@ export default function AircraftInfoPanel({ ac, onClose }) {
         <div className="ac-info-arrival">
           <span className="ac-info-arrival-ico">🛬</span>
           <span>
-            {t('INFO_ARRIVAL')} <strong>{arrival.airport.name}</strong>
+            {arrival.guess ? t('INFO_ARRIVAL_GUESS') : t('INFO_ARRIVAL')} <strong>{arrival.airport.name}</strong>
             {arrival.from && <span className="ac-info-arrival-from"> {t('INFO_ARRIVAL_FROM')} {arrival.from}</span>}
             {arrival.clock && (
               <div className="ac-info-arrival-eta">
