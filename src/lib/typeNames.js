@@ -128,7 +128,9 @@ export function getCommonName(t) {
     [/^AS35[0-5]?$/, 'AS350 Écureuil'],
     [/^AS55[0-9]?$/, 'AS555 Fennec'],
     [/EC725/, 'Caracal'],
-    [/AS332|AS532|SUPERPUMA/, 'Super Puma'],
+    // Skrócony kod ICAO tej rodziny to AS32 (doc 8643) i tak podaje go adsb.fi;
+    // pełne AS332/AS532 pada rzadziej. Szwajcarskie T-3xx to AS-332M1.
+    [/AS332|AS532|^AS32$|SUPERPUMA/, 'Super Puma'],
     [/PUMA/, 'Puma'],
     [/AS365|DAUPHIN/, 'Dauphin'],
     [/SA342|GAZELLE/, 'Gazelle'],

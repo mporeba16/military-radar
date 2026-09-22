@@ -129,6 +129,9 @@ export const TYPE_SLUG_ALIASES = {
   S76: ['s-76'], S92: ['s-92'], B407: ['bell-407'], B429: ['bell-429'],
   B06: ['bell-206', 'jetranger'], B412: ['bell-412'], BK17: ['bk-117'],
   AS332: ['as332', 'super-puma'], AS532: ['as532', 'cougar'],
+  // W adresie zdjęcia stoi „as-332m1-super-puma", a kod z ADS-B to AS32 —
+  // bez aliasu zdjęcie własnej maszyny dostawało karę za niezgodny typ.
+  AS32: ['as-332', 'as332', 'as-532', 'super-puma', 'cougar'],
   // UAVs
   MQ9: ['mq-9', 'reaper'], MQ1: ['mq-1'], RQ4: ['rq-4'],
   Q9: ['mq-9', 'reaper'], Q4: ['rq-4', 'mq-4', 'global-hawk', 'triton'],

@@ -55,6 +55,29 @@ describe('skala kształtów', () => {
   })
 })
 
+describe('skrócone kody ICAO śmigłowców i turbośmigłowców', () => {
+  it('AS32 to Super Puma, nie odrzutowiec', () => {
+    // Szwajcarskie T-316 i T-321: adsb.fi podaje skrócony kod rodziny AS32,
+    // nie AS332 — maszyna była bezimienna i rysowana ze skośnym skrzydłem.
+    expect(getCommonName('AS32')).toBe('Super Puma')
+    expect(getShapeKey('AS32', 120)).toBe('puma')
+    expect(getShapeKey('AS332', 120)).toBe('puma')
+  })
+
+  it('lekkie turbośmigłowce nie dostają sylwetki odrzutowca', () => {
+    for (const t of ['L410', 'SW4', 'B350', 'BE20']) {
+      expect(getShapeKey(t, 200)).toBe('twin_small')
+    }
+    expect(getShapeKey('G2CA', 60)).toBe('helicopter')
+  })
+
+  it('nie rusza maszyn, które miały już dobrą sylwetkę', () => {
+    expect(getShapeKey('AS350', 120)).toBe('helicopter')
+    expect(getShapeKey('H145', 120)).toBe('helicopter')
+    expect(getShapeKey('C295', 300)).toBe('twin_large')
+  })
+})
+
 describe('getCommonName — desygnatory ICAO z adsb.fi', () => {
   // adsb.fi podaje kody ICAO (K35R), nie potoczne oznaczenia (KC-135). Bez tych
   // wariantów powiadomienie i powód alertu pokazywały surowy kod typu.

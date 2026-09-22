@@ -257,8 +257,12 @@ export function getShapeKey(t, gs = null, category = null) {
   if (/UH60|HH60|SH60|MH60|H60|^S70[A-Z]?$|BLACKHAWK/.test(type)) return 'blackhawk'
   if (/AS365|AS65|EC155|EC55|^H155$|DAUPHIN/.test(type)) return 'dauphin'
   if (/SA342|GAZELLE/.test(type)) return 'gazelle'
-  if (/AS332|AS532|EC225|EC25|EC725|^H215$|^H225$|PUMA|COUGAR|SUPERPUMA/.test(type)) return 'puma'
+  // AS32 to desygnator ICAO rodziny AS-332 Super Puma / AS-532 Cougar (doc 8643)
+  // i właśnie ten skrócony kod podaje adsb.fi. Bez niego szwajcarskie Pumy
+  // T-316 i T-321 były rysowane jako odrzutowiec ze skośnym skrzydłem.
+  if (/AS332|AS532|^AS32$|EC225|EC25|EC725|^H215$|^H225$|PUMA|COUGAR|SUPERPUMA/.test(type)) return 'puma'
   if (/GYRO|AUTOGYRO/.test(type)) return 'gyrocopter'
+  if (/^G2CA$|CABRI/.test(type)) return 'helicopter'
   if (/A139|AW139|AW149|AW169|AW189|A149|A169|H169|H189|AW109|AW119|A109|A119|A129|H119/.test(type)) return 's61'
 
   // Bell light/medium helicopters (excluded the B-1 bomber via earlier match;
@@ -408,7 +412,10 @@ export function getShapeKey(t, gs = null, category = null) {
   // PZL-130 Orlik — polski wojskowy trener turbośmigłowy. ICAO designator to
   // PZ3T (TC-II); adsb.fi nie zwraca "PZL130", więc bez tego wpadał w jet_swept.
   if (/^PZ3T?$|^P130$|PZL130|ORLIK/.test(type)) return 'single_turbo'
-  if (/KINGAIR|PC12|PC21|PC9|PC7|DHC8|DASH8|BE20|BE9|C12/.test(type)) return 'twin_small'
+  // B350/BE30 (King Air 350), SW4 (Metro III / C-26) i L410 (Turbolet) to
+  // lekkie turbośmigłowe dwusilnikowce tej samej klasy — bez nich wpadały
+  // na koniec funkcji i dostawały sylwetkę odrzutowca.
+  if (/KINGAIR|PC12|PC21|PC9|PC7|DHC8|DASH8|BE20|BE9|B350|BE30|SW[234]|L410|L610|C12/.test(type)) return 'twin_small'
   if (/^SF34$|^SB20$|^C70$/.test(type)) return 'twin_small'     // Saab 340 / C-70
   if (/^D328$|^DO328|^C146$|WOLFHOUND/.test(type)) return 'twin_small'  // Dornier 328 / C-146 Wolfhound
   if (/^DA62|^DA42|^BN2|ISLANDER/.test(type)) return 'twin_small'
