@@ -70,7 +70,7 @@ export function altMetres(altBaroFt) {
   return `${Math.round(altBaroFt * 0.3048).toLocaleString('pl-PL')} m`
 }
 
-// Skrót kraju rejestracji przed nazwą maszyny („PL CASA CN-295”, „UA An-26”).
+// Skrót kraju rejestracji przed nazwą maszyny („PL CASA C-295”, „UA An-26”).
 // Adres ICAO niesie kraj rejestracji, więc wiadomo to zawsze, nawet gdy
 // maszyna nie podaje znaku wywoławczego ani typu.
 function withCountry(hex, name) {

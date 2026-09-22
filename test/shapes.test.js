@@ -135,7 +135,9 @@ describe('typeLabel — etykieta typu na karcie', () => {
   it('oznaczenie zwalnia z kodu także wtedy, gdy nie stoi na początku', () => {
     // Nazwa z wytwórnią z przodu też niesie oznaczenie typu — inaczej karta
     // pisała „MIRF · Mirage F1" i powtarzała to, co i tak widać obok.
-    expect(typeLabel('C295')).toBe('CASA CN-295')
+    // „CN-295” nie istnieje — CN to CN-235 (CASA + IPTN), a to jest C-295.
+    expect(typeLabel('C295')).toBe('CASA C-295')
+    expect(typeLabel('CN35')).toBe('CASA CN-235')
     expect(typeLabel('M339')).toBe('Aermacchi MB-339')
     expect(typeLabel('F2')).toBe('Mitsubishi F-2')
     // Nazwa bez oznaczenia dalej dostaje kod — „Bell 407" nie jest typem.

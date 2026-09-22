@@ -149,7 +149,10 @@ export function getCommonName(t) {
     [/KA50|KA52/, 'Alligator'],
     // W polskim lotnictwie ta maszyna to po prostu „Casa" — nazwa wytwórni
     // przylgnęła mocniej niż oznaczenie, więc stoi w etykiecie przed nim.
-    [/C295|CN295/, 'CASA CN-295'],
+    // Uwaga na myląco podobne oznaczenia: człon „CN" nosi CN-235 (wspólne
+    // dzieło CASA i indonezyjskiego IPTN), a większy brat to po prostu C-295
+    // — „CN-295" nigdy nie istniało. Polskie maszyny z 8. BLTr to wersja M.
+    [/C295|CN295/, 'CASA C-295'],
     // CN35 to desygnator ICAO CN-235 (francuski CTM, turecki, hiszpański).
     [/CN235|^CN35$|^C235$/, 'CASA CN-235'],
     [/C212/, 'Aviocar'],
@@ -183,7 +186,7 @@ export function typeLabel(t) {
   const common = getCommonName(code)
   if (!common) return code
   const first = common.split('/')[0].trim()
-  // Nazwa zawierająca człon z cyfrą (M28, A310, C-390, RQ-4, CASA CN-295) sama
+  // Nazwa zawierająca człon z cyfrą (M28, A310, C-390, RQ-4, CASA C-295) sama
   // niesie oznaczenie typu — kod przed nią byłby powtórzeniem.
   //
   // Człon nie musi stać na początku. Gdy reguła patrzyła wyłącznie tam, nazwa
