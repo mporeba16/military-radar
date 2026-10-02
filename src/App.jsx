@@ -22,6 +22,7 @@ import { alertText, shortTypeName, heliRole, CLOSE_RANGE_KM } from './lib/notify
 import { countryCodeFromHex } from './lib/countries'
 import { t } from './i18n'
 import { version } from '../package.json'
+import { MLAT_MIN_INTERVAL_MS } from './lib/trailFilter.js'
 import './App.css'
 
 const EUROPE_CENTER = [52.0, 15.0]
@@ -194,9 +195,8 @@ export default function App() {
         // Don't record trail for grounded aircraft — keeps the trail a "current
         // flight only" view and lets server-side gap detection do its job.
         if (ac.on_ground) return
-        // MLAT-only positions are noisy (jump around in poor ADS-B coverage)
-        // and cause zigzags. Skip them.
-        if (ac.mlat) return
+        // MLAT (pozycja z sieci odbiorników) zapisujemy rzadziej i z flagą `m` —
+        // odskoki w bok odsiewa filterMlatSpikes przy rysowaniu trasy.
         const pts = trailsRef.current.get(ac.hex) || []
         let fresh = pts.filter(p => now - p.ts < TRAIL_MAX_AGE_MS)
         const last = fresh[fresh.length - 1]
@@ -205,8 +205,9 @@ export default function App() {
           fresh = []
         }
         const lastFresh = fresh[fresh.length - 1]
-        if (!lastFresh || now - lastFresh.ts >= TRAIL_MIN_INTERVAL_MS)
-          fresh.push({ lat: ac.lat, lon: ac.lon, alt: ac.alt_baro, ts: now })
+        const minInterval = ac.mlat ? MLAT_MIN_INTERVAL_MS : TRAIL_MIN_INTERVAL_MS
+        if (!lastFresh || now - lastFresh.ts >= minInterval)
+          fresh.push({ lat: ac.lat, lon: ac.lon, alt: ac.alt_baro, ts: now, ...(ac.mlat ? { m: 1 } : {}) })
         trailsRef.current.set(ac.hex, fresh)
       })
       const currentHexes = new Set(enriched.map(a => a.hex))

@@ -11,6 +11,7 @@ import { corsHeaders } from './lib/security.js'
 import { snapshotKey } from './lib/snapshot.js'
 import { isInPoland } from './lib/poland.js'
 import { HEAVY_KEY, HEAVY_STORE, mergeHeavies } from './lib/heavyEurope.js'
+import { filterMlatSpikes, MLAT_MIN_INTERVAL_MS } from '../../src/lib/trailFilter.js'
 import {
   isSuspiciousHex,
   isTrainingAircraft,
@@ -186,7 +187,7 @@ function mapADSBfiRecord(a) {
     country: '',
     on_ground: a.alt_baro === 'ground' || !!a.on_ground,
     // MLAT-derived position (adsb.fi oznacza pola wyliczone w tablicy `mlat`) —
-    // bywa skokowy, więc pomijamy go przy zapisie trasy (saveTrails), ale rysujemy.
+    // bywa skokowy: w trasie zapisywany rzadziej i z flagą, odskoki odsiewa filterMlatSpikes.
     mlat: Array.isArray(a.mlat) && a.mlat.length > 0,
     kind: a._kind || 'mil',
   }
@@ -321,7 +322,7 @@ export const handler = async (event) => {
     // of JSON on every refresh — visual fidelity from 500 polyline vertices
     // is plenty for any realistic flight.
     const TRAIL_RESPONSE_MAX_POINTS = 500
-    const wholeFlight = filterImplausibleJumps(currentFlightOnly(allPoints, Date.now()))
+    const wholeFlight = filterMlatSpikes(filterImplausibleJumps(currentFlightOnly(allPoints, Date.now())))
     const currentFlight = wholeFlight.slice(-TRAIL_RESPONSE_MAX_POINTS)
 
     return {
@@ -451,20 +452,21 @@ export async function saveTrails(aircraft) {
 
   // Determine which aircraft need a new trail point written.
   // Grounded aircraft are skipped — their gap in the trail data is what
-  // lets us detect the boundary between flights server-side. MLAT-only
-  // positions (no real ADS-B fix, only receiver-rough estimate) are noisy
-  // and would cause zigzag artifacts — skip them too.
+  // lets us detect the boundary between flights server-side. MLAT positions
+  // are saved too (many military transports, tankers and AWACS are MLAT-only
+  // and had no trail at all), but less often and marked `m: 1` so that
+  // filterMlatSpikes can drop the occasional sideways jump when reading.
   const toWrite = []
   for (const ac of aircraft) {
     if (ac.lat == null || ac.lon == null) continue
     if (ac.on_ground) continue
-    if (ac.mlat) continue
     const entry = trailCache.get(ac.hex)
     if (!entry) continue
     entry.points = entry.points.filter(p => now - p.ts < TRAIL_MAX_AGE_MS)
     const last = entry.points[entry.points.length - 1]
-    if (!last || now - last.ts >= TRAIL_MIN_INTERVAL_MS) {
-      entry.points.push({ lat: ac.lat, lon: ac.lon, alt: ac.alt_baro, ts: now })
+    const minInterval = ac.mlat ? MLAT_MIN_INTERVAL_MS : TRAIL_MIN_INTERVAL_MS
+    if (!last || now - last.ts >= minInterval) {
+      entry.points.push({ lat: ac.lat, lon: ac.lon, alt: ac.alt_baro, ts: now, ...(ac.mlat ? { m: 1 } : {}) })
       entry.flight = ac.flight
       entry.t = ac.t
       toWrite.push(ac.hex)

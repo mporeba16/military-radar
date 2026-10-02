@@ -11,6 +11,7 @@ import { basePopupHtml } from './basePopup'
 import MilRangesLayer, { MilRangeHatchDefs, HatchedPolygon, AREA_LABEL_ZOOM } from './MilRangesLayer'
 import { MIL_AIRFIELD_AREAS } from '../data/milAirfieldAreas'
 import { t } from '../i18n'
+import { filterMlatSpikes } from '../lib/trailFilter.js'
 import { TILE_LAYERS, tileThumbUrl, resolveTileId } from '../lib/tiles'
 
 // F2: scale aircraft icons with zoom — clamped so they stay readable
@@ -576,7 +577,7 @@ export default function RadarMap({
     const serverPts = serverTrails?.get(selectedHex) || []
     let all = [...serverPts, ...clientPts]
     all.sort((a, b) => a.ts - b.ts)
-    all = dedupTrailPoints(all)
+    all = filterMlatSpikes(dedupTrailPoints(all))
 
     // T3: stitch in the current aircraft position if newer than last trail point
     const selectedAc = aircraft.find(a => a.hex === selectedHex)
