@@ -347,7 +347,9 @@ export function getShapeKey(t, gs = null, category = null) {
   if (/RC135|JSTARS|SENTINEL/.test(type)) return 'b707'
   // Cała rodzina Boeing C-135 (4-silnikowy 707): C135, KC135, RC135, OC/TC/WC/VC135
   // oraz warianty K35R/K35E/K35T. (EC135 to śmigłowiec — złapany wcześniej.)
-  if (/^(K?C135|RC135|OC135|TC135|WC135|VC135)$|^K35[A-Z]$/.test(type)) return 'b707'
+  // adsb.fi podaje RC-135 pod kodem ICAO R135 (np. RAF RRR7202, 43c38c) — bez niego
+  // Rivet Joint spadał do jet_swept i wyglądał jak mały biznesjet.
+  if (/^(K?C135|RC135|R135|OC135|TC135|WC135|VC135)$|^K35[A-Z]$/.test(type)) return 'b707'
   if (/^KC46|^KC10|^MRTT|A330MRT/.test(type)) return 'heavy_2e'
   // C-32A = B-757 USAF VIP, B-757 civil/mil
   if (/^C32[A-Z]?$|^B75[27]/.test(type)) return 'heavy_2e'

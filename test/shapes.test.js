@@ -78,6 +78,26 @@ describe('skrócone kody ICAO śmigłowców i turbośmigłowców', () => {
   })
 })
 
+// RC-135 Rivet Joint przychodzi z adsb.fi jako R135 (RAF RRR7202 nad Estonią,
+// 43c38c), a nie RC135. Reguła rodziny C-135 znała tylko potoczny zapis i maszyna
+// dostawała sylwetkę małego biznesjeta.
+describe('rodzina Boeing C-135', () => {
+  it('R135 (RC-135 pod kodem ICAO) dostaje sylwetkę 707, nie biznesjeta', () => {
+    expect(getShapeKey('R135')).toBe('b707')
+    expect(getShapeKey('R135', 420, 'A5')).toBe('b707')
+  })
+
+  it('pozostałe warianty C-135 trafiają w tę samą sylwetkę', () => {
+    for (const t of ['RC135', 'C135', 'KC135', 'K35R', 'K35E', 'OC135', 'WC135']) {
+      expect(getShapeKey(t)).toBe('b707')
+    }
+  })
+
+  it('EC135 to śmigłowiec, nie samolot z rodziny C-135', () => {
+    expect(getShapeKey('EC135', 120)).toBe('helicopter')
+  })
+})
+
 describe('getCommonName — desygnatory ICAO z adsb.fi', () => {
   // adsb.fi podaje kody ICAO (K35R), nie potoczne oznaczenia (KC-135). Bez tych
   // wariantów powiadomienie i powód alertu pokazywały surowy kod typu.
