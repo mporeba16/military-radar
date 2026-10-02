@@ -10,6 +10,7 @@ import { getStore, connectLambda } from '@netlify/blobs'
 import { corsHeaders } from './lib/security.js'
 import { snapshotKey } from './lib/snapshot.js'
 import { isInPoland } from './lib/poland.js'
+import { HEAVY_KEY, HEAVY_STORE, mergeHeavies } from './lib/heavyEurope.js'
 import {
   isSuspiciousHex,
   isTrainingAircraft,
@@ -386,6 +387,15 @@ export const handler = async (event) => {
       try { stale = await snapStore.get(snapKey, { type: 'json' }) } catch { /* brak migawki */ }
     }
     result = staleFallback(stale, Date.now())
+  }
+
+  // Jumbo jety nad całą Europą: zapytanie geo adsb.fi sięga tylko 250 nm od
+  // Polski, więc resztę bierzemy z migawki crona heavy-collect (adsb.lol po typie).
+  if (Array.isArray(result.aircraft)) {
+    try {
+      const heavy = await getStore(HEAVY_STORE).get(HEAVY_KEY, { type: 'json' })
+      result = { ...result, aircraft: mergeHeavies(result.aircraft, heavy, { lamin, lomin, lamax, lomax }, mapADSBfiRecord) }
+    } catch { /* bez migawki — tylko jumbo jety blisko Polski */ }
   }
 
   // Migawki awaryjnej NIE zapisujemy z nowym znacznikiem czasu: inaczej każde

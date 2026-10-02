@@ -32,6 +32,10 @@
 [functions."inbound-collect"]
   schedule = "*/2 * * * *"
 
+# Jumbo jety nad całą Europą (adsb.lol po typie) — patrz lib/heavyEurope.js
+[functions."heavy-collect"]
+  schedule = "* * * * *"
+
 [dev]
   command = "npm run dev"
   port = 8080
