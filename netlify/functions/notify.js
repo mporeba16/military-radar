@@ -1,4 +1,4 @@
-import { getStore, connectLambda } from '@netlify/blobs'
+import { getStore } from '@netlify/blobs'
 import webpush from 'web-push'
 import { haversine, normalizeKinds } from './lib/military.js'
 import { fetchMilitaryNear, fetchMilGlobal } from './lib/sources.js'
@@ -165,8 +165,19 @@ export function cooldownMapEqual(a, b) {
 // nie zapętli powiadomień. Jeśli kiedyś liczba subskrypcji urośnie na tyle, że
 // runy zaczną być ucinane: przenieść notify na background function (nazwa
 // *-background, limit 15 min) albo rozbić przetwarzanie na paczki.
-export const handler = async (event) => {
-  try { if (event?.blobs) connectLambda(event) } catch {}
+// Mapy cooldownu czytamy z pominięciem pamięci podręcznej Blobs. Domyślna
+// spójność „eventual" rozchodzi zapis do 60 s, a cron chodzi co 60 s — kolejny
+// przebieg potrafił przeczytać mapę sprzed zapisu i wysłać to samo
+// powiadomienie drugi raz minutę później. `strong` działa tylko w funkcjach
+// w nowym formacie (export default), stąd ten format zamiast `handler`.
+const cooldownStore = name => getStore({ name, consistency: 'strong' })
+
+export default async () => {
+  const { statusCode, body } = await run()
+  return new Response(body, { status: statusCode })
+}
+
+async function run() {
   // Cisza nocna (1:00–6:00) — bez push i bez odpytywania źródeł. Maszyna,
   // która nadal jest w zasięgu o 6:00, dostanie alert w pierwszym przebiegu.
   if (isQuietHours()) return { statusCode: 200, body: 'quiet hours' }
@@ -198,7 +209,7 @@ export const handler = async (event) => {
   let subsStore, alertedStore, blobs
   try {
     subsStore = getStore('push-subscriptions')
-    alertedStore = getStore('push-alerted')
+    alertedStore = cooldownStore('push-alerted')
     const result = await subsStore.list()
     blobs = result.blobs
   } catch (err) {
@@ -355,7 +366,7 @@ async function processInbound(loaded, stats) {
   if (!list.length) return
 
   const now = Date.now()
-  const store = getStore('push-inbound')
+  const store = cooldownStore('push-inbound')
   const prev = (await store.get('alerted', { type: 'json' }).catch(() => null))?.alerted || {}
 
   const fresh = []
@@ -388,7 +399,7 @@ async function processRare(loaded, stats) {
   stats.rareOverPoland = rare.length
   if (!rare.length) return
 
-  const store = getStore('push-rare')
+  const store = cooldownStore('push-rare')
   const now = Date.now()
   const prev = (await store.get('alerted', { type: 'json' }).catch(() => null))?.alerted || {}
   const fresh = rare.filter(({ ac }) => !prev[ac.hex] || now - prev[ac.hex] > RARE_COOLDOWN_MS)
