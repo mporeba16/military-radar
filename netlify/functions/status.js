@@ -1,6 +1,7 @@
 import { getStore, connectLambda } from '@netlify/blobs'
 import crypto from 'crypto'
 import { corsHeaders, isValidPushEndpoint, rateLimit } from './lib/security.js'
+import { pushProvider } from './lib/push.js'
 
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY
@@ -50,10 +51,7 @@ export const handler = async (event) => {
     }
   }
 
-  const provider = endpoint.includes('apple.com') ? 'apple'
-    : endpoint.includes('fcm.googleapis.com') ? 'fcm'
-    : endpoint.includes('mozilla.com') ? 'mozilla'
-    : 'other'
+  const provider = pushProvider(endpoint)
 
   let sub = null
   let latestRun = null

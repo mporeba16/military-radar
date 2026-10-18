@@ -109,3 +109,35 @@ describe('shared cooldown eligibility', () => {
     expect(eligible(toCooldownMap({ alerted: { abc: NOW } }, NOW), 'zzz')).toBe(true)
   })
 })
+
+describe('planAlerts', async () => {
+  const { planAlerts } = await import('../netlify/functions/notify.js')
+  const all = () => true
+  const mil = (hex, d) => ({ hex, flight: hex.toUpperCase(), t: 'C17', kind: 'mil', _dist: d })
+
+  it('wojsko blisko pojedynczo (od najbliższego), w zasięgu jednym zbiorczym', () => {
+    const { payloads, near, far } = planAlerts([mil('a2', 8), mil('a1', 3), mil('b1', 40), mil('b2', 60)], all)
+    expect(payloads.map(p => p.tag)).toEqual(['a1', 'a2', 'mil-far-group'])
+    expect([near, far]).toEqual([2, 2])
+    expect(payloads[0]).toEqual(expect.objectContaining({ hex: 'a1', title: expect.any(String), body: expect.any(String) }))
+  })
+
+  it('przy gęstym niebie blisko też zbiorczo', () => {
+    const { payloads } = planAlerts([1, 2, 3, 4].map(i => mil(`n${i}`, i)), all)
+    expect(payloads.map(p => p.tag)).toEqual(['mil-near-group'])
+  })
+
+  it('pojedyncza maszyna w grupie ma za tag swój hex; śmigłowce i duże osobno', () => {
+    const { payloads } = planAlerts([
+      mil('b1', 50),
+      { hex: 'h1', kind: 'heli', t: 'EC35', _dist: 20 },
+      { hex: 'j1', kind: 'heavy', t: 'B748', _dist: 70 }, { hex: 'j2', kind: 'heavy', t: 'A124', _dist: 30 },
+    ], all)
+    expect(payloads.map(p => [p.tag, p.hex])).toEqual([['b1', 'b1'], ['heavy-group', 'j2'], ['h1', 'h1']])
+  })
+
+  it('maszyny w cooldownie pomija', () => {
+    const { payloads } = planAlerts([mil('a1', 3), mil('b1', 40)], hex => hex !== 'a1')
+    expect(payloads.map(p => p.tag)).toEqual(['b1'])
+  })
+})

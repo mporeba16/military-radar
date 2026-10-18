@@ -34,3 +34,16 @@ describe('cleanDeviceId', () => {
     expect(cleanDeviceId({ a: 1 })).toBe(null)
   })
 })
+
+describe('push helpers', async () => {
+  const { pushProvider, isExpiredPush, pruneCooldown } = await import('../netlify/functions/lib/push.js')
+  it('rozpoznaje dostawcę i wygasłą subskrypcję', () => {
+    expect(pushProvider('https://web.push.apple.com/x')).toBe('apple')
+    expect(pushProvider('https://fcm.googleapis.com/fcm/send/x')).toBe('fcm')
+    expect(isExpiredPush({ statusCode: 410 })).toBe(true)
+    expect(isExpiredPush({ statusCode: 429 })).toBe(false)
+  })
+  it('pruneCooldown zostawia tylko świeże wpisy', () => {
+    expect(pruneCooldown({ a: 900, b: 100 }, 500, 1000)).toEqual({ a: 900 })
+  })
+})

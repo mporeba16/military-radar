@@ -4,11 +4,12 @@ import { haversine, normalizeKinds } from './lib/military.js'
 import { fetchMilitaryNear, fetchMilGlobal } from './lib/sources.js'
 import { isInPoland } from './lib/poland.js'
 import { isQuietHours } from './lib/quietHours.js'
+import { pushProvider, isExpiredPush, removeSubscription, pruneCooldown } from './lib/push.js'
 import { rareRole } from '../../src/lib/rareTypes.js'
 import { AIRFIELDS } from '../../src/airfields.js'
 // Treść alertów mieszka we wspólnym module — ten sam kod składa push z serwera
 // i lokalne powiadomienie w otwartej aplikacji, więc nie mogą się rozjechać.
-import { alertText, groupText, rareText, rareGroupText, inboundText } from '../../src/lib/notifyText.js'
+import { alertText, groupText, rareText, rareGroupText, inboundText, CLOSE_RANGE_KM } from '../../src/lib/notifyText.js'
 import { airportByIcao, etaMinutes, formatEta, landingClock } from '../../src/lib/inbound.js'
 import { SNAPSHOT_STORE, SNAPSHOT_KEY } from './inbound.js'
 
@@ -17,7 +18,6 @@ const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY
 const VAPID_EMAIL = process.env.VAPID_SUBJECT || process.env.VAPID_EMAIL || 'mailto:admin@example.com'
 
 const MAX_POSITION_AGE_MS = 7 * 24 * 60 * 60 * 1000  // 7 days
-const CLOSE_RANGE_KM = 10
 // Don't re-alert the same aircraft within this window. JEDEN cooldown na hex,
 // wspólny dla wszystkich kategorii — dystans i rodzaj maszyny decydują tylko o
 // treści tego jednego powiadomienia. Wcześniej „blisko" i „w zasięgu" miały
@@ -62,6 +62,50 @@ function nearestAirfieldName(lat, lon) {
     if (d <= RARE_NEAR_AIRFIELD_KM && (!best || d < best.d)) best = { d, name: ap.name }
   }
   return best?.name || null
+}
+
+/**
+ * Co wysłać jednej subskrypcji z maszyn w jej zasięgu (`inRange`, z `_dist`),
+ * które nie są w cooldownie (`eligible(hex)`). Kolejność: wojsko blisko
+ * (≤ CLOSE_RANGE_KM; pojedynczo, przy gęstym niebie zbiorczo), wojsko
+ * w zasięgu, duże samoloty, śmigłowce służbowe — każda grupa jednym
+ * powiadomieniem, żeby gęste niebo nie odpaliło kilkunastu osobnych.
+ * Każda maszyna trafia do dokładnie jednej grupy, a wszystkie sięgają po ten
+ * sam cooldown — stąd jeden alert na samolot.
+ */
+export function planAlerts(inRange, eligible) {
+  const byDist = list => [...list].sort((a, b) => a._dist - b._dist)
+  const textOf = ({ title, body }) => ({ title, body })
+  const fresh = inRange.filter(a => eligible(a.hex))
+  const mil = fresh.filter(a => (a.kind || 'mil') === 'mil')
+  const near = byDist(mil.filter(a => a._dist <= CLOSE_RANGE_KM))
+  const out = []
+
+  if (near.length <= NEAR_GROUP_THRESHOLD) {
+    for (const ac of near) {
+      out.push({ ...textOf(alertText(ac, ac._dist)), tag: ac.hex, hex: ac.hex, label: `near hex=${ac.hex} dist=${ac._dist}km` })
+    }
+  } else {
+    out.push({ ...textOf(groupText(near, 'mil')), tag: 'mil-near-group', hex: near[0].hex, label: `near group n=${near.length}` })
+  }
+
+  const groups = [
+    ['far', mil.filter(a => a._dist > CLOSE_RANGE_KM), 'mil', 'mil-far-group'],
+    ['heavy', fresh.filter(a => a.kind === 'heavy'), 'heavy', 'heavy-group'],
+    ['heli', fresh.filter(a => a.kind === 'heli'), 'heli', 'heli-group'],
+  ]
+  for (const [label, list, kind, groupTag] of groups) {
+    if (!list.length) continue
+    const sorted = byDist(list)
+    const one = sorted.length === 1
+    out.push({
+      ...textOf(one ? alertText(sorted[0], sorted[0]._dist) : groupText(sorted, kind)),
+      tag: one ? sorted[0].hex : groupTag,
+      hex: sorted[0].hex,
+      label: `${label} group n=${sorted.length}`,
+    })
+  }
+  return { payloads: out, near: near.length, far: groups[0][1].length }
 }
 
 // Dedup po urządzeniu: jeśli jeden telefon ma kilka rekordów subskrypcji
@@ -237,7 +281,7 @@ export const handler = async (event) => {
     const aircraft = covered(v)
       ? snapshot.filter(a => haversine(v.raw.lat, v.raw.lon, a.lat, a.lon) <= radius)
       : await fetchMilitaryNear(v.raw.lat, v.raw.lon, radius)
-    return processSubscription(v, aircraft, subsStore, alertedStore, stats)
+    return processSubscription(v, aircraft, alertedStore, stats)
   }))
 
   for (const r of results) {
@@ -249,14 +293,14 @@ export const handler = async (event) => {
 
   // Pass 4 — jumbo jety i An-124 z celem w Rzeszowie/Krakowie. Czyta migawkę
   // z crona `inbound-collect`, więc nie odpytuje niczego na zewnątrz.
-  await processInbound(loaded, subsStore, alertedStore, stats).catch(err => {
+  await processInbound(loaded, stats).catch(err => {
     console.error('[notify] inbound pass failed:', err.message)
     stats.inboundError = err.message
   })
 
   // Pass 3 — rzadkie maszyny nad całą Polską. Nie zależą od pozycji
   // użytkownika, więc idą też do subskrypcji bez GPS.
-  await processRare(loaded, subsStore, alertedStore, stats).catch(err => {
+  await processRare(loaded, stats).catch(err => {
     console.error('[notify] rare pass failed:', err.message)
     stats.rareError = err.message
   })
@@ -280,7 +324,32 @@ export const handler = async (event) => {
   return { statusCode: 200, body: JSON.stringify(stats) }
 }
 
-async function processInbound(loaded, subsStore, alertedStore, stats) {
+// Rozsyłka tego samego zdarzenia (przylot, rzadka maszyna) do wielu urządzeń.
+// `payloadsFor(v)` mówi, co dostaje dane urządzenie (np. wg jego przełączników).
+async function broadcast(recipients, payloadsFor, stats, counter, label) {
+  stats[counter] = 0
+  await Promise.allSettled(recipients.map(async v => {
+    for (const p of payloadsFor(v)) {
+      try {
+        await webpush.sendNotification(v.raw.subscription, JSON.stringify(p))
+        stats[counter]++
+        stats.notificationsSent++
+      } catch (err) {
+        stats.pushErrors++
+        if (isExpiredPush(err)) {
+          await removeSubscription(v.key)
+          stats.expiredRemoved++
+          return
+        }
+        console.error(`[notify] ${label} push FAIL ${v.key} status=${err.statusCode || 0} msg=${err.message}`)
+      }
+    }
+  }))
+}
+
+const allRecipients = loaded => dedupeByDevice(loaded.filter(v => v.raw?.subscription))
+
+async function processInbound(loaded, stats) {
   const snap = await getStore(SNAPSHOT_STORE).get(SNAPSHOT_KEY, { type: 'json' }).catch(() => null)
   const list = snap?.inbound || []
   if (!list.length) return
@@ -290,8 +359,7 @@ async function processInbound(loaded, subsStore, alertedStore, stats) {
   const prev = (await store.get('alerted', { type: 'json' }).catch(() => null))?.alerted || {}
 
   const fresh = []
-  const next = {}
-  for (const [hex, ts] of Object.entries(prev)) if (now - ts <= INBOUND_COOLDOWN_MS) next[hex] = ts
+  const next = pruneCooldown(prev, INBOUND_COOLDOWN_MS, now)
   for (const x of list) {
     const airport = airportByIcao(x.route?.to)
     if (!airport) continue
@@ -304,37 +372,18 @@ async function processInbound(loaded, subsStore, alertedStore, stats) {
   await store.set('alerted', JSON.stringify({ alerted: next, ts: now }))
   if (!fresh.length) return
 
-  stats.inboundSent = 0
-  const recipients = dedupeByDevice(loaded.filter(v => v.raw?.subscription))
-  await Promise.allSettled(recipients.map(async v => {
-    for (const { x, airport, min } of fresh) {
-      // Przełącznik lotniska z ustawień urządzenia; brak pola = włączone.
-      if (v.raw.arrivals?.[airport.icao] === false) continue
-      const payload = {
-        ...inboundText(x, airport.name, landingClock(min, now), formatEta(min)),
-        tag: `inbound-${x.hex}`, hex: x.hex,
-      }
-      try {
-        await webpush.sendNotification(v.raw.subscription, JSON.stringify(payload))
-        stats.inboundSent++
-        stats.notificationsSent++
-      } catch (err) {
-        stats.pushErrors++
-        const status = err.statusCode || 0
-        if (status === 410 || status === 404) {
-          await subsStore.delete(v.key).catch(() => {})
-          await alertedStore.delete(v.key).catch(() => {})
-          stats.expiredRemoved++
-          return
-        }
-        console.error(`[notify] inbound push FAIL ${v.key} status=${status} msg=${err.message}`)
-      }
-    }
-  }))
+  const recipients = allRecipients(loaded)
+  await broadcast(recipients, v => fresh
+    // Przełącznik lotniska z ustawień urządzenia; brak pola = włączone.
+    .filter(({ airport }) => v.raw.arrivals?.[airport.icao] !== false)
+    .map(({ x, airport, min }) => ({
+      ...inboundText(x, airport.name, landingClock(min, now), formatEta(min)),
+      tag: `inbound-${x.hex}`, hex: x.hex,
+    })), stats, 'inboundSent', 'inbound')
   console.log(`[notify] inbound: ${fresh.map(f => `${f.x.flight}→${f.airport.icao}`).join(', ')} → ${recipients.length} subs`)
 }
 
-async function processRare(loaded, subsStore, alertedStore, stats) {
+async function processRare(loaded, stats) {
   const rare = findRare(await fetchMilGlobal())
   stats.rareOverPoland = rare.length
   if (!rare.length) return
@@ -346,8 +395,7 @@ async function processRare(loaded, subsStore, alertedStore, stats) {
 
   // Znacznik odświeżany, dopóki maszyna jest nad Polską — cooldown liczy się
   // od chwili, gdy ją opuści, jak przy alertach zasięgowych.
-  const next = {}
-  for (const [hex, ts] of Object.entries(prev)) if (now - ts <= RARE_COOLDOWN_MS) next[hex] = ts
+  const next = pruneCooldown(prev, RARE_COOLDOWN_MS, now)
   for (const { ac } of rare) next[ac.hex] = now
   // Zapis PRZED wysyłką — ubity run zgubi najwyżej jeden alert, nie powtórzy go.
   await store.set('alerted', JSON.stringify({ alerted: next, ts: now }))
@@ -360,29 +408,8 @@ async function processRare(loaded, subsStore, alertedStore, stats) {
       }))
     : [{ ...rareGroupText(fresh), tag: 'rare-group', hex: fresh[0].ac.hex }]
 
-  const recipients = dedupeByDevice(loaded.filter(v => v.raw?.subscription))
-    .filter(v => normalizeKinds(v.raw.kinds).rare)
-  stats.rareSent = 0
-
-  await Promise.allSettled(recipients.map(async v => {
-    for (const p of payload) {
-      try {
-        await webpush.sendNotification(v.raw.subscription, JSON.stringify(p))
-        stats.rareSent++
-        stats.notificationsSent++
-      } catch (err) {
-        stats.pushErrors++
-        const status = err.statusCode || 0
-        if (status === 410 || status === 404) {
-          await subsStore.delete(v.key).catch(() => {})
-          await alertedStore.delete(v.key).catch(() => {})
-          stats.expiredRemoved++
-          return
-        }
-        console.error(`[notify] rare push FAIL ${v.key} status=${status} msg=${err.message}`)
-      }
-    }
-  }))
+  const recipients = allRecipients(loaded).filter(v => normalizeKinds(v.raw.kinds).rare)
+  await broadcast(recipients, () => payload, stats, 'rareSent', 'rare')
   console.log(`[notify] rare: ${fresh.map(r => `${r.ac.hex}/${r.ac.t}`).join(', ')} → ${recipients.length} subs`)
 }
 
@@ -423,7 +450,6 @@ async function purgeLegacyRunBlobs(runsStore) {
 const SUBSCRIPTION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000
 async function purgeStaleSubscriptions(stats) {
   const subsStore = getStore('push-subscriptions')
-  const alertedStore = getStore('push-alerted')
   const { blobs } = await subsStore.list()
   const now = Date.now()
   let removed = 0
@@ -432,8 +458,7 @@ async function purgeStaleSubscriptions(stats) {
     if (!rec) return
     const age = now - (rec.updatedAt || rec.createdAt || now)
     if (age <= SUBSCRIPTION_MAX_AGE_MS) return
-    await subsStore.delete(b.key).catch(() => {})
-    await alertedStore.delete(b.key).catch(() => {})
+    await removeSubscription(b.key)
     removed++
     console.log(`[notify] purged abandoned subscription key=${b.key} ageDays=${Math.round(age / 86_400_000)}`)
   }))
@@ -470,7 +495,7 @@ async function purgeStaleRateLimits() {
 }
 
 
-async function processSubscription({ key, raw, ageMs }, aircraft, subsStore, alertedStore, stats) {
+async function processSubscription({ key, raw, ageMs }, aircraft, alertedStore, stats) {
   const result = { sent: 0, errors: 0 }
   const subDiag = { key, status: 'processed' }
 
@@ -494,20 +519,6 @@ async function processSubscription({ key, raw, ageMs }, aircraft, subsStore, ale
     const enriched = aircraft
       .map(a => ({ ...a, _dist: Math.round(haversine(lat, lon, a.lat, a.lon)) }))
       .filter(a => wanted[a.kind || 'mil'])
-    // Wojsko zachowuje rozróżnienie blisko (≤10 km) / w zasięgu; nowe kategorie
-    // (duże samoloty, śmigłowce służbowe) alertują po prostu w całym promieniu.
-    const milNow = enriched.filter(a => (a.kind || 'mil') === 'mil')
-    const heavyNow = enriched.filter(a => a.kind === 'heavy')
-    const heliNow = enriched.filter(a => a.kind === 'heli')
-    const nearNow = milNow.filter(a => a._dist <= CLOSE_RANGE_KM)
-    const farNow = milNow.filter(a => a._dist > CLOSE_RANGE_KM)
-    // Każda maszyna trafia dokładnie do jednego z tych czterech koszyków, a
-    // wszystkie sięgają po ten sam cooldown — stąd jeden alert na samolot.
-    const newNear = nearNow.filter(a => eligible(a.hex))
-    const newFar = farNow.filter(a => eligible(a.hex))
-    const newHeavy = heavyNow.filter(a => eligible(a.hex))
-    const newHeli = heliNow.filter(a => eligible(a.hex))
-
     // Persist the cooldown map BEFORE sending. A scheduled function can be
     // killed mid-run (time limit) once some pushes have already gone out; if
     // we saved the cooldown only afterwards, the next run (a minute later)
@@ -519,11 +530,8 @@ async function processSubscription({ key, raw, ageMs }, aircraft, subsStore, ale
     // więc zbliżenie się poniżej CLOSE_RANGE_KM ani przeklasyfikowanie maszyny
     // (mil ↔ heli/heavy między feedami adsb.fi) nie odpali drugiego alertu.
     // Wpisy maszyn, które właśnie wyleciały, zostają do wygaśnięcia cooldownu.
-    const nextAlerted = {}
+    const nextAlerted = pruneCooldown(prevAlerted, ALERT_COOLDOWN_MS, now)
     for (const a of enriched) nextAlerted[a.hex] = now
-    for (const [hex, ts] of Object.entries(prevAlerted)) {
-      if (!(hex in nextAlerted) && now - ts <= ALERT_COOLDOWN_MS) nextAlerted[hex] = ts
-    }
     // Skip the write when the cooldown content is unchanged (the common
     // empty-sky case) — saves one blob write per idle subscription per minute.
     if (!cooldownMapEqual(nextAlerted, prevAlerted)) {
@@ -534,14 +542,10 @@ async function processSubscription({ key, raw, ageMs }, aircraft, subsStore, ale
     subDiag.radius = radius
     subDiag.inRange = enriched.length
     if (aircraft.length !== enriched.length) subDiag.filteredOutByKind = aircraft.length - enriched.length
-    subDiag.newAircraft = newFar.length
-    subDiag.newNearAircraft = newNear.length
-
-    const endpoint = subscription.endpoint || ''
-    subDiag.pushProvider = endpoint.includes('apple.com') ? 'apple'
-      : endpoint.includes('fcm.googleapis.com') ? 'fcm'
-      : endpoint.includes('mozilla.com') ? 'mozilla'
-      : 'other'
+    const plan = planAlerts(enriched, eligible)
+    subDiag.newAircraft = plan.far
+    subDiag.newNearAircraft = plan.near
+    subDiag.pushProvider = pushProvider(subscription.endpoint)
 
     const send = async (payload, logLabel) => {
       try {
@@ -553,79 +557,20 @@ async function processSubscription({ key, raw, ageMs }, aircraft, subsStore, ale
         result.errors++
         const status = err.statusCode || 0
         console.error(`[notify] Push FAIL ${subDiag.pushProvider} ${key} ${logLabel} status=${status} msg=${err.message}`)
-        if (status === 410 || status === 404) return { expired: true }
+        if (isExpiredPush(err)) return { expired: true }
         subDiag.lastPushError = { status, msg: err.message }
         return {}
       }
     }
     const cleanupExpired = async () => {
-      await subsStore.delete(key).catch(() => {})
-      await alertedStore.delete(key).catch(() => {})
+      await removeSubscription(key)
       stats.expiredRemoved++
       subDiag.status = 'expired-removed'
       stats.perSub.push(subDiag)
     }
 
-    // Alerty bliskie (≤10 km). Pojedynczo, dopóki niebo nie jest zbyt gęste —
-    // wtedy jeden alert zbiorczy.
-    if (newNear.length) {
-      const sorted = [...newNear].sort((a, b) => a._dist - b._dist)
-      const n = sorted.length
-      if (n <= NEAR_GROUP_THRESHOLD) {
-        for (const ac of sorted) {
-          const { title, body } = alertText(ac, ac._dist)
-          const { expired } = await send({ title, body, tag: ac.hex, hex: ac.hex },
-            `near hex=${ac.hex} dist=${ac._dist}km`)
-          if (expired) { await cleanupExpired(); return result }
-        }
-      } else {
-        const { title, body } = groupText(sorted, 'mil')
-        const { expired } = await send({ title, body, tag: 'mil-near-group', hex: sorted[0].hex },
-          `near group n=${n}`)
-        if (expired) { await cleanupExpired(); return result }
-      }
-    }
-
-    // Alerty w zasięgu: zawsze jedno powiadomienie, żeby gęste niebo nie
-    // odpaliło kilkunastu osobnych.
-    if (newFar.length) {
-      const sorted = [...newFar].sort((a, b) => a._dist - b._dist)
-      const n = sorted.length
-      const { title, body } = n === 1
-        ? alertText(sorted[0], sorted[0]._dist)
-        : groupText(sorted, 'mil')
-      const tag = n === 1 ? sorted[0].hex : 'mil-far-group'
-      const { expired } = await send({ title, body, tag, hex: sorted[0].hex }, `far group n=${n}`)
-      if (expired) { await cleanupExpired(); return result }
-    }
-
-    // Duże samoloty (B747 / An-124) — rzadkie, więc warte osobnego alertu.
-    if (newHeavy.length) {
-      const sorted = [...newHeavy].sort((a, b) => a._dist - b._dist)
-      const n = sorted.length
-      const { title, body } = n === 1
-        ? alertText(sorted[0], sorted[0]._dist)
-        : groupText(sorted, 'heavy')
-      const { expired } = await send({
-        title, body,
-        tag: n === 1 ? sorted[0].hex : 'heavy-group',
-        hex: sorted[0].hex,
-      }, `heavy group n=${n}`)
-      if (expired) { await cleanupExpired(); return result }
-    }
-
-    // Śmigłowce służbowe (pogotowie / policja / Straż Graniczna).
-    if (newHeli.length) {
-      const sorted = [...newHeli].sort((a, b) => a._dist - b._dist)
-      const n = sorted.length
-      const { title, body } = n === 1
-        ? alertText(sorted[0], sorted[0]._dist)
-        : groupText(sorted, 'heli')
-      const { expired } = await send({
-        title, body,
-        tag: n === 1 ? sorted[0].hex : 'heli-group',
-        hex: sorted[0].hex,
-      }, `heli group n=${n}`)
+    for (const { label, ...payload } of plan.payloads) {
+      const { expired } = await send(payload, label)
       if (expired) { await cleanupExpired(); return result }
     }
 
