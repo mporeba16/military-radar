@@ -1,6 +1,6 @@
 import { getStore, connectLambda } from '@netlify/blobs'
 import crypto from 'crypto'
-import { corsHeaders, isValidPushEndpoint, rateLimit } from './lib/security.js'
+import { corsHeaders, isValidPushEndpoint, rateLimit, validatePosition, cleanDeviceId } from './lib/security.js'
 import { normalizeKinds } from './lib/military.js'
 
 // Preferencje przylotów: obiekt { EPRZ: bool, EPKK: bool }. Brak klucza
@@ -47,7 +47,12 @@ export const handler = async (event) => {
     }
   }
 
-  const { subscription, lat, lon, radius, deviceId, kinds, arrivals } = body
+  const { subscription, deviceId, kinds, arrivals } = body
+  const pos = validatePosition(body)
+  if (pos.error) {
+    return { statusCode: 400, headers, body: JSON.stringify({ error: pos.error }) }
+  }
+  const { lat, lon, radius } = pos
 
   if (!subscription?.endpoint) {
     return { statusCode: 400, headers, body: JSON.stringify({ error: 'missing-endpoint' }) }
@@ -111,7 +116,7 @@ export const handler = async (event) => {
     createdAt: existing?.createdAt ?? Date.now(),
     // Stabilny identyfikator urządzenia (z localStorage klienta) — pozwala
     // sprzątać stare endpointy po rotacji push (patrz niżej).
-    deviceId: deviceId ?? existing?.deviceId ?? null,
+    deviceId: cleanDeviceId(deviceId) ?? existing?.deviceId ?? null,
     // Kategorie, o których to urządzenie chce dostawać powiadomienia. Klient
     // wysyła je razem z pozycją; starszy klient nie wysyła nic i wtedy zostaje
     // to, co już zapisano, a w ostateczności komplet włączonych kategorii.

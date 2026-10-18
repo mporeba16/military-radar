@@ -407,7 +407,7 @@ export const handler = async (event) => {
   }
 
   // Trails are also collected by the `collect` cron every 2 min. The live
-  // handler runs on every uncached client fetch (~every 9 s while anyone is
+  // handler runs on every uncached client fetch (~every 10 s while anyone is
   // watching), so writing trails here on every call just duplicated the cron's
   // work. Throttle to once per 60 s per warm instance — enough to keep the
   // server trail denser than the cron alone, without the per-fetch overhead.
@@ -421,9 +421,9 @@ export const handler = async (event) => {
   return {
     statusCode: 200,
     // Every client polls the same fixed bbox (EUROPE_CENTER / 2800 km), so let
-    // Netlify's CDN collapse concurrent requests into one origin hit. s-maxage=5
-    // matches the client's 5 s poll — no staleness beyond one cycle.
-    headers: { ...headers, 'Cache-Control': 'public, max-age=0, s-maxage=5' },
+    // Netlify's CDN collapse concurrent requests into one origin hit. s-maxage=10
+    // matches the client's 10 s poll — no staleness beyond one cycle.
+    headers: { ...headers, 'Cache-Control': 'public, max-age=0, s-maxage=10' },
     body: JSON.stringify(result)
   }
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { altToColor, ftToM, knToKmh, countryFromHex, countryFlag } from './aircraftShapes'
 import { typeLabel } from '../lib/typeNames'
 import { findLikelyLanding } from '../airfields'
@@ -24,8 +24,14 @@ function useAircraftPhoto(hex, reg, ac) {
   // 'not-found' = planespotters returned 0 photos (image genuinely missing)
   // 'error'     = network / timeout / bad response (try again later)
   const [state, setState] = useState('idle')
+  // Rekord maszyny zmienia się przy każdym odświeżeniu mapy, a zdjęcie ma się
+  // pobierać od nowa tylko przy zmianie tożsamości (hex, rejestracja, typ,
+  // znak). Do oceny dopasowania bierzemy więc świeży rekord z refa.
+  const acRef = useRef(ac)
+  acRef.current = ac
   useEffect(() => {
     if (!hex && !reg) return
+    const ac = acRef.current
     setPhoto(null)
     setState('loading')
     const ctrl = new AbortController()

@@ -49,10 +49,9 @@ export default function PanelFooter({
   location,
   radius, isSubscribed,
   error,
-  debugUnlocked, fetchData, handleTestPush, testPushStatus, syncError, serverStatus,
+  debugUnlocked, debugOpen, setDebugOpen, fetchData, handleTestPush, testPushStatus, syncError, serverStatus,
   version, bumpVersionTap,
 }) {
-  const [debugOpen, setDebugOpen] = useState(false)
 
   return (
     <>

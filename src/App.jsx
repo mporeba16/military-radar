@@ -24,7 +24,9 @@ import { MLAT_MIN_INTERVAL_MS } from './lib/trailFilter.js'
 import './App.css'
 
 const EUROPE_CENTER = [52.0, 15.0]
-const POLL_INTERVAL = 5_000
+// Co 10 s, nie co 5 s: każde odświeżenie to wywołanie funkcji `aircraft`
+// (kredyty Netlify), a ikony i tak przesuwają się płynnie (animacja w RadarMap).
+const POLL_INTERVAL = 10_000
 const TRAIL_MIN_INTERVAL_MS = 10_000
 const TRAIL_MAX_AGE_MS = 60 * 60 * 1000  // 60 min — aligned closer to server's 4h cache
 const TRAIL_FLIGHT_SPLIT_GAP_MS = 10 * 60 * 1000  // gap → reset client trail (new flight)
@@ -72,12 +74,13 @@ export default function App() {
   const [debugUnlocked, setDebugUnlocked] = useState(() => {
     try { return new URLSearchParams(window.location.search).has('debug') } catch { return false }
   })
+  const [debugOpen, setDebugOpen] = useState(false)
   const versionTapsRef = useRef({ count: 0, timer: null })
   // Akcję centrowania mapy wystawia RadarMap (tam mieszka instancja Leafletu),
   // a wywołuje ją przycisk w chrome nad mapą.
   const recenterRef = useRef(null)
 
-  // Ref tak, aby fetchData (zależne tylko od radius/location) widziało aktualne
+  // Ref tak, aby fetchData (zależne tylko od location) widziało aktualne
   // filtry bez przepinania interwału przy każdym przełączeniu kategorii.
   const kindsRef = useRef(kinds)
   kindsRef.current = kinds
@@ -94,7 +97,8 @@ export default function App() {
   const {
     isSubscribed, subResolved, isSubscribing, subscribe, unsubscribe, sendTestPush,
     permissionState, subscribeError, syncError, serverStatus,
-  } = usePushNotifications(location, radius, kinds, arrivals)
+  } = usePushNotifications(location, radius, kinds, arrivals,
+    debugUnlocked && debugOpen && activePanel === 'alerty')
 
   // Gdy aktywny jest push serwerowy, NIE strzelamy też lokalnym powiadomieniem
   // systemowym — inaczej (w foreground) ten sam samolot daje dwa komunikaty.
@@ -165,7 +169,7 @@ export default function App() {
     setIsLoading(true)
     setError(null)
     try {
-      const { aircraft: data, isDemo, source } = await fetchMilitaryAircraft(center, 2800, ctrl.signal)
+      const { aircraft: data, isDemo, source } = await fetchMilitaryAircraft(EUROPE_CENTER, 2800, ctrl.signal)
       if (ctrl.signal.aborted) return
       if (source === 'unavailable') {
         setError('API niedostępne')
@@ -260,7 +264,7 @@ export default function App() {
         fetchAbortRef.current = null
       }
     }
-  }, [radius, location, applyInRange])
+  }, [location, applyInRange])
 
   // Keep ref fresh so stable interval always calls latest closure
   fetchDataRef.current = fetchData
@@ -421,9 +425,11 @@ export default function App() {
   }
 
   // B3: memoize gpsCenter so RadarMap props are stable
+  const gpsLat = location?.lat
+  const gpsLon = location?.lon
   const gpsCenter = useMemo(
-    () => location ? [location.lat, location.lon] : null,
-    [location?.lat, location?.lon]
+    () => gpsLat != null ? [gpsLat, gpsLon] : null,
+    [gpsLat, gpsLon]
   )
 
   // Maszyny z celem w Rzeszowie/Krakowie dochodzą do listy z radaru: te, które
@@ -583,7 +589,12 @@ export default function App() {
       <MapPanelButtons
         activePanel={activePanel}
         onTogglePanel={togglePanel}
-        onRecenter={() => recenterRef.current?.()}
+        onRecenter={() => {
+          // Bez pozycji przycisk przy okazji ponawia GPS — to jedyne miejsce
+          // w aplikacji, z którego da się to zrobić bez przeładowania.
+          if (!location) requestLocation()
+          recenterRef.current?.()
+        }}
         hasGps={!!location}
         alertsLevel={alertsLevel}
       />
@@ -693,6 +704,8 @@ export default function App() {
                 isSubscribed={isSubscribed}
                 error={error}
                 debugUnlocked={debugUnlocked}
+                debugOpen={debugOpen}
+                setDebugOpen={setDebugOpen}
                 fetchData={fetchData}
                 handleTestPush={handleTestPush}
                 testPushStatus={testPushStatus}

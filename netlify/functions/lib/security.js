@@ -58,3 +58,30 @@ export async function rateLimit({ key, windowMs }) {
     return { allowed: true }
   }
 }
+
+// Pozycja i zasięg z klienta. `notify` liczy z nich wspólny środek wszystkich
+// subskrypcji, więc jeden rekord z tekstem zamiast liczby (sklejanie napisów
+// w sumie) albo z ogromnym promieniem psułby alerty wszystkim. Brak pola
+// (null/undefined) jest poprawny — znaczy „bez zmian".
+export const RADIUS_MIN_KM = 25
+export const RADIUS_MAX_KM = 500
+
+const isNum = v => typeof v === 'number' && Number.isFinite(v)
+
+export function validatePosition({ lat, lon, radius }) {
+  if ((lat == null) !== (lon == null)) return { error: 'invalid-position' }
+  if (lat != null && !(isNum(lat) && lat >= -90 && lat <= 90 && isNum(lon) && lon >= -180 && lon <= 180)) {
+    return { error: 'invalid-position' }
+  }
+  if (radius != null && !isNum(radius)) return { error: 'invalid-radius' }
+  return {
+    lat: lat ?? null,
+    lon: lon ?? null,
+    radius: radius == null ? null : Math.min(RADIUS_MAX_KM, Math.max(RADIUS_MIN_KM, radius)),
+  }
+}
+
+// Stabilny identyfikator urządzenia z localStorage klienta — krótki napis albo nic.
+export function cleanDeviceId(v) {
+  return typeof v === 'string' && v.length > 0 && v.length <= 100 ? v : null
+}

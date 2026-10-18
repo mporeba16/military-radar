@@ -75,7 +75,7 @@ async function fetchStatus(sub) {
   }
 }
 
-export function usePushNotifications(location, radius, kinds, arrivals) {
+export function usePushNotifications(location, radius, kinds, arrivals, statusEnabled = false) {
   const [isSubscribed, setIsSubscribed] = useState(false)
   // Czy znamy już stan subskrypcji? Zanim asynchroniczne getSubscription() się
   // rozwiąże, isSubscribed jest false — gdyby klient w tym oknie odpalił lokalne
@@ -142,11 +142,12 @@ export function usePushNotifications(location, radius, kinds, arrivals) {
     return () => clearTimeout(id)
   }, [isSubscribed, syncLat, syncLon, radius, wantMil, wantHeli, wantHeavy, wantRare, arrivalsKey])
 
-  // Diagnostyka serwerowa, odświeżana co minutę. Zależy WYŁĄCZNIE od stanu
-  // subskrypcji: gdyby zależała też od pozycji, każdy fix GPS zerowałby
-  // interwał i od razu strzelał kolejnym zapytaniem.
+  // Diagnostyka serwerowa, odświeżana co minutę — tylko gdy jest na ekranie
+  // (rozwinięta diagnostyka). Wcześniej każde urządzenie z pushem pytało co
+  // minutę, choć wynik widać wyłącznie tam. Nie zależy od pozycji: gdyby
+  // zależała, każdy fix GPS zerowałby interwał i od razu strzelał zapytaniem.
   useEffect(() => {
-    if (!isSubscribed || !subRef.current) {
+    if (!statusEnabled || !isSubscribed || !subRef.current) {
       setServerStatus(null)
       return
     }
@@ -158,7 +159,7 @@ export function usePushNotifications(location, radius, kinds, arrivals) {
     refresh()
     const id = setInterval(refresh, 60_000)
     return () => { cancelled = true; clearInterval(id) }
-  }, [isSubscribed])
+  }, [isSubscribed, statusEnabled])
 
   const subscribe = useCallback(async () => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {

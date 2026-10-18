@@ -25,7 +25,7 @@ const MIN_TAP_TARGET = 44
 
 // Smooth marker animation: a single requestAnimationFrame loop interpolates
 // every animating marker from old to new position over ~2.5 s instead of
-// teleporting on each poll. This hides the 5-s-poll sampling step and
+// teleporting on each poll. This hides the 10-s-poll sampling step and
 // smooths over small jumps in adsb.fi data.
 // Animacja dobiega 2,5 s, ale przy tłoku na niebie skracamy ją: na telefonie
 // płynne przesuwanie kilkuset ikon przez 2,5 s po każdym odświeżeniu zjadało
@@ -417,13 +417,14 @@ function AircraftLayer({ aircraft, selectedHex, onSelect, zoomScale, viewTick })
     const group = L.layerGroup()
     map.addLayer(group)
     groupRef.current = group
+    const markers = markersRef.current
     return () => {
-      for (const entry of markersRef.current.values()) {
+      for (const entry of markers.values()) {
         animatingMarkers.delete(entry.marker)
       }
       map.removeLayer(group)
       groupRef.current = null
-      markersRef.current.clear()
+      markers.clear()
     }
   }, [map])
 

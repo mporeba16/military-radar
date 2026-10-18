@@ -134,7 +134,7 @@ button, a, [role="button"], .alert-toast {
 /* Cyfry tabelaryczne wszędzie, gdzie liczba odświeża się w miejscu: wysokość,
    prędkość, dystans, zasięg, pozycja GPS, poziom zagrożenia. Courier dawał
    stałą szerokość znaku za darmo — krój proporcjonalny musi dostać to jawnie,
-   inaczej odczyt drga przy każdym cyklu odświeżenia (co 5 s). */
+   inaczej odczyt drga przy każdym cyklu odświeżenia (co 10 s). */
 .ac-info-val,
 .alert-toast-detail,
 .range-head__value,

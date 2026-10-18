@@ -14,7 +14,10 @@ export async function fetchMilitaryAircraft(center, radiusKm, signal) {
       : 'błąd API'
     throw new Error(`${label} (HTTP ${res.status})`)
   }
-  const data = await res.json()
+  // Odpowiedź 200, ale nie JSON (np. strona HTML zamiast funkcji) — surowy
+  // SyntaxError „Unexpected token '<'…" nic użytkownikowi nie mówi.
+  let data
+  try { data = await res.json() } catch { throw new Error('serwer niedostępny (zła odpowiedź)') }
   return {
     // Maszyny nadające bez pola typu dostają go z naszej tabeli — zanim
     // ktokolwiek w aplikacji spojrzy na rekord.
