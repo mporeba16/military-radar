@@ -43,51 +43,18 @@ function ViewportDiag() {
   )
 }
 
-// Panel Ustawienia — to, co otwiera się raz na jakiś czas: pozycja GPS,
-// wersja i diagnostyka. Alerty i warstwy mają własne panele.
+// Panel Ustawienia — wersja i diagnostyka. Alerty i warstwy mają własne panele.
 export default function SettingsPanel({
-  location, accuracy, requestLocation,
+  location,
   radius, isSubscribed,
   error,
   debugUnlocked, fetchData, handleTestPush, testPushStatus, syncError, serverStatus,
   version, bumpVersionTap,
 }) {
-  const [gpsOpen, setGpsOpen] = useState(false)
   const [debugOpen, setDebugOpen] = useState(false)
 
   return (
     <div className="panel-body">
-
-      {/* Pozycja GPS — współrzędne i dokładność. Brak GPS opisuje karta
-          gotowości w panelu Alerty. */}
-      <section className="cp-section">
-        <div className="cp-label">{t('GPS_SECTION')}</div>
-        {location ? (
-          <>
-            <button className="gps-slim" onClick={() => setGpsOpen(o => !o)} aria-expanded={gpsOpen}>
-              <span className="gps-slim__dot">◉</span>
-              <span className="gps-slim__coord">{location.lat.toFixed(4)}°N {location.lon.toFixed(4)}°E</span>
-              <span className="gps-slim__meta">
-                {accuracy != null && `±${accuracy < 1000 ? `${Math.round(accuracy)} m` : `${(accuracy / 1000).toFixed(1)} km`}`}
-              </span>
-              <span className="gps-slim__chev">{gpsOpen ? '⌃' : '⌄'}</span>
-            </button>
-            {gpsOpen && (
-              <div className="gps-more">
-                <button className="link-btn" onClick={requestLocation}
-                  title={t('GPS_LABEL')}>{t('GPS_RETRY')}</button>
-              </div>
-            )}
-          </>
-        ) : (
-          // Bez pozycji panel nie może być pusty — powód i „co dalej" opisuje
-          // karta gotowości w Alertach, tu zostaje sama możliwość ponowienia.
-          <>
-            <p className="info-text">{t('GPS_NONE')}</p>
-            <button className="link-btn mt6" onClick={requestLocation}>{t('GPS_RETRY')}</button>
-          </>
-        )}
-      </section>
 
       {error && <p className="err small">✗ {error}</p>}
 

@@ -4,10 +4,8 @@ import Toggle from './Toggle'
 import { t } from '../i18n'
 import { BASE_PL, BASE_NATO, RANGE, AIRSPACE } from '../lib/palette'
 import { KIND_ROWS } from '../lib/alertsState'
-import { ALT_BANDS } from '../lib/altBands'
-import { altToColor } from './aircraftShapes'
 
-// Panel „Mapy": podkład, nakładki i filtr wysokości.
+// Panel „Mapy": podkład, nakładki i kategorie maszyn.
 //
 // Podkład wybiera się z podglądów, nie z listy technicznych nazw — „OSM ADSBx"
 // i „OpenStreetMap" to ten sam serwis różniący się filtrem przyciemniającym,
@@ -19,7 +17,6 @@ export default function MapsPanel({
   showRanges, setShowRanges,
   showAirspace, setShowAirspace, airspaceError,
   kinds, setKinds,
-  altBands, setAltBands, bandCounts,
 }) {
   const [baseOpen, setBaseOpen] = useState(false)
   const active = TILE_LAYERS.find(l => l.id === resolveTileId(activeTileId)) || TILE_LAYERS[0]
@@ -148,28 +145,6 @@ export default function MapsPanel({
               stateColor={kinds[key] ? color : 'rgba(255,255,255,0.4)'}
             />
           ))}
-        </div>
-      </section>
-
-      <section className="cp-section">
-        <div className="cp-label">{t('ALT_FILTER_LABEL')}</div>
-        <div className="band-list">
-          {ALT_BANDS.map(b => {
-            const on = altBands[b.id]
-            const hi = Number.isFinite(b.max) ? b.max : 12200
-            return (
-              <button key={b.id}
-                className={`band-row ${on ? '' : 'off'}`}
-                aria-pressed={on}
-                onClick={() => setAltBands(prev => ({ ...prev, [b.id]: !prev[b.id] }))}>
-                <span className="band-row__sw" style={{
-                  background: `linear-gradient(90deg, ${altToColor(b.min)}, ${altToColor(hi)})`,
-                }} />
-                <span className="band-row__label">{b.label}</span>
-                <span className="band-row__count">{bandCounts?.[b.id] || 0}</span>
-              </button>
-            )
-          })}
         </div>
       </section>
 

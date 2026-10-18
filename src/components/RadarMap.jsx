@@ -407,7 +407,7 @@ function ZoomTracker({ onZoomChange }) {
 // przy przesuwaniu mapy nic nie „doskakuje" z opóźnieniem.
 const VIEW_PAD = 0.35
 
-function AircraftLayer({ aircraft, selectedHex, onSelect, zoomScale, dimmedHexes, viewTick }) {
+function AircraftLayer({ aircraft, selectedHex, onSelect, zoomScale, viewTick }) {
   const map = useMap()
   const groupRef = useRef(null)
   const markersRef = useRef(new Map()) // hex → { marker, key }
@@ -460,10 +460,6 @@ function AircraftLayer({ aircraft, selectedHex, onSelect, zoomScale, dimmedHexes
       const v22Slow = /V22|MV22|CV22|OSPREY/i.test(ac.t || '') && ac.gs != null && ac.gs < 100 ? 1 : 0
       const iconKey = `${trackQ}|${altQ}|${v22Slow}|${ac.t || ''}|${ac.kind || ''}|${squawkAlertColor(ac.squawk) || ''}|${isSelected ? 1 : 0}|${ac.on_ground ? 1 : 0}|${zoomScale}`
 
-      // Pasmo wysokości wyłączone w panelu Mapy → maszyna przygaszona, ale
-      // nadal na mapie i nadal klikalna. setOpacity jest tanie: nie przebudowuje
-      // ikony, więc filtrowanie nie kosztuje tyle co zmiana wyglądu markera.
-      const dim = dimmedHexes?.has(ac.hex) ? 0.22 : 1
       const existing = markersRef.current.get(ac.hex)
       if (existing) {
         if (existing.posKey !== posKey) {
@@ -490,10 +486,6 @@ function AircraftLayer({ aircraft, selectedHex, onSelect, zoomScale, dimmedHexes
           existing.marker.setIcon(buildLeafletIcon(ac, isSelected, zoomScale))
           existing.iconKey = iconKey
         }
-        if (existing.dim !== dim) {
-          existing.marker.setOpacity(dim)
-          existing.dim = dim
-        }
       } else {
         const marker = L.marker([ac.lat, ac.lon], {
           icon: buildLeafletIcon(ac, isSelected, zoomScale),
@@ -503,8 +495,7 @@ function AircraftLayer({ aircraft, selectedHex, onSelect, zoomScale, dimmedHexes
           if (e.originalEvent) e.originalEvent.stopPropagation()
           onSelect?.(hex)
         })
-        if (dim !== 1) marker.setOpacity(dim)
-        markersRef.current.set(ac.hex, { marker, posKey, iconKey, dim, lastUpdateTs: Date.now() })
+        markersRef.current.set(ac.hex, { marker, posKey, iconKey, lastUpdateTs: Date.now() })
         additions.push(marker)
       }
     }
@@ -521,7 +512,7 @@ function AircraftLayer({ aircraft, selectedHex, onSelect, zoomScale, dimmedHexes
       group.removeLayer(m)
     }
     for (const m of additions) group.addLayer(m)
-  }, [aircraft, selectedHex, zoomScale, onSelect, dimmedHexes, map, viewTick])
+  }, [aircraft, selectedHex, zoomScale, onSelect, map, viewTick])
 
   return null
 }
@@ -533,7 +524,7 @@ export { TILE_LAYERS, tileThumbUrl, resolveTileId }
 export default function RadarMap({
   aircraft, hasFetched, trails, serverTrails, center, gpsCenter, radius,
   selectedHex, focusHex, onSelect, activeTileId, showBases, showNatoBases, showRanges,
-  airspace, showAirspace, dimmedHexes, recenterRef,
+  airspace, showAirspace, recenterRef,
 }) {
   const initialZoom = 6  // S4: was 5, but icons were too small at default view
   const [zoom, setZoom] = useState(initialZoom)
@@ -713,7 +704,6 @@ export default function RadarMap({
           selectedHex={selectedHex}
           onSelect={onSelect}
           zoomScale={zoomScale}
-          dimmedHexes={dimmedHexes}
         />
       </MapContainer>
     </div>

@@ -270,25 +270,6 @@
   line-height: 1.6;
 }
 
-/* Ponowienie GPS — w karcie gotowości alertów, gdy brak pozycji. */
-.btn-gps-fix {
-  width: 100%;
-  padding: 9px;
-  background: rgba(var(--alert-rgb), 0.14);
-  border: 1px solid rgba(255, 100, 70, 0.6);
-  color: #ff8a66;
-  cursor: pointer;
-  font-family: var(--font);
-  font-size: 12px;
-  letter-spacing: 1px;
-  border-radius: 5px;
-  transition: all 0.15s;
-}
-.btn-gps-fix:hover {
-  background: rgba(var(--alert-rgb), 0.22);
-  color: #ffb199;
-}
-
 /* Wspólny wiersz-przełącznik — DRY dla filtrów kategorii i powiadomień */
 .toggle-list {
   display: flex;
@@ -633,12 +614,6 @@
 .ready-ok .ready-title { color: var(--kind-mil); }
 .ready-warn .ready-title { color: var(--watch); }
 .ready-off .ready-title { color: var(--alert); }
-.ready-why { font-size: 11px; color: rgba(255, 255, 255, 0.7); line-height: 1.5; }
-.ready-conds { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 2px; }
-.ready-cond { display: flex; align-items: center; gap: 5px; font-size: 9.5px; letter-spacing: 1.2px; color: var(--text-dim); }
-.ready-cond::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: rgba(255, 255, 255, 0.25); }
-.ready-cond.on { color: rgba(255, 255, 255, 0.8); }
-.ready-cond.on::before { background: #00ff88; }
 
 /* ══ Suwak zasięgu ════════════════════════════════════════════════════════ */
 .range-block { display: flex; flex-direction: column; }
@@ -659,31 +634,6 @@
 .count-live { color: #00ff88; }
 .count-idle { color: var(--text-dim); }
 .count-note { color: rgba(255, 255, 255, 0.5); }
-
-/* ══ GPS zwinięty ═════════════════════════════════════════════════════════ */
-.gps-slim {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  width: 100%;
-  min-height: 44px;
-  padding: 8px 11px;
-  border-radius: 7px;
-  background: rgba(0, 255, 136, 0.05);
-  border: 1px solid rgba(0, 255, 136, 0.2);
-  color: inherit;
-  font: inherit;
-  font-size: 11px;
-  cursor: pointer;
-  text-align: left;
-}
-.gps-slim:hover { background: rgba(0, 255, 136, 0.09); }
-.gps-slim:focus-visible { outline: 2px solid rgba(0, 255, 136, 0.7); outline-offset: 2px; }
-.gps-slim__dot { color: #00ff88; }
-.gps-slim__coord { color: #00ff88; flex: 1; }
-.gps-slim__meta { color: var(--text-dim); font-size: 10px; }
-.gps-slim__chev { color: var(--text-dim); }
-.gps-more { display: flex; flex-direction: column; gap: 2px; padding: 6px 2px 0; }
 
 /* ══ Stopka panelu i diagnostyka ══════════════════════════════════════════ */
 .panel-footer {
@@ -762,32 +712,6 @@
 .tile-card__name { font-size: 11.5px; color: #ffffff; }
 .tile-card.active .tile-card__name { color: #00ff88; }
 .tile-card__src { font-size: 9px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-/* ══ Legenda wysokości jako filtr ═════════════════════════════════════════ */
-.band-list { display: flex; flex-direction: column; gap: 5px; }
-.band-row {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  width: 100%;
-  min-height: 44px;
-  padding: 6px 9px;
-  border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.03);
-  color: inherit;
-  font: inherit;
-  font-size: 11px;
-  cursor: pointer;
-  text-align: left;
-  transition: opacity 0.15s, background 0.15s;
-}
-.band-row:hover { background: rgba(255, 255, 255, 0.07); }
-.band-row:focus-visible { outline: 2px solid rgba(0, 255, 136, 0.7); outline-offset: 2px; }
-.band-row.off { opacity: 0.42; }
-.band-row__sw { width: 24px; height: 8px; border-radius: 2px; flex-shrink: 0; }
-.band-row__label { flex: 1; }
-.band-row__count { font-size: 10px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
 
 /* ══ Drobiazgi wspólne ════════════════════════════════════════════════════ */
 .small { font-size: 11px; }

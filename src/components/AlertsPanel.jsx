@@ -21,7 +21,7 @@ function isStandalonePWA() {
 // Wydzielony z dawnego panelu Ustawienia, który zebrał osiem niepowiązanych
 // sekcji: od zasięgu alertów po diagnostykę serwera.
 export default function AlertsPanel({
-  location, locationError, requestLocation,
+  location, locationError,
   radius, setRadius, inRangeCount, alertsCount,
   kinds, setKinds,
   permissionState, isSubscribed, isSubscribing, subscribe, unsubscribe, subscribeError,
@@ -35,18 +35,11 @@ export default function AlertsPanel({
   return (
     <div className="panel-body">
 
-      {/* 1. Czy to w ogóle zadziała — odpowiedź zanim cokolwiek przewiniesz. */}
+      {/* 1. Czy to w ogóle zadziała — sam stan: aktywne albo nieaktywne. */}
       <div className={`ready-card ready-${state.level}`}>
-        <span className="ready-title">{state.level === 'ok' ? '◉' : '⚠'} {state.title}</span>
-        {state.why && <span className="ready-why">{state.why}</span>}
-        {state.retry && (
-          <button className="btn-gps-fix" onClick={requestLocation}>◎ {t('GPS_RETRY')}</button>
-        )}
-        <div className="ready-conds">
-          <span className={`ready-cond ${location ? 'on' : ''}`}>{t('READY_COND_GPS')}</span>
-          <span className={`ready-cond ${isSubscribed ? 'on' : ''}`}>{t('READY_COND_PUSH')}</span>
-          <span className={`ready-cond ${kindsOn > 0 ? 'on' : ''}`}>{kindsOn}/3 {t('READY_COND_KINDS')}</span>
-        </div>
+        <span className="ready-title">
+          {state.level === 'ok' ? `◉ ${t('READY_OK')}` : `⚠ ${t('READY_NO_GPS')}`}
+        </span>
       </div>
 
       {/* 2. Zasięg — jedyna kontrolka ruszana regularnie, więc idzie na wierzch. */}

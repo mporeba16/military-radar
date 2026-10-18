@@ -14,10 +14,8 @@ import { useAirspace } from './hooks/useAirspace'
 import { useInbound } from './hooks/useInbound'
 import { fetchMilitaryAircraft } from './api'
 import { haversine, bearing } from './lib/geo'
-import { ALL_BANDS_ON, bandForAltM, normalizeBands, ALT_BANDS } from './lib/altBands'
 import { readiness, kindsOnCount } from './lib/alertsState'
 import { ARRIVAL_AIRPORTS } from './lib/inbound'
-import { ftToM } from './components/aircraftShapes'
 import { alertText, shortTypeName, heliRole, CLOSE_RANGE_KM } from './lib/notifyText'
 import { countryCodeFromHex } from './lib/countries'
 import { t } from './i18n'
@@ -52,7 +50,6 @@ export default function App() {
   const [serverTrails, setServerTrails] = useState(new Map())
   const [activePanel, setActivePanel] = useState(null)
   const [activeTileId, setActiveTileId] = useLocalStorage('radar.tile', 'osm-adsbx')
-  const [altBandsRaw, setAltBands] = useLocalStorage('radar.altBands', ALL_BANDS_ON)
   const [showBases, setShowBases] = useLocalStorage('radar.bases', true)
   const [showNatoBases, setShowNatoBases] = useLocalStorage('radar.natoBases', true)
   const [showRanges, setShowRanges] = useLocalStorage('radar.ranges', true)
@@ -93,7 +90,7 @@ export default function App() {
   const fetchDataRef = useRef(null)
   const fetchAbortRef = useRef(null)
   const testPushTimerRef = useRef(null)
-  const { location, accuracy, locationError, requestLocation } = useGeolocation()
+  const { location, locationError, requestLocation } = useGeolocation()
   const {
     isSubscribed, subResolved, isSubscribing, subscribe, unsubscribe, sendTestPush,
     permissionState, subscribeError, syncError, serverStatus,
@@ -476,27 +473,6 @@ export default function App() {
     [aircraftWithArrivals, kinds, selectedHex]
   )
 
-  // Filtr wysokości z panelu Mapy PRZYGASZA, nie usuwa: maszyna poza włączonym
-  // pasmem zostaje na mapie i nadal da się ją kliknąć. Zaznaczona nigdy nie gaśnie.
-  const altBands = useMemo(() => normalizeBands(altBandsRaw), [altBandsRaw])
-  const dimmedHexes = useMemo(() => {
-    const out = new Set()
-    for (const ac of visibleAircraft) {
-      if (ac.hex === selectedHex) continue
-      const band = bandForAltM(ftToM(ac.alt_baro))
-      if (band && !altBands[band]) out.add(ac.hex)
-    }
-    return out
-  }, [visibleAircraft, altBands, selectedHex])
-
-  const bandCounts = useMemo(() => {
-    const out = Object.fromEntries(ALT_BANDS.map(b => [b.id, 0]))
-    for (const ac of visibleAircraft) {
-      const band = bandForAltM(ftToM(ac.alt_baro))
-      if (band) out[band]++
-    }
-    return out
-  }, [visibleAircraft])
 
 
   // U12: meta theme-color flips red when an emergency squawk is currently
@@ -600,7 +576,6 @@ export default function App() {
         showRanges={showRanges}
         airspace={airspace}
         showAirspace={showAirspace}
-        dimmedHexes={dimmedHexes}
         recenterRef={recenterRef}
       />
 
@@ -694,7 +669,6 @@ export default function App() {
             <AlertsPanel
               location={location}
               locationError={locationError}
-              requestLocation={requestLocation}
               radius={radius}
               setRadius={setRadius}
               inRangeCount={inRangeCount}
@@ -719,8 +693,6 @@ export default function App() {
           {activePanel === 'ustawienia' && (
             <SettingsPanel
               location={location}
-              accuracy={accuracy}
-              requestLocation={requestLocation}
               radius={radius}
               isSubscribed={isSubscribed}
               error={error}
@@ -748,9 +720,6 @@ export default function App() {
               showAirspace={showAirspace}
               setShowAirspace={setShowAirspace}
               airspaceError={airspace.error}
-              altBands={altBands}
-              setAltBands={setAltBands}
-              bandCounts={bandCounts}
               kinds={kinds}
               setKinds={setKinds}
             />
