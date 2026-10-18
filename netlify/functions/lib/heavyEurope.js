@@ -84,6 +84,7 @@ export function carryForward(current, fetchedTypes, previous, now = Date.now()) 
   const fetched = new Set(fetchedTypes)
   const kept = (previous?.aircraft || []).filter(a =>
     !have.has(a.hex) && !fetched.has(String(a.t || '').toUpperCase()) &&
+    isNearPoland(a.lat, a.lon, NEAR_POLAND_KM) &&
     now - (a._at ?? previous.at) <= CARRY_MAX_AGE_MS)
   return [...current, ...kept]
 }
@@ -118,7 +119,9 @@ export function mergeHeavies(live, snapshot, box, map, now = Date.now()) {
     if (now - fetchedAt > HEAVY_MAX_AGE_MS) continue
     const posAgeS = (now - fetchedAt) / 1000 + (typeof raw.seen_pos === 'number' ? raw.seen_pos : 0)
     const moved = extrapolate(raw, posAgeS)
-    if (!inBox(moved, box)) continue
+    // Także tu, nie tylko w cronie: starsza migawka (sprzed zawężenia obszaru
+    // albo przeniesiona przy 429) nie może wnieść maszyn znad Francji.
+    if (!inBox(moved, box) || !isNearPoland(moved.lat, moved.lon, NEAR_POLAND_KM)) continue
     const { _at, ...rec } = moved
     extra.push(map({ ...rec, _kind: 'heavy' }))
     have.add(hex)

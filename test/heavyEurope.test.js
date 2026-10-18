@@ -11,19 +11,24 @@ const NOW = 1_000_000_000
 
 describe('mergeHeavies', () => {
   const overFrance = { hex: '4B1812', t: 'B748', lat: 48.8, lon: 2.3, gs: 0, track: 90, seen_pos: 1 }
+  const overBerlin = { hex: '4B1813', t: 'B748', lat: 52.5, lon: 13.4, gs: 0, track: 90, seen_pos: 1 }
 
-  it('dokleja jumbo jeta nad Francją jako „heavy”', () => {
-    const out = mergeHeavies([], { at: NOW - 30_000, aircraft: [overFrance] }, BOX, map, NOW)
-    expect(out).toEqual([{ hex: '4b1812', lat: 48.8, lon: 2.3, t: 'B748', kind: 'heavy' }])
+  it('dokleja jumbo jeta nad Berlinem (do 100 km od granicy) jako „heavy”', () => {
+    const out = mergeHeavies([], { at: NOW - 30_000, aircraft: [overBerlin] }, BOX, map, NOW)
+    expect(out).toEqual([{ hex: '4b1813', lat: 52.5, lon: 13.4, t: 'B748', kind: 'heavy' }])
+  })
+
+  it('nie dokleja jumbo jeta nad Francją, nawet ze starej migawki', () => {
+    expect(mergeHeavies([], { at: NOW - 30_000, aircraft: [overFrance] }, BOX, map, NOW)).toEqual([])
   })
 
   it('nie dubluje maszyny, którą mamy już na żywo (nad Polską świeższe dane z adsb.fi)', () => {
-    const live = [{ hex: '4b1812', lat: 52, lon: 19, kind: 'heavy' }]
-    expect(mergeHeavies(live, { at: NOW, aircraft: [overFrance] }, BOX, map, NOW)).toBe(live)
+    const live = [{ hex: '4b1813', lat: 52, lon: 19, kind: 'heavy' }]
+    expect(mergeHeavies(live, { at: NOW, aircraft: [overBerlin] }, BOX, map, NOW)).toBe(live)
   })
 
   it('pomija migawkę starszą niż 8 minut (cron co 5 min + zapas)', () => {
-    expect(mergeHeavies([], { at: NOW - 9 * 60_000, aircraft: [overFrance] }, BOX, map, NOW)).toEqual([])
+    expect(mergeHeavies([], { at: NOW - 9 * 60_000, aircraft: [overBerlin] }, BOX, map, NOW)).toEqual([])
   })
 
   it('pomija maszyny poza obszarem zapytania', () => {
@@ -84,7 +89,10 @@ describe('przenoszenie z poprzedniej migawki (429 adsb.lol)', () => {
   })
 
   it('przenosi maszynę typu, którego teraz nie udało się pobrać', () => {
-    const prev = { at: NOW - 5 * 60_000, aircraft: [{ hex: 'aaa111', t: 'B744', _at: NOW - 5 * 60_000 }] }
+    const prev = { at: NOW - 5 * 60_000, aircraft: [
+      { hex: 'aaa111', t: 'B744', lat: 52.5, lon: 13.4, _at: NOW - 5 * 60_000 },
+      { hex: 'fff999', t: 'B744', lat: 48.8, lon: 2.3, _at: NOW - 5 * 60_000 }, // Paryż — odpada
+    ] }
     const out = carryForward([], ['A124', 'B748'], prev, NOW)
     expect(out.map(a => a.hex)).toEqual(['aaa111'])
   })
