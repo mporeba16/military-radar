@@ -14,7 +14,7 @@ import { useAirspace } from './hooks/useAirspace'
 import { useInbound } from './hooks/useInbound'
 import { fetchMilitaryAircraft } from './api'
 import { haversine, bearing } from './lib/geo'
-import { readiness, kindsOnCount } from './lib/alertsState'
+import { alertsLevel, kindsOnCount } from './lib/alertsState'
 import { ARRIVAL_AIRPORTS } from './lib/inbound'
 import { alertText, shortTypeName, heliRole, CLOSE_RANGE_KM } from './lib/notifyText'
 import { countryCodeFromHex } from './lib/countries'
@@ -93,7 +93,7 @@ export default function App() {
   const fetchDataRef = useRef(null)
   const fetchAbortRef = useRef(null)
   const testPushTimerRef = useRef(null)
-  const { location, locationError, requestLocation } = useGeolocation()
+  const { location, requestLocation } = useGeolocation()
   const {
     isSubscribed, subResolved, isSubscribing, subscribe, unsubscribe, sendTestPush,
     permissionState, subscribeError, syncError, serverStatus,
@@ -458,13 +458,7 @@ export default function App() {
 
   // Stan alertów pokazywany kropką na dzwonku — ta sama reguła, co karta
   // w panelu Alerty.
-  const alertsLevel = useMemo(
-    () => readiness({
-      hasGps: !!location, pushOn: isSubscribed,
-      kindsOn: kindsOnCount(kinds), locationError,
-    }).level,
-    [location, isSubscribed, kinds, locationError]
-  )
+  const alertsDot = alertsLevel({ hasGps: !!location, pushOn: isSubscribed, kindsOn: kindsOnCount(kinds) })
 
   const selectedAc = useMemo(
     () => selectedHex ? (aircraftWithArrivals.find(ac => ac.hex === selectedHex) || null) : null,
@@ -596,7 +590,7 @@ export default function App() {
           recenterRef.current?.()
         }}
         hasGps={!!location}
-        alertsLevel={alertsLevel}
+        alertsLevel={alertsDot}
       />
 
       {/* Karta maszyny — pływający panel przy lewej krawędzi, pod paskiem
@@ -678,7 +672,6 @@ export default function App() {
           {activePanel === 'alerty' && (
             <AlertsPanel
               location={location}
-              locationError={locationError}
               radius={radius}
               setRadius={setRadius}
               inRangeCount={inRangeCount}

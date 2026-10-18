@@ -2,7 +2,6 @@
 // i dla kropki na dzwonku w rogu mapy. Wcześniej ta logika siedziała w środku
 // panelu, więc przycisk nie miał jak pokazać, że coś nie gra, bez otwierania.
 
-import { t } from '../i18n'
 import { KIND_COLORS } from './palette'
 
 // Kategorie maszyn — sterują mapą I powiadomieniami, więc lista mieszka poza
@@ -17,22 +16,13 @@ export function kindsOnCount(kinds) {
   return KIND_ROWS.filter(k => kinds?.[k.key]).length
 }
 
-// Bez GPS karta od razu mówi, co zrobić.
-function gpsWhy(locationError) {
-  if (locationError === 'Brak zgody na lokalizację') return { text: t('GPS_DENIED_HINT'), retry: false }
-  if (locationError) return { text: t('GPS_OFF_DESC'), retry: true }
-  return { text: t('GPS_SEARCHING'), retry: true }
-}
-
 // Alerty wymagają trzech rzeczy naraz: pozycji, włączonego pusha i choćby
 // jednej kategorii. Poziomy: 'off' (nic nie zadziała), 'warn' (zadziała, ale
-// nie tak, jak można by chcieć), 'ok'.
-export function readiness({ hasGps, pushOn, kindsOn, locationError }) {
-  if (!hasGps) {
-    const g = gpsWhy(locationError)
-    return { level: 'off', title: t('READY_NO_GPS'), why: g.text, retry: g.retry }
-  }
-  if (kindsOn === 0) return { level: 'warn', title: t('READY_MUTED'), why: t('READY_WHY_MUTED') }
-  if (!pushOn) return { level: 'warn', title: t('READY_APP_ONLY'), why: t('READY_WHY_APP_ONLY') }
-  return { level: 'ok', title: t('READY_OK'), why: null }
+// nie tak, jak można by chcieć), 'ok'. Karta w Alertach mówi tylko
+// „aktywne" (ok) albo „nieaktywne" (reszta); kropka na dzwonku rozróżnia
+// też 'warn'.
+export function alertsLevel({ hasGps, pushOn, kindsOn }) {
+  if (!hasGps) return 'off'
+  if (kindsOn === 0 || !pushOn) return 'warn'
+  return 'ok'
 }

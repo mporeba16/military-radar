@@ -1,6 +1,5 @@
-// Shared military aircraft filtering and fetching — kept in sync with aircraft.js
-
-import { knownAircraft } from '../../../src/lib/knownAircraft.js'
+// Klasyfikacja maszyn (wojskowe, służbowe śmigłowce, duże samoloty) — wspólna
+// dla mapy, tras i powiadomień. Pobieranie danych mieszka w sources.js.
 
 // Tylko 'ae' (US military) jest blokiem wyłącznie wojskowym. Europejskie
 // "podbloki" były błędne/mieszane (cywilne false-positivy) — patrz aircraft.js.
@@ -170,53 +169,18 @@ export function isMilitaryState(ac) {
   return false
 }
 
-function isValidADSBfi(a) {
-  const type = (a.t || '').toUpperCase()
-  const reg = (a.r || '').toUpperCase()
-  if (GROUND_STATION_TYPES.has(type) || GROUND_STATION_TYPES.has(reg)) return false
-  if (a.alt_baro === 'ground' || a.on_ground) return false
+// Wspólne sito rekordów readsb (adsb.fi/adsb.lol) dla mapy, tras
+// i powiadomień: realna pozycja (bez rr_lat/rr_lon — to lokalizacja
+// odbiornika, nie maszyny), bez stacji naziemnych, bez wysokości spoza
+// zakresu i bez hexów-widm. Maszyny na ziemi przechodzą — mapa rysuje je na
+// szaro, a o tym, czy trafią do tras lub alertów, decyduje wołający.
+export function isPlausibleRecord(a) {
+  if (GROUND_STATION_TYPES.has((a.t || '').toUpperCase())) return false
+  if (GROUND_STATION_TYPES.has((a.r || '').toUpperCase())) return false
   const alt = typeof a.alt_baro === 'number' ? a.alt_baro : null
   if (alt != null && (alt < 0 || alt > 60000)) return false
   if (isSuspiciousHex(a.hex)) return false
   return a.lat != null && a.lon != null
-}
-
-function mapADSBfi(a, lat, lon, radiusKm) {
-  const dist = haversine(lat, lon, a.lat, a.lon)
-  if (dist > radiusKm) return null
-  return {
-    hex: a.hex,
-    flight: (a.flight || a.hex || '').trim(),
-    // Tytuł powiadomienia mówi nazwę maszyny, a nie znak wywoławczy — dla
-    // maszyny nadającej bez typu (polski Hercules PLF252) byłby pusty.
-    t: a.t || knownAircraft(a.hex)?.type || '',
-    // Rejestracja rozstrzyga, czyj to śmigłowiec (SP-HX = LPR), gdy znak
-    // wywoławczy nic nie mówi.
-    reg: a.r || null,
-    lat: a.lat,
-    lon: a.lon,
-    alt_baro: typeof a.alt_baro === 'number' ? a.alt_baro : null,
-    gs: a.gs != null ? Math.round(a.gs) : null,
-    track: a.track != null ? Math.round(a.track) : null,
-    squawk: a.squawk || null,
-    kind: a._kind || 'mil',
-  }
-}
-
-function stateToAircraft(s) {
-  return {
-    hex: s[0],
-    flight: (s[1] || '').trim() || s[0],
-    t: '',
-    lat: s[6],
-    lon: s[5],
-    alt_baro: s[7] != null ? Math.round(s[7] * 3.28084) : null,
-    gs: s[9] != null ? Math.round(s[9] * 1.94384) : null,
-    track: s[10] != null ? Math.round(s[10]) : null,
-    squawk: s[14] || null,
-    country: s[2],
-    kind: 'mil',
-  }
 }
 
 export function haversine(lat1, lon1, lat2, lon2) {
@@ -229,92 +193,3 @@ export function haversine(lat1, lon1, lat2, lon2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
 
-// Globalna lista /mil adsb.fi. Ten sam przebieg notify potrzebuje jej dwa
-// razy (maszyny w promieniu subskrybentów i rzadkie maszyny nad całą Polską),
-// a adsb.fi limituje ~1 zapytanie na sekundę — stąd krótka pamięć w instancji.
-const MIL_CACHE_MS = 20_000
-let milCache = null // { at, list }
-
-export async function fetchMilGlobal() {
-  if (milCache && Date.now() - milCache.at < MIL_CACHE_MS) return milCache.list
-  const res = await fetch('https://opendata.adsb.fi/api/v2/mil', {
-    signal: AbortSignal.timeout(5000),
-    headers: { 'User-Agent': 'MilitaryRadarPL/1.0', 'Accept': 'application/json' },
-  })
-  if (!res.ok) {
-    // Kod i początek odpowiedzi w błędzie — bez nich „failed" nie mówi, czy to
-    // limit zapytań (429), czy blokada adresu (np. strona 403 z HTML-em).
-    const snippet = (await res.text().catch(() => '')).replace(/\s+/g, ' ').slice(0, 120)
-    throw new Error(`adsb.fi /mil failed: HTTP ${res.status} server=${res.headers.get('server') || '?'} ${snippet}`)
-  }
-  const data = await res.json()
-  const list = (data.ac || data.aircraft || []).filter(isValidADSBfi)
-  milCache = { at: Date.now(), list }
-  return list
-}
-
-export async function fetchMilitaryNear(lat, lon, radiusKm) {
-  const headers = { 'User-Agent': 'MilitaryRadarPL/1.0', 'Accept': 'application/json' }
-  const degLat = radiusKm / 111
-  const degLon = radiusKm / (111 * Math.cos(lat * Math.PI / 180))
-  const lamin = lat - degLat, lamax = lat + degLat
-  const lomin = lon - degLon, lomax = lon + degLon
-
-  try {
-    // Query 1: adsb.fi /mil — globally tagged military aircraft
-    const milAircraft = (await fetchMilGlobal())
-      .map(a => ({ ...a }))
-      .filter(a => !isTrainingAircraft(a.t) &&
-        a.lat >= lamin && a.lat <= lamax &&
-        a.lon >= lomin && a.lon <= lomax)
-    milAircraft.forEach(a => { a._kind = 'mil' })
-    const milHexes = new Set(milAircraft.map(a => a.hex))
-
-    // Query 2: geographic supplement — catches aircraft not tagged in adsb.fi
-    // /mil: military by our callsign/hex rules, service helicopters, and notable
-    // heavies (B747/An-124).
-    let supplementAircraft = []
-    try {
-      const radiusNm = Math.min(250, Math.round(radiusKm * 0.54))
-      const geoRes = await fetch(
-        `https://opendata.adsb.fi/api/v2/lat/${lat.toFixed(4)}/lon/${lon.toFixed(4)}/dist/${radiusNm}`,
-        { signal: AbortSignal.timeout(4000), headers }
-      )
-      if (geoRes.ok) {
-        const geoData = await geoRes.json()
-        supplementAircraft = (geoData.aircraft || geoData.ac || []).filter(a => {
-          if (!isValidADSBfi(a)) return false
-          if (a.lat < lamin || a.lat > lamax || a.lon < lomin || a.lon > lomax) return false
-          if (milHexes.has(a.hex)) return false
-          // Full military test (hex prefix + callsign + squawk) — mirrors the
-          // live path in aircraft.js so a squawk-7777 machine isn't dropped here.
-          if (isMilitaryADSBfiRecord(a)) { a._kind = 'mil'; return true }
-          const extra = classifyExtra(a)
-          if (extra) { a._kind = extra; return true }
-          return false
-        })
-      }
-    } catch { /* supplement is best-effort */ }
-
-    return [...milAircraft, ...supplementAircraft]
-      .map(a => mapADSBfi(a, lat, lon, radiusKm))
-      .filter(Boolean)
-  } catch {}
-
-  // OpenSky fallback — anonimowo (Basic auth wycofany po stronie OpenSky, patrz aircraft.js)
-  try {
-    const url = `https://opensky-network.org/api/states/all?lamin=${lamin}&lomin=${lomin}&lamax=${lamax}&lomax=${lomax}`
-    const fetchOpts = { signal: AbortSignal.timeout(8000), headers }
-    const res = await fetch(url, fetchOpts)
-    if (res.ok) {
-      const data = await res.json()
-      return (data.states || [])
-        .filter(s => s[5] != null && s[6] != null && !s[8] &&
-          (s[7] == null || s[7] <= 18300) && !isSuspiciousHex(s[0]) && isMilitaryState(s))
-        .map(stateToAircraft)
-        .filter(a => haversine(lat, lon, a.lat, a.lon) <= radiusKm)
-    }
-  } catch {}
-
-  return []
-}

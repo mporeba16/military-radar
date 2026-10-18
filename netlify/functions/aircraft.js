@@ -13,17 +13,12 @@ import { isInPoland } from './lib/poland.js'
 import { HEAVY_KEY, HEAVY_STORE, mergeHeavies } from './lib/heavyEurope.js'
 import { filterMlatSpikes, MLAT_MIN_INTERVAL_MS } from '../../src/lib/trailFilter.js'
 import {
-  isSuspiciousHex,
   isTrainingAircraft,
   classifyExtra,
   isMilitaryADSBfiRecord,
-  isMilitaryState,
-  GROUND_STATION_TYPES,
+  isPlausibleRecord,
 } from './lib/military.js'
-
-// Środek geograficzny Polski — z promieniem 250nm (~463km) jedno zapytanie
-// geograficzne adsb.fi pokrywa cały kraj wraz z pograniczem.
-const POLAND_CENTER = { lat: '52.0', lon: '19.4' }
+import { fetchMilMerged, fetchAdsbfiGeo, fetchOpenSkyMilitary } from './lib/sources.js'
 
 // Redukcja szumu: poza Polską pokazujemy tylko maszyny ze znanym kodem typu.
 // Rekordy bez `t` to zwykle Mode-S / MLAT bez danych — masa kropek bez wartości.
@@ -110,55 +105,10 @@ export function filterImplausibleJumps(sortedPoints) {
 // In-memory cache — survives across warm function invocations (eliminates per-aircraft blob reads)
 const trailCache = new Map() // hex → { points, flight, t }
 
-// OpenSky state vector indeksy:
-// 0:icao24, 1:callsign, 2:origin_country, 3:time_position, 4:last_contact,
-// 5:longitude, 6:latitude, 7:baro_altitude, 8:on_ground, 9:velocity,
-// 10:true_track, 11:vertical_rate, 12:sensors, 13:geo_altitude,
-// 14:squawk, 15:spi, 16:position_source
-function stateToAircraft(s) {
-  return {
-    hex: (s[0] || '').toLowerCase(),
-    flight: (s[1] || '').trim() || s[0],
-    t: '',          // OpenSky nie zwraca typu — uzupełniamy jeśli mamy
-    lat: s[6],
-    lon: s[5],
-    alt_baro: s[7] != null ? Math.round(s[7] * 3.28084) : null, // m → ft
-    gs: s[9] != null ? Math.round(s[9] * 1.94384) : null,       // m/s → kn
-    track: s[10] != null ? Math.round(s[10]) : null,
-    baro_rate: s[11] != null ? Math.round(s[11] * 196.85) : null, // m/s → ft/min
-    squawk: s[14] || null,
-    reg: null,
-    country: s[2],
-    on_ground: s[8],
-    kind: 'mil',  // OpenSky nie ma typu/rejestracji — rozpoznajemy tylko wojsko
-  }
-}
-
-// Anonimowy dostęp (bez auth) — OpenSky wycofał Basic auth na rzecz OAuth2,
-// więc dawne OPENSKY_USER/PASS nie dawały już wyższego limitu. Zostaje wyłącznie
-// najlepszy-efort fallback po adsb.fi; anonimowy limit w zupełności wystarcza,
-// bo trafiamy tu tylko, gdy adsb.fi zawiedzie.
+// OpenSky — zapas, gdy adsb.fi i adsb.lol zawiodą (szczegóły w sources.js).
 async function tryOpenSky(lamin, lomin, lamax, lomax) {
-  try {
-    const url = `https://opensky-network.org/api/states/all?lamin=${lamin}&lomin=${lomin}&lamax=${lamax}&lomax=${lomax}`
-    const fetchOpts = {
-      signal: AbortSignal.timeout(8000),
-      headers: {
-        'User-Agent': 'MilitaryRadarPL/1.0',
-        'Accept': 'application/json',
-      }
-    }
-    const res = await fetch(url, fetchOpts)
-    if (!res.ok) return null
-    const data = await res.json()
-    const states = data.states || []
-    const military = states
-      .filter(s => s[5] != null && s[6] != null && !s[8] && (s[7] == null || s[7] <= 18300) && !isSuspiciousHex(s[0]) && isMilitaryState(s))
-      .map(stateToAircraft)
-    return { aircraft: military, _source: 'opensky' }
-  } catch {
-    return null
-  }
+  const aircraft = await fetchOpenSkyMilitary({ lamin, lomin, lamax, lomax })
+  return aircraft ? { aircraft, _source: 'opensky' } : null
 }
 
 function mapADSBfiRecord(a) {
@@ -194,21 +144,8 @@ function mapADSBfiRecord(a) {
 }
 
 function isADSBfiRecordInBox(a, lamin, lomin, lamax, lomax) {
-  // Wymagamy REALNEJ pozycji (ADS-B lub wyliczony MLAT). Rekordy mające tylko
-  // rr_lat/rr_lon (rough receiver) odrzucamy — to lokalizacja odbiornika, nie
-  // maszyny, i powodowała odskoki ikony. Bez własnego fixa maszyna znika.
-  const lat = a.lat
-  const lon = a.lon
-  const alt = typeof a.alt_baro === 'number' ? a.alt_baro : null
-  if (GROUND_STATION_TYPES.has((a.t || '').toUpperCase())) return false
-  if (GROUND_STATION_TYPES.has((a.r || '').toUpperCase())) return false
-  // Allow on_ground / alt_baro === 'ground' — they render as gray icons.
-  // Trail saving still skips them in saveTrails.
-  return lat != null && lon != null &&
-    lat >= lamin && lat <= lamax &&
-    lon >= lomin && lon <= lomax &&
-    (alt == null || (alt >= 0 && alt <= 60000)) &&
-    !isSuspiciousHex(a.hex)
+  return isPlausibleRecord(a) &&
+    a.lat >= lamin && a.lat <= lamax && a.lon >= lomin && a.lon <= lomax
 }
 
 // adsb.fi — publiczne API, działa z serverless, pokrywa Europę.
@@ -216,71 +153,33 @@ function isADSBfiRecordInBox(a, lamin, lomin, lamax, lomax) {
 // żeby złapać maszyny nieoznaczone w bazie /mil (wojsko po callsignie/hex,
 // służbowe śmigłowce, duże samoloty).
 async function tryADSBfi(lamin, lomin, lamax, lomax) {
-  try {
-    const headers = { 'User-Agent': 'MilitaryRadarPL/1.0', 'Accept': 'application/json' }
-
-    // Zapytanie 1: globalne listy wojskowe. DWA źródła, bo każde opiera się
-    // na własnej sieci odbiorników i mają różne dziury: włoski C-130J
-    // (IAM4640) nad Adriatykiem był w adsb.lol, a w adsb.fi go nie było.
-    // Na 147 maszyn w adsb.fi i 143 w adsb.lol wspólnych jest 121.
-    const [fiRes, lolRes] = await Promise.allSettled([
-      fetch('https://opendata.adsb.fi/api/v2/mil', { signal: AbortSignal.timeout(10000), headers }),
-      fetch('https://api.adsb.lol/v2/mil', { signal: AbortSignal.timeout(8000), headers }),
-    ])
-    const readMil = async (r) => {
-      if (r.status !== 'fulfilled' || !r.value.ok) return []
-      try { return (await r.value.json()).ac || [] } catch { return [] }
-    }
-    const [fiMil, lolMil] = [await readMil(fiRes), await readMil(lolRes)]
-    // Padły oba — dopiero to jest awaria źródła (wyżej zadziała wtedy
-    // ostatnia migawka zamiast pustej mapy).
-    if (!fiMil.length && !lolMil.length) return null
-    const byHex = new Map()
-    for (const a of [...fiMil, ...lolMil]) {
-      if (a?.hex && !byHex.has(a.hex)) byHex.set(a.hex, a)
-    }
-    const milAircraft = [...byHex.values()].filter(a =>
-      isADSBfiRecordInBox(a, lamin, lomin, lamax, lomax) && passesTypeNoise(a) &&
+  // Zapytanie 1: globalne listy wojskowe z adsb.fi i adsb.lol (sources.js).
+  // Padły obie — dopiero to jest awaria źródła (wyżej zadziała wtedy
+  // ostatnia migawka zamiast pustej mapy).
+  let records
+  try { ({ records } = await fetchMilMerged()) } catch { return null }
+  if (!records.length) return null
+  const milAircraft = records
+    .filter(a => isADSBfiRecordInBox(a, lamin, lomin, lamax, lomax) && passesTypeNoise(a) &&
       !isTrainingAircraft(a.t))
-    milAircraft.forEach(a => { a._kind = 'mil' })
-    const milHexes = new Set(milAircraft.map(a => a.hex))
+    .map(a => ({ ...a, _kind: 'mil' }))
+  const milHexes = new Set(milAircraft.map(a => a.hex))
 
-    // Zapytanie 2: supplement geograficzny — łapie maszyny nieoznaczone w bazie
-    // adsb.fi /mil: wojskowe (po hex/callsign), służbowe śmigłowce oraz duże
-    // samoloty (B747/An-124). adsb.fi obsługuje max 250nm (~463km) — centrujemy
-    // na środku Polski, by jednym zapytaniem pokryć cały kraj (Kraków, Rzeszów).
-    let supplementAircraft = []
-    {
-      const radiusNm = 250
-      try {
-        const geoUrl = `https://opendata.adsb.fi/api/v2/lat/${POLAND_CENTER.lat}/lon/${POLAND_CENTER.lon}/dist/${radiusNm}`
-        let geoRes = await fetch(geoUrl, { signal: AbortSignal.timeout(8000), headers })
-        // adsb.fi limituje ~1 req/s, a /mil i geo lecą tuż po sobie — drugie
-        // (geo) często dostaje 429. Odczekaj chwilę i spróbuj raz jeszcze.
-        if (geoRes.status === 429) {
-          await new Promise(r => setTimeout(r, 1200))
-          geoRes = await fetch(geoUrl, { signal: AbortSignal.timeout(6000), headers })
-        }
-        if (geoRes.ok) {
-          const geoData = await geoRes.json()
-          supplementAircraft = (geoData.aircraft || geoData.ac || []).filter(a => {
-            if (!isADSBfiRecordInBox(a, lamin, lomin, lamax, lomax)) return false
-            if (!passesTypeNoise(a)) return false
-            if (milHexes.has(a.hex)) return false
-            if (isMilitaryADSBfiRecord(a)) { a._kind = 'mil'; return true }
-            const extra = classifyExtra(a)
-            if (extra) { a._kind = extra; return true }
-            return false
-          })
-        }
-      } catch { /* supplement is best-effort */ }
-    }
+  // Zapytanie 2: uzupełnienie geograficzne — łapie maszyny nieoznaczone na
+  // listach /mil: wojskowe (po hex/callsign), służbowe śmigłowce oraz duże
+  // samoloty (B747/An-124). Jedno zapytanie ze środka Polski pokrywa kraj.
+  let supplementAircraft = []
+  try {
+    supplementAircraft = (await fetchAdsbfiGeo()).flatMap(a => {
+      if (!isADSBfiRecordInBox(a, lamin, lomin, lamax, lomax) || !passesTypeNoise(a)) return []
+      if (milHexes.has(a.hex)) return []
+      const kind = isMilitaryADSBfiRecord(a) ? 'mil' : classifyExtra(a)
+      return kind ? [{ ...a, _kind: kind }] : []
+    })
+  } catch { /* uzupełnienie jest najlepszym-efortem */ }
 
-    const ac = [...milAircraft, ...supplementAircraft].map(mapADSBfiRecord)
-    return { aircraft: ac, _source: 'adsbfi' }
-  } catch {
-    return null
-  }
+  const ac = [...milAircraft, ...supplementAircraft].map(mapADSBfiRecord)
+  return { aircraft: ac, _source: 'adsbfi' }
 }
 
 export const handler = async (event) => {

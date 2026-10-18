@@ -13,13 +13,14 @@
 // przekłada się na obciążenie tych serwisów.
 
 import { getStore, connectLambda } from '@netlify/blobs'
+import { POLITE_HEADERS, fetchAdsbfiGeo } from './lib/sources.js'
 import { corsHeaders } from './lib/security.js'
 import {
   WATCHED_TYPES, ARRIVAL_AIRPORTS, etaMinutes, distanceKm, isWatchedType, approachGuess,
   airportByIcao,
 } from '../../src/lib/inbound.js'
 
-const UA = { 'User-Agent': 'MilitaryRadarPL/1.0 (+https://radar-wojskowy.netlify.app)', Accept: 'application/json' }
+const UA = POLITE_HEADERS
 const FRESH_MS = 3 * 60 * 1000
 const STALE_MAX_MS = 60 * 60 * 1000
 const ROUTE_TTL_MS = 24 * 60 * 60 * 1000
@@ -52,17 +53,9 @@ async function fetchType(type) {
 // (a ten potrafi odpowiedzieć 429 w środku przebiegu) i łapie maszynę, która
 // jest już blisko — czyli dokładnie tę, o której powiadomienie ma sens.
 // Antonow Airlines (ADB) bierzemy po znaku wywoławczym, bo pole typu bywa puste.
-const POLAND = { lat: '52.0', lon: '19.4', nm: 250 }
-
 async function fetchNearPoland() {
   try {
-    const res = await fetch(
-      `https://opendata.adsb.fi/api/v2/lat/${POLAND.lat}/lon/${POLAND.lon}/dist/${POLAND.nm}`,
-      { signal: AbortSignal.timeout(8000), headers: UA },
-    )
-    if (!res.ok) return []
-    const data = await res.json()
-    return (data.ac || data.aircraft || []).filter(a =>
+    return (await fetchAdsbfiGeo()).filter(a =>
       typeof a.lat === 'number' && typeof a.lon === 'number' && (a.flight || '').trim() &&
       (isWatchedType(a.t) || /^ADB\d/.test((a.flight || '').trim().toUpperCase())))
   } catch {

@@ -1,6 +1,7 @@
 import { getStore, connectLambda } from '@netlify/blobs'
 import webpush from 'web-push'
-import { fetchMilitaryNear, fetchMilGlobal, haversine, normalizeKinds } from './lib/military.js'
+import { haversine, normalizeKinds } from './lib/military.js'
+import { fetchMilitaryNear, fetchMilGlobal } from './lib/sources.js'
 import { isInPoland } from './lib/poland.js'
 import { isQuietHours } from './lib/quietHours.js'
 import { rareRole } from '../../src/lib/rareTypes.js'

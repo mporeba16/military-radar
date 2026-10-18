@@ -1,41 +1,21 @@
 import { getStore, connectLambda } from '@netlify/blobs'
 import { saveTrails } from './aircraft.js'
-import { classifyADSBfi, isSuspiciousHex, isTrainingAircraft } from './lib/military.js'
+import { classifyADSBfi, isPlausibleRecord, isTrainingAircraft } from './lib/military.js'
+import { fetchMilMerged, fetchAdsbfiGeo } from './lib/sources.js'
 
 // Szeroki bounding box pokrywający Europę + zachodnia Rosja + bliski wschód
-// (lat 30°-72°, lon -15°-50°). adsb.fi /mil zwraca globalnie, więc i tak
-// dostaniemy wszystko — filtr tylko żeby ograniczyć wagę zapisów.
+// (lat 30°-72°, lon -15°-50°). Listy /mil są globalne, więc i tak dostaniemy
+// wszystko — filtr tylko żeby ograniczyć wagę zapisów.
 const COLLECT_BBOX = { lamin: 30, lomin: -15, lamax: 72, lomax: 50 }
 
-// Środek Polski — zapytanie geograficzne 250nm pokrywa cały kraj. Dzięki niemu
-// w tle zbieramy też trasy służbowych śmigłowców i dużych samolotów (B747/An-124),
-// których nie ma w globalnym /mil.
-const POLAND_CENTER = { lat: '52.0', lon: '19.4' }
-
-const ADSBfi_USER_AGENT = 'MilitaryRadarPL/1.0'
-
-const GROUND_STATION_TYPES = new Set(['TWR', 'GND', 'MLAT', 'RADAR'])
-
 function isValidRecord(a) {
-  // Tylko realna pozycja (ADS-B / MLAT) — bez rr_lat/rr_lon (rough receiver).
-  const lat = a.lat
-  const lon = a.lon
-  if (lat == null || lon == null) return false
-  if (lat < COLLECT_BBOX.lamin || lat > COLLECT_BBOX.lamax) return false
-  if (lon < COLLECT_BBOX.lomin || lon > COLLECT_BBOX.lomax) return false
-  // Note: ground / on_ground aircraft are allowed through here, but
-  // saveTrails skips them — so they don't get persisted as trail points.
-  // (We want grounded craft visible in the live feed, not in trails.)
-  const alt = typeof a.alt_baro === 'number' ? a.alt_baro : null
-  if (alt != null && (alt < 0 || alt > 60000)) return false
-  if (GROUND_STATION_TYPES.has((a.t || '').toUpperCase())) return false
-  if (GROUND_STATION_TYPES.has((a.r || '').toUpperCase())) return false
-  // Ten sam filtr, co na ścieżce live (aircraft.js). Bez niego cron zapisywał
-  // trasy maszyn-widm, których aplikacja i tak nigdy nie pokaże.
-  if (isSuspiciousHex(a.hex)) return false
+  // Maszyny na ziemi przechodzą — saveTrails je pomija, ale granica między
+  // lotami (przerwa w trasie) bierze się właśnie z tego.
+  if (!isPlausibleRecord(a)) return false
+  if (a.lat < COLLECT_BBOX.lamin || a.lat > COLLECT_BBOX.lamax) return false
+  if (a.lon < COLLECT_BBOX.lomin || a.lon > COLLECT_BBOX.lomax) return false
   // Samoloty szkolne nie trafiają na radar, więc nie ma po co zbierać ich tras.
-  if (isTrainingAircraft(a.t)) return false
-  return true
+  return !isTrainingAircraft(a.t)
 }
 
 function mapRecord(a) {
@@ -47,7 +27,7 @@ function mapRecord(a) {
     lon: a.lon,
     alt_baro: typeof a.alt_baro === 'number' ? a.alt_baro : null,
     on_ground: a.alt_baro === 'ground' || !!a.on_ground,
-    // MLAT-derived (skokowy) — saveTrails go pomija, by nie zaśmiecać trasy.
+    // Pozycja z MLAT bywa skokowa — saveTrails zapisuje ją rzadziej i z flagą.
     mlat: Array.isArray(a.mlat) && a.mlat.length > 0,
   }
 }
@@ -61,42 +41,35 @@ export const handler = async (event) => {
   let error = null
 
   try {
-    const headers = { 'User-Agent': ADSBfi_USER_AGENT, 'Accept': 'application/json' }
-    const [milRes, geoRes] = await Promise.allSettled([
-      // Globalne /mil — wszystkie wojskowe
-      fetch('https://opendata.adsb.fi/api/v2/mil', { signal: AbortSignal.timeout(10000), headers }),
-      // Geograficzne nad Polską — całość ruchu; filtrujemy do mil/heli/heavy
-      fetch(`https://opendata.adsb.fi/api/v2/lat/${POLAND_CENTER.lat}/lon/${POLAND_CENTER.lon}/dist/250`,
-        { signal: AbortSignal.timeout(10000), headers }),
-    ])
-
+    // Listy /mil (adsb.fi + adsb.lol, jak na mapie) i zapytanie geograficzne
+    // nad Polską — dzięki niemu w tle zbieramy też trasy służbowych śmigłowców
+    // i dużych samolotów (B747/An-124), których nie ma na listach /mil.
+    const [milRes, geoRes] = await Promise.allSettled([fetchMilMerged(), fetchAdsbfiGeo()])
     const byHex = new Map()
 
     // /mil — zapisujemy całość (z definicji wojskowe)
-    if (milRes.status === 'fulfilled' && milRes.value.ok) {
-      const data = await milRes.value.json()
-      for (const a of (data.ac || data.aircraft || [])) {
+    if (milRes.status === 'fulfilled') {
+      for (const a of milRes.value.records) {
         if (!isValidRecord(a)) continue
         const m = mapRecord(a)
         if (m.hex) byHex.set(m.hex, m)
       }
+      if (milRes.value.errors.length) error = milRes.value.errors.join('; ')
     } else {
-      error = milRes.status === 'fulfilled' ? `adsb.fi /mil http-${milRes.value.status}` : `adsb.fi /mil exception: ${milRes.reason?.message}`
+      error = milRes.reason?.message
     }
 
     // Geo nad Polską — TYLKO maszyny, które aplikacja pokazuje (mil/heli/heavy),
     // żeby nie zapisywać tras całego ruchu cywilnego.
-    if (geoRes.status === 'fulfilled' && geoRes.value.ok) {
-      const data = await geoRes.value.json()
-      for (const a of (data.aircraft || data.ac || [])) {
+    if (geoRes.status === 'fulfilled') {
+      for (const a of geoRes.value) {
         if (byHex.has((a.hex || '').toLowerCase())) continue
         if (!isValidRecord(a) || !classifyADSBfi(a)) continue
         const m = mapRecord(a)
         if (m.hex) byHex.set(m.hex, m)
       }
     } else {
-      const geoErr = geoRes.status === 'fulfilled' ? `http-${geoRes.value.status}` : `exception: ${geoRes.reason?.message}`
-      error = error ? `${error}; geo ${geoErr}` : `adsb.fi geo ${geoErr}`
+      error = error ? `${error}; geo ${geoRes.reason?.message}` : `geo ${geoRes.reason?.message}`
     }
 
     const aircraft = [...byHex.values()]

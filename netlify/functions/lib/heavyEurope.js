@@ -9,6 +9,7 @@
 // z Blobs — ruch na stronie nie trafia do adsb.lol z tego powodu.
 
 import { isNearPoland } from './poland.js'
+import { POLITE_HEADERS } from './sources.js'
 
 export const HEAVY_STORE = 'heavy-europe'
 export const HEAVY_KEY = 'snapshot'
@@ -34,7 +35,7 @@ export const HEAVY_MAX_AGE_MS = 8 * 60 * 1000
 // zmienić. Pokrywa odstęp crona; jumbo jety w przelocie lecą zwykle prosto.
 const MAX_EXTRAPOLATE_S = 360
 
-const UA = { 'User-Agent': 'MilitaryRadarPL/1.0 (+https://radar-wojskowy.netlify.app)', Accept: 'application/json' }
+const UA = POLITE_HEADERS
 const sleep = ms => new Promise(r => setTimeout(r, ms))
 
 export function inBox(a, box) {

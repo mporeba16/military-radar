@@ -4,7 +4,7 @@ import { t } from '../i18n'
 import { planeWord } from '../lib/plural'
 import { KIND_COLORS } from '../lib/palette'
 import { ARRIVAL_AIRPORTS } from '../lib/inbound'
-import { readiness, kindsOnCount } from '../lib/alertsState'
+import { alertsLevel, kindsOnCount } from '../lib/alertsState'
 
 // iPadOS 13+ reports as "MacIntel" but has a touch screen — catch it too.
 const IS_IOS = typeof navigator !== 'undefined' && (
@@ -21,7 +21,7 @@ function isStandalonePWA() {
 // Wydzielony z dawnego panelu Ustawienia, który zebrał osiem niepowiązanych
 // sekcji: od zasięgu alertów po diagnostykę serwera.
 export default function AlertsPanel({
-  location, locationError,
+  location,
   radius, setRadius, inRangeCount, alertsCount,
   kinds, setKinds,
   permissionState, isSubscribed, isSubscribing, subscribe, unsubscribe, subscribeError,
@@ -30,16 +30,16 @@ export default function AlertsPanel({
   children,
 }) {
   const kindsOn = kindsOnCount(kinds)
-  const state = readiness({ hasGps: !!location, pushOn: isSubscribed, kindsOn, locationError })
+  const level = alertsLevel({ hasGps: !!location, pushOn: isSubscribed, kindsOn })
   const pushUsable = permissionState !== 'unsupported' && permissionState !== 'denied'
 
   return (
     <div className="panel-body">
 
       {/* 1. Czy to w ogóle zadziała — sam stan: aktywne albo nieaktywne. */}
-      <div className={`ready-card ready-${state.level}`}>
+      <div className={`ready-card ready-${level}`}>
         <span className="ready-title">
-          {state.level === 'ok' ? `◉ ${t('READY_OK')}` : `⚠ ${t('READY_NO_GPS')}`}
+          {level === 'ok' ? `◉ ${t('READY_OK')}` : `⚠ ${t('READY_NO_GPS')}`}
         </span>
       </div>
 
