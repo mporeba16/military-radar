@@ -154,3 +154,30 @@ export function landingClock(min, now = Date.now()) {
   if (min == null) return null
   return hourFmt.format(now + min * 60_000)
 }
+
+/**
+ * Dokłada maszyny z celem w Rzeszowie/Krakowie do listy z radaru: te, które
+ * są już w naszym obszarze, dostają tylko informację o celu (pozycja z radaru
+ * jest świeższa), pozostałe trafiają jako osobne znaczniki — to sedno funkcji,
+ * bo 747 z Chicago jest poza obszarem przez większość lotu. `arrivals` to
+ * przełączniki lotnisk ({ EPRZ: false } wyłącza Rzeszów).
+ */
+export function mergeArrivals(aircraft, inbound, arrivals) {
+  const wanted = inbound.filter(x => arrivals[x.route?.to] !== false)
+  if (!wanted.length) return aircraft
+  const byHex = new Map(wanted.map(x => [x.hex, x]))
+  const merged = aircraft.map(ac => {
+    const x = byHex.get(ac.hex)
+    if (!x) return ac
+    byHex.delete(ac.hex)
+    return { ...ac, arrival: x.route }
+  })
+  for (const x of byHex.values()) {
+    merged.push({
+      hex: x.hex, flight: x.flight, t: x.t, reg: x.reg,
+      lat: x.lat, lon: x.lon, alt_baro: x.alt_baro, gs: x.gs, track: x.track,
+      on_ground: x.on_ground, mlat: false, kind: 'heavy', arrival: x.route,
+    })
+  }
+  return merged
+}

@@ -270,3 +270,24 @@ describe('pamięć lądowań', () => {
     expect(out[0]).toMatchObject({ flight: 'CMB336', route: { to: 'EPRZ', learned: true } })
   }, 30000)
 })
+
+describe('mergeArrivals', async () => {
+  const { mergeArrivals } = await import('../src/lib/inbound.js')
+  const route = to => ({ from: 'KORD', to })
+  const live = [{ hex: 'aaa001', lat: 50, lon: 20, kind: 'heavy' }]
+
+  it('maszynie już na radarze dopisuje tylko cel, resztę dokłada jako znacznik', () => {
+    const inbound = [
+      { hex: 'aaa001', lat: 49, lon: 19, route: route('EPRZ') },
+      { hex: 'bbb002', flight: 'GTI123', t: 'B748', lat: 55, lon: -20, route: route('EPKK') },
+    ]
+    const out = mergeArrivals(live, inbound, {})
+    expect(out[0]).toEqual({ ...live[0], arrival: route('EPRZ') })  // pozycja z radaru zostaje
+    expect(out[1]).toMatchObject({ hex: 'bbb002', kind: 'heavy', lat: 55, arrival: route('EPKK') })
+  })
+
+  it('wyłączone lotnisko — bez zmian', () => {
+    const inbound = [{ hex: 'bbb002', lat: 55, lon: -20, route: route('EPKK') }]
+    expect(mergeArrivals(live, inbound, { EPKK: false })).toBe(live)
+  })
+})

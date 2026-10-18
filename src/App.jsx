@@ -6,34 +6,34 @@ import AircraftInfoPanel from './components/AircraftInfoPanel'
 // otwarciu, a nie przy starcie aplikacji.
 const AlertsPanel = lazy(() => import('./components/AlertsPanel'))
 import PanelFooter from './components/PanelFooter'
+import AlertStack from './components/AlertStack'
 const MapsPanel = lazy(() => import('./components/MapsPanel'))
 import { useGeolocation } from './hooks/useGeolocation'
 import { usePushNotifications } from './hooks/usePushNotifications'
 import { useLocalStorage } from './hooks/useLocalStorage'
 import { useAirspace } from './hooks/useAirspace'
 import { useInbound } from './hooks/useInbound'
+import { usePolling } from './hooks/usePolling'
+import { useHexDeepLink } from './hooks/useHexDeepLink'
 import { fetchMilitaryAircraft } from './api'
 import { haversine, bearing } from './lib/geo'
 import { alertsLevel, kindsOnCount } from './lib/alertsState'
-import { ARRIVAL_AIRPORTS } from './lib/inbound'
-import { alertText, shortTypeName, heliRole, CLOSE_RANGE_KM } from './lib/notifyText'
-import { countryCodeFromHex } from './lib/countries'
+import { ARRIVAL_AIRPORTS, mergeArrivals } from './lib/inbound'
+import { updateClientTrails } from './lib/clientTrails'
+import { loadDismissed, persistDismissed, playAlertSound, triggerNotification } from './lib/localAlert'
 import { t } from './i18n'
 import { version } from '../package.json'
-import { MLAT_MIN_INTERVAL_MS } from './lib/trailFilter.js'
 import './App.css'
 
 const EUROPE_CENTER = [52.0, 15.0]
 // Co 10 s, nie co 5 s: każde odświeżenie to wywołanie funkcji `aircraft`
 // (kredyty Netlify), a ikony i tak przesuwają się płynnie (animacja w RadarMap).
 const POLL_INTERVAL = 10_000
-const TRAIL_MIN_INTERVAL_MS = 10_000
-const TRAIL_MAX_AGE_MS = 60 * 60 * 1000  // 60 min — aligned closer to server's 4h cache
-const TRAIL_FLIGHT_SPLIT_GAP_MS = 10 * 60 * 1000  // gap → reset client trail (new flight)
 const SELECTION_GRACE_CYCLES = 2
 // Przyciemniona czerwień alarmowa — pasek stanu systemu ma sygnalizować, nie
 // świecić. Wyprowadzona z --alert, żeby nie była szóstym odcieniem czerwieni.
 const EMERGENCY_THEME_COLOR = '#8a2028'
+const EMERGENCY_SQUAWKS = new Set(['7500', '7600', '7700', '7400'])
 
 export default function App() {
   const [aircraft, setAircraft] = useState([])
@@ -90,7 +90,6 @@ export default function App() {
   const selectionMissCountRef = useRef(0)
   const trailsRef = useRef(new Map())
   const isMountedRef = useRef(false)
-  const fetchDataRef = useRef(null)
   const fetchAbortRef = useRef(null)
   const testPushTimerRef = useRef(null)
   const { location, requestLocation } = useGeolocation()
@@ -118,8 +117,6 @@ export default function App() {
   soundRef.current = soundOn
   const vibrateRef = useRef(vibrateOn)
   vibrateRef.current = vibrateOn
-
-  const center = EUROPE_CENTER
 
   // Derive in-range count + persistent alert list from an already-fetched
   // aircraft array (each carries `_dist` relative to the current GPS fix).
@@ -191,29 +188,8 @@ export default function App() {
         }
         return ac
       })
-      enriched.forEach(ac => {
-        if (ac.lat == null || ac.lon == null) return
-        // Don't record trail for grounded aircraft — keeps the trail a "current
-        // flight only" view and lets server-side gap detection do its job.
-        if (ac.on_ground) return
-        // MLAT (pozycja z sieci odbiorników) zapisujemy rzadziej i z flagą `m` —
-        // odskoki w bok odsiewa filterMlatSpikes przy rysowaniu trasy.
-        const pts = trailsRef.current.get(ac.hex) || []
-        let fresh = pts.filter(p => now - p.ts < TRAIL_MAX_AGE_MS)
-        const last = fresh[fresh.length - 1]
-        // Gap > 10 min → treat as new flight, discard old client points
-        if (last && now - last.ts > TRAIL_FLIGHT_SPLIT_GAP_MS) {
-          fresh = []
-        }
-        const lastFresh = fresh[fresh.length - 1]
-        const minInterval = ac.mlat ? MLAT_MIN_INTERVAL_MS : TRAIL_MIN_INTERVAL_MS
-        if (!lastFresh || now - lastFresh.ts >= minInterval)
-          fresh.push({ lat: ac.lat, lon: ac.lon, alt: ac.alt_baro, ts: now, ...(ac.mlat ? { m: 1 } : {}) })
-        trailsRef.current.set(ac.hex, fresh)
-      })
+      updateClientTrails(trailsRef.current, enriched, now)
       const currentHexes = new Set(enriched.map(a => a.hex))
-      for (const hex of trailsRef.current.keys())
-        if (!currentHexes.has(hex)) trailsRef.current.delete(hex)
       setAircraft(enriched)
       setHasFetched(true)
       setLastUpdated(new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
@@ -266,8 +242,7 @@ export default function App() {
     }
   }, [location, applyInRange])
 
-  // Keep ref fresh so stable interval always calls latest closure
-  fetchDataRef.current = fetchData
+  usePolling(fetchData, POLL_INTERVAL)
 
   // Latest aircraft snapshot, so the radius slider can recompute alerts from
   // the data we already have instead of refetching.
@@ -283,57 +258,6 @@ export default function App() {
     if (testPushTimerRef.current) clearTimeout(testPushTimerRef.current)
   }, [])
 
-  // Polling that pauses with the tab and resumes cleanly.
-  //
-  // Earlier version had a `booted` flag that protected the deferred first
-  // fetch from running twice — but it ALSO blocked the immediate refresh
-  // when the tab became visible again. Result: iOS PWA users returning to
-  // the app after a minute saw stale aircraft positions forever.
-  //
-  // Now: only the very first kickoff is deferred via requestIdleCallback.
-  // Subsequent resumes call tick() immediately so the map refreshes the
-  // moment the user comes back.
-  useEffect(() => {
-    let id = null
-    let firstBoot = true
-    const tick = () => fetchDataRef.current()
-    const start = () => {
-      if (id != null) return
-      const begin = () => {
-        tick()
-        id = setInterval(tick, POLL_INTERVAL)
-      }
-      if (firstBoot) {
-        firstBoot = false
-        if (typeof requestIdleCallback === 'function') {
-          requestIdleCallback(begin, { timeout: 1500 })
-        } else {
-          setTimeout(begin, 0)
-        }
-      } else {
-        begin()
-      }
-    }
-    const stop = () => {
-      if (id != null) { clearInterval(id); id = null }
-    }
-    const onVis = () => {
-      if (document.visibilityState === 'visible') start()
-      else stop()
-    }
-    onVis()
-    document.addEventListener('visibilitychange', onVis)
-    // iOS Safari sometimes only fires `pageshow` on PWA resume (without
-    // a fresh visibilitychange) — listen for both.
-    window.addEventListener('pageshow', onVis)
-    window.addEventListener('focus', onVis)
-    return () => {
-      document.removeEventListener('visibilitychange', onVis)
-      window.removeEventListener('pageshow', onVis)
-      window.removeEventListener('focus', onVis)
-      stop()
-    }
-  }, [])
 
   // Radius change → recompute alerts locally, no network refetch. The API
   // response is always the same fixed bbox (EUROPE_CENTER / 2800 km); radius
@@ -346,41 +270,14 @@ export default function App() {
     applyInRangeRef.current(aircraftRef.current, false)
   }, [radius])
 
-  // U4: deep link via URL hash — #hex=48da46 selects the aircraft on load
-  // and the hash updates as the user selects/deselects so the page can be
-  // shared or bookmarked.
-  useEffect(() => {
-    const m = window.location.hash.match(/[#?&]hex=([a-f0-9]{6})/i)
-    if (m) { setSelectedHex(m[1].toLowerCase()); setFocusHex(m[1].toLowerCase()) }
+  // Wybór spoza mapy (link #hex, kliknięte powiadomienie): zaznacz maszynę
+  // i dolecieć do niej.
+  const openHex = useCallback(hex => {
+    setSelectedHex(hex)
+    setFocusHex(hex)
+    setActivePanel(null)
   }, [])
-
-  // Tapping a push notification while the app is already open: the service
-  // worker posts the hex here (a hash change alone wouldn't re-fire the
-  // on-load effect above).
-  useEffect(() => {
-    if (!('serviceWorker' in navigator)) return
-    const onMsg = e => {
-      const d = e.data
-      if (d?.type === 'select-hex' && /^[a-f0-9]{6}$/i.test(d.hex || '')) {
-        setSelectedHex(d.hex.toLowerCase())
-        setFocusHex(d.hex.toLowerCase())
-        setActivePanel(null)
-      }
-    }
-    navigator.serviceWorker.addEventListener('message', onMsg)
-    return () => navigator.serviceWorker.removeEventListener('message', onMsg)
-  }, [])
-
-  useEffect(() => {
-    if (selectedHex && !selectedHex.startsWith('__')) {
-      const desired = `#hex=${selectedHex}`
-      if (window.location.hash !== desired) {
-        try { window.history.replaceState(null, '', desired) } catch {}
-      }
-    } else if (window.location.hash.includes('hex=')) {
-      try { window.history.replaceState(null, '', window.location.pathname + window.location.search) } catch {}
-    }
-  }, [selectedHex])
+  useHexDeepLink(selectedHex, openHex)
 
   // ESC closes panel first, then deselects aircraft (B12 — skip when typing)
   useEffect(() => {
@@ -432,29 +329,11 @@ export default function App() {
     [gpsLat, gpsLon]
   )
 
-  // Maszyny z celem w Rzeszowie/Krakowie dochodzą do listy z radaru: te, które
-  // są już w naszym obszarze, dostają tylko informację o celu (pozycja z
-  // radaru jest świeższa), pozostałe dokładamy jako osobne znaczniki — to
-  // sedno funkcji, bo 747 z Chicago jest poza obszarem przez większość lotu.
-  const aircraftWithArrivals = useMemo(() => {
-    const wanted = inboundRaw.filter(x => arrivals[x.route?.to] !== false)
-    if (!wanted.length) return aircraft
-    const byHex = new Map(wanted.map(x => [x.hex, x]))
-    const merged = aircraft.map(ac => {
-      const x = byHex.get(ac.hex)
-      if (!x) return ac
-      byHex.delete(ac.hex)
-      return { ...ac, arrival: x.route }
-    })
-    for (const x of byHex.values()) {
-      merged.push({
-        hex: x.hex, flight: x.flight, t: x.t, reg: x.reg,
-        lat: x.lat, lon: x.lon, alt_baro: x.alt_baro, gs: x.gs, track: x.track,
-        on_ground: x.on_ground, mlat: false, kind: 'heavy', arrival: x.route,
-      })
-    }
-    return merged
-  }, [aircraft, inboundRaw, arrivals])
+  // Maszyny z celem w Rzeszowie/Krakowie (szczegóły w mergeArrivals).
+  const aircraftWithArrivals = useMemo(
+    () => mergeArrivals(aircraft, inboundRaw, arrivals),
+    [aircraft, inboundRaw, arrivals]
+  )
 
   // Stan alertów pokazywany kropką na dzwonku — ta sama reguła, co karta
   // w panelu Alerty.
@@ -473,16 +352,13 @@ export default function App() {
     [aircraftWithArrivals, kinds, selectedHex]
   )
 
-
-
   // U12: meta theme-color flips red when an emergency squawk is currently
   // visible — gives the iOS Safari status bar / Android Chrome chrome a
   // visceral "something is wrong" cue without forcing a notification.
-  const EMERGENCY_SQUAWKS = useMemo(() => new Set(['7500', '7600', '7700', '7400']), [])
   const hasEmergency = useMemo(() => alerts.some(a => {
     const sq = a.ac.squawk ? String(a.ac.squawk).padStart(4, '0') : null
     return sq && EMERGENCY_SQUAWKS.has(sq)
-  }), [alerts, EMERGENCY_SQUAWKS])
+  }), [alerts])
   useEffect(() => {
     const meta = document.querySelector('meta[name="theme-color"]')
     if (!meta) return
@@ -531,32 +407,6 @@ export default function App() {
     setAlerts(prev => prev.filter(a => a.hex !== hex))
   }, [])
 
-  // Komunikat o maszynie w zasięgu to TYLKO informacja (decyzja użytkownika):
-  // znika po pięciu sekundach albo od razu po kliknięciu, a maszynę użytkownik
-  // znajduje na mapie sam. Wcześniej klik zaznaczał maszynę i otwierał kartę.
-  const ALERT_AUTO_HIDE_MS = 5000
-  const alertTimersRef = useRef(new Map())
-  useEffect(() => {
-    const timers = alertTimersRef.current
-    for (const a of alerts) {
-      if (timers.has(a.hex)) continue
-      timers.set(a.hex, setTimeout(() => {
-        timers.delete(a.hex)
-        dismissAlert(a.hex)
-      }, ALERT_AUTO_HIDE_MS))
-    }
-    // Sprzątanie po komunikatach, które zniknęły wcześniej (klik, wylot z zasięgu).
-    const live = new Set(alerts.map(a => a.hex))
-    for (const [hex, id] of timers) {
-      if (!live.has(hex)) { clearTimeout(id); timers.delete(hex) }
-    }
-  }, [alerts, dismissAlert])
-
-  useEffect(() => {
-    const timers = alertTimersRef.current
-    return () => { for (const id of timers.values()) clearTimeout(id); timers.clear() }
-  }, [])
-
   return (
     <div className={`app${activePanel ? ' panel-open' : ''}${selectedAc ? ' info-open' : ''}`}>
       <RadarMap
@@ -564,7 +414,7 @@ export default function App() {
         hasFetched={hasFetched}
         trails={trailsRef}
         serverTrails={serverTrails}
-        center={center}
+        center={EUROPE_CENTER}
         gpsCenter={gpsCenter}
         radius={location ? radius : null}
         selectedHex={selectedHex}
@@ -603,54 +453,7 @@ export default function App() {
         />
       )}
 
-      {/* Alerty — do trzech naraz, znikają gdy maszyna wyleci z zasięgu
-          albo gdy użytkownik je odrzuci. */}
-      {alerts.length > 0 && (
-        <div className="alert-stack">
-          {alerts.slice(0, 3).map(({ hex, ac, dist }) => {
-            // Czerwień zostaje dla przypadku, który powiadomienie nazywa
-            // „blisko Ciebie": maszyna wojskowa bliżej niż CLOSE_RANGE_KM.
-            // Reszta dostaje kolor kategorii, zgodny z mapą.
-            const isNear = (ac.kind || 'mil') === 'mil' && dist <= CLOSE_RANGE_KM
-            return (
-              <div key={hex}
-                className={`alert-toast kind-${ac.kind || 'mil'}${isNear ? ' near' : ''}`}
-                role="button"
-                tabIndex={0}
-                onClick={() => dismissAlert(hex)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); dismissAlert(hex) }
-                }}>
-                <div className="alert-toast-body">
-                  <span className="alert-toast-tag">
-                    <span className="alert-toast-dot" />
-                    {/* Nagłówek mówi, DLACZEGO widzisz komunikat (w zasięgu /
-                        blisko), a nie co to za maszyna — nazwa jest niżej.
-                        Kategorię niesie kolor kropki i ramki. */}
-                    {isNear ? t('ALERT_TAG_NEAR') : t('ALERT_TAG')}
-                  </span>
-                  {/* Nazwa maszyny (albo służby) zamiast znaku wywoławczego —
-                      tak samo jak w powiadomieniu systemowym. Znak wywoławczy
-                      jest na karcie, po kliknięciu maszyny na mapie. */}
-                  <span className="alert-toast-call">
-                    {/* Skrót kraju z adresu ICAO przed nazwą — tak samo jak
-                        w powiadomieniu systemowym. */}
-                    {[countryCodeFromHex(ac.hex), heliRole(ac) || shortTypeName(ac) || (ac.t || '').trim() || '?']
-                      .filter(Boolean).join(' ')}
-                  </span>
-                  <span className="alert-toast-detail">{Math.round(dist)} km</span>
-                </div>
-                <button className="alert-toast-close"
-                  aria-label={t('DISMISS_NOTIFICATION')}
-                  onClick={e => { e.stopPropagation(); dismissAlert(hex) }}>✕</button>
-              </div>
-            )
-          })}
-          {alerts.length > 3 && (
-            <div className="alert-toast-overflow">+{alerts.length - 3} {t('ALERT_OVERFLOW')}</div>
-          )}
-        </div>
-      )}
+      <AlertStack alerts={alerts} onDismiss={dismissAlert} />
 
       {/* Side panel backdrop — mobile only (U10) */}
       {activePanel && (
@@ -733,75 +536,4 @@ export default function App() {
       )}
     </div>
   )
-}
-
-
-function loadDismissed() {
-  try {
-    const raw = localStorage.getItem('radar.dismissed')
-    if (!raw) return []
-    const arr = JSON.parse(raw)
-    return Array.isArray(arr) ? arr : []
-  } catch { return [] }
-}
-// Keep at most this many dismissed hexes in localStorage — Set preserves
-// insertion order, so we trim to the most-recent N to bound storage growth
-// across long-running sessions.
-const DISMISSED_LIST_CAP = 100
-
-function persistDismissed(set) {
-  try {
-    const arr = [...set].filter(h => !h.startsWith('__')).slice(-DISMISSED_LIST_CAP)
-    localStorage.setItem('radar.dismissed', JSON.stringify(arr))
-  } catch {}
-}
-
-// Singleton AudioContext — browsers limit how many can be open. Reuse one
-// across all alerts; create a new oscillator each ping. After long suspends
-// some browsers move the ctx to `closed`, in which case we lazily replace it.
-let alertCtx = null
-function playAlertSound() {
-  try {
-    const AC = window.AudioContext || window.webkitAudioContext
-    if (!AC) return
-    if (!alertCtx || alertCtx.state === 'closed') alertCtx = new AC()
-    if (alertCtx.state === 'suspended') alertCtx.resume().catch(() => {})
-    const osc = alertCtx.createOscillator()
-    const gain = alertCtx.createGain()
-    osc.type = 'sine'
-    osc.frequency.value = 880
-    gain.gain.setValueAtTime(0.15, alertCtx.currentTime)
-    gain.gain.exponentialRampToValueAtTime(0.001, alertCtx.currentTime + 0.35)
-    osc.connect(gain).connect(alertCtx.destination)
-    osc.start()
-    osc.stop(alertCtx.currentTime + 0.4)
-  } catch {}
-}
-
-function triggerNotification(ac, dist) {
-  if (!('serviceWorker' in navigator)) return
-  if (Notification.permission !== 'granted') {
-    console.debug('[notify] skipped: permission =', Notification.permission)
-    return
-  }
-  // Ta sama funkcja składa treść, co push z serwera — inaczej to samo zdarzenie
-  // brzmiałoby inaczej w zależności od tego, czy aplikacja jest otwarta.
-  const { title, body } = alertText(ac, dist)
-
-  navigator.serviceWorker.ready.then(reg => {
-    reg.showNotification(title, {
-      body,
-      icon: '/pwa-192x192.png',
-      badge: '/pwa-192x192.png',
-      // Per-hex tag + renotify=true: if the same aircraft re-enters the
-      // radar, iOS shows a new notification instead of silently replacing
-      // the old (and missed) one. Tag MUSI być spójny z serwerowym push
-      // (push-handler.js → data.tag = ac.hex), żeby ewentualny dublet
-      // klient+serwer został przez iOS scalony, a nie pokazany dwa razy.
-      tag: ac.hex,
-      renotify: true,
-      data: { hex: ac.hex },
-      actions: [{ action: 'show', title: t('NOTIF_SHOW') }],
-    })
-  })
 }
