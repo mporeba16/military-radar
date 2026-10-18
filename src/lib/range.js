@@ -2,7 +2,7 @@
 // nimi interpolacja liniowa — etykiety 25/100/250/500 trafiają dokładnie w
 // swoje pozycje, a dolny zakres (25–100 km, najczęściej używany) dostaje
 // proporcjonalnie więcej skoku suwaka niż rzadziej ruszany górny.
-// Wydzielone z SettingsPanel, żeby dało się je testować bez renderu Reacta.
+// Wydzielone z panelu, żeby dało się je testować bez renderu Reacta.
 export const RANGE_ANCHORS = [25, 100, 250, 500]
 export const RANGE_SEG = 100  // szerokość pozycji suwaka przypadająca na jeden segment
 

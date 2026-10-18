@@ -734,8 +734,7 @@
 
 /* ── Zwinięty wybór podkładu ──────────────────────────────────────────────
    Wiersz z aktualnym podkładem; siatka podglądów rozwija się dopiero po
-   dotknięciu. Wygląda jak wiersz GPS-u niżej w ustawieniach, bo robi to samo:
-   pokazuje stan i chowa szczegóły. */
+   dotknięciu. Pokazuje stan i chowa szczegóły. */
 .tile-current {
   display: flex;
   align-items: center;

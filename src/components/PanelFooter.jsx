@@ -43,8 +43,9 @@ function ViewportDiag() {
   )
 }
 
-// Panel Ustawienia — wersja i diagnostyka. Alerty i warstwy mają własne panele.
-export default function SettingsPanel({
+// Stopka panelu Alerty — wersja i ukryta diagnostyka. Dawniej osobny panel
+// Ustawienia, który po usunięciu sekcji GPS nie miał już nic poza tym.
+export default function PanelFooter({
   location,
   radius, isSubscribed,
   error,
@@ -54,8 +55,7 @@ export default function SettingsPanel({
   const [debugOpen, setDebugOpen] = useState(false)
 
   return (
-    <div className="panel-body">
-
+    <>
       {error && <p className="err small">✗ {error}</p>}
 
       {/* Stopka: wersja, a diagnostyka jako zwijany wiersz obok niej — nie
@@ -170,6 +170,6 @@ export default function SettingsPanel({
           )}
         </div>
       )}
-    </div>
+    </>
   )
 }

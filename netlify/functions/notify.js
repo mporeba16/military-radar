@@ -2,6 +2,7 @@ import { getStore, connectLambda } from '@netlify/blobs'
 import webpush from 'web-push'
 import { fetchMilitaryNear, fetchMilGlobal, haversine, normalizeKinds } from './lib/military.js'
 import { isInPoland } from './lib/poland.js'
+import { isQuietHours } from './lib/quietHours.js'
 import { rareRole } from '../../src/lib/rareTypes.js'
 import { AIRFIELDS } from '../../src/airfields.js'
 // Treść alertów mieszka we wspólnym module — ten sam kod składa push z serwera
@@ -121,6 +122,9 @@ export function cooldownMapEqual(a, b) {
 // *-background, limit 15 min) albo rozbić przetwarzanie na paczki.
 export const handler = async (event) => {
   try { if (event?.blobs) connectLambda(event) } catch {}
+  // Cisza nocna (1:00–6:00) — bez push i bez odpytywania źródeł. Maszyna,
+  // która nadal jest w zasięgu o 6:00, dostanie alert w pierwszym przebiegu.
+  if (isQuietHours()) return { statusCode: 200, body: 'quiet hours' }
   const runStart = Date.now()
   const stats = {
     startedAt: new Date(runStart).toISOString(),

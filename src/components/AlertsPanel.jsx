@@ -27,6 +27,7 @@ export default function AlertsPanel({
   permissionState, isSubscribed, isSubscribing, subscribe, unsubscribe, subscribeError,
   soundOn, setSoundOn, vibrateOn, setVibrateOn,
   arrivals, setArrivals,
+  children,
 }) {
   const kindsOn = kindsOnCount(kinds)
   const state = readiness({ hasGps: !!location, pushOn: isSubscribed, kindsOn, locationError })
@@ -145,6 +146,7 @@ export default function AlertsPanel({
         </div>
       </section>
 
+      {children}
     </div>
   )
 }

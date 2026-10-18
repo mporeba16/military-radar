@@ -5,7 +5,7 @@ import AircraftInfoPanel from './components/AircraftInfoPanel'
 // Panele otwiera się rzadko, a ważą swoje — niech dojdą przy pierwszym
 // otwarciu, a nie przy starcie aplikacji.
 const AlertsPanel = lazy(() => import('./components/AlertsPanel'))
-const SettingsPanel = lazy(() => import('./components/SettingsPanel'))
+import PanelFooter from './components/PanelFooter'
 const MapsPanel = lazy(() => import('./components/MapsPanel'))
 import { useGeolocation } from './hooks/useGeolocation'
 import { usePushNotifications } from './hooks/usePushNotifications'
@@ -658,7 +658,6 @@ export default function App() {
           <div className="side-panel-header">
             <span className="side-panel-title">
               {activePanel === 'alerty' && t('PANEL_ALERTS')}
-              {activePanel === 'ustawienia' && t('PANEL_SETTINGS')}
               {activePanel === 'mapy' && t('PANEL_MAPS')}
             </span>
             <button className="side-panel-close" onClick={() => setActivePanel(null)} aria-label={t('CLOSE_PANEL')}>✕</button>
@@ -687,24 +686,22 @@ export default function App() {
               setSoundOn={setSoundOn}
               vibrateOn={vibrateOn}
               setVibrateOn={setVibrateOn}
-            />
-          )}
-
-          {activePanel === 'ustawienia' && (
-            <SettingsPanel
-              location={location}
-              radius={radius}
-              isSubscribed={isSubscribed}
-              error={error}
-              debugUnlocked={debugUnlocked}
-              fetchData={fetchData}
-              handleTestPush={handleTestPush}
-              testPushStatus={testPushStatus}
-              syncError={syncError}
-              serverStatus={serverStatus}
-              version={version}
-              bumpVersionTap={bumpVersionTap}
-            />
+            >
+              <PanelFooter
+                location={location}
+                radius={radius}
+                isSubscribed={isSubscribed}
+                error={error}
+                debugUnlocked={debugUnlocked}
+                fetchData={fetchData}
+                handleTestPush={handleTestPush}
+                testPushStatus={testPushStatus}
+                syncError={syncError}
+                serverStatus={serverStatus}
+                version={version}
+                bumpVersionTap={bumpVersionTap}
+              />
+            </AlertsPanel>
           )}
 
           {activePanel === 'mapy' && (

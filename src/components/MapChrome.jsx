@@ -4,17 +4,6 @@ import { t } from '../i18n'
 // paneli w prawym. Zastąpił pasek na całą szerokość — ten zjadał pas ekranu na
 // nazwę i zegar, a mapa jest tu treścią. Stan (ładowanie, błąd, czas ostatniego
 // odświeżenia) niesie teraz sam znacznik: kolorem, pulsem i podpowiedzią.
-function IconSliders() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
-      <path d="M3 7h11M18 7h3M3 17h4M11 17h10" />
-      <circle cx="16" cy="7" r="2.4" />
-      <circle cx="9" cy="17" r="2.4" />
-    </svg>
-  )
-}
-
 // Dzwonek z kropką stanu: zielona = alerty działają, bursztynowa = tylko
 // w aplikacji (push wyłączony), czerwona = brak GPS. Bez niej stan alertów
 // dało się sprawdzić dopiero po otwarciu panelu.
@@ -82,7 +71,7 @@ function IconCrosshair() {
   )
 }
 
-// Kolejność od góry: Mapa, Alerty, Ustawienia, GPS. Najczęściej używany
+// Kolejność od góry: Mapa, Alerty, GPS. Najczęściej używany
 // (GPS) najniżej — najbliżej kciuka na telefonie.
 export function MapPanelButtons({ activePanel, onTogglePanel, onRecenter, hasGps, alertsLevel }) {
   const panelBtn = (id, label, icon, extra = null) => (
@@ -102,7 +91,6 @@ export function MapPanelButtons({ activePanel, onTogglePanel, onRecenter, hasGps
       {panelBtn('mapy', t('NAV_MAPS_A11Y'), <IconLayers />)}
       {panelBtn('alerty', t('NAV_ALERTS_A11Y'), <IconBell />,
         <span className={`icon-btn__dot icon-btn__dot--${alertsLevel}`} aria-hidden="true" />)}
-      {panelBtn('ustawienia', t('NAV_SETTINGS_A11Y'), <IconSliders />)}
       <button
         className={`icon-btn ${hasGps ? 'has-gps' : 'no-gps'}`}
         aria-label={hasGps ? t('NAV_RECENTER_GPS_A11Y') : t('NAV_RECENTER_PL_A11Y')}
