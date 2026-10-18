@@ -1,0 +1,22 @@
+# Crony radaru (notify, collect, inbound-collect, heavy-collect) — patrz worker.js.
+# Wdrożenie: npx wrangler deploy -c cloudflare/wrangler.toml
+name = "radar-crons"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["nodejs_compat"]
+# Tylko crony — bez publicznego adresu workers.dev.
+workers_dev = false
+
+[vars]
+# ID projektu radar-wojskowy w Netlify (nie jest tajne). Token do Blobs
+# (NETLIFY_TOKEN) i klucze VAPID są sekretami: npx wrangler secret put …
+NETLIFY_SITE_ID = "462b4c55-9029-4dcb-b151-031f0ea4e610"
+
+[triggers]
+# Tylko heavy-collect (adsb.lol). adsb.fi stoi za ochroną Cloudflare i Workerom
+# odpowiada 403 (strona z wyzwaniem dla botów), więc notify, collect
+# i inbound-collect — które pytają adsb.fi — zostają na Netlify.
+crons = ["3-59/5 * * * *"]
+
+[observability]
+enabled = true

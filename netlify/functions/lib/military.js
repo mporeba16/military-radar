@@ -241,7 +241,12 @@ export async function fetchMilGlobal() {
     signal: AbortSignal.timeout(5000),
     headers: { 'User-Agent': 'MilitaryRadarPL/1.0', 'Accept': 'application/json' },
   })
-  if (!res.ok) throw new Error('adsb.fi /mil failed')
+  if (!res.ok) {
+    // Kod i początek odpowiedzi w błędzie — bez nich „failed" nie mówi, czy to
+    // limit zapytań (429), czy blokada adresu (np. strona 403 z HTML-em).
+    const snippet = (await res.text().catch(() => '')).replace(/\s+/g, ' ').slice(0, 120)
+    throw new Error(`adsb.fi /mil failed: HTTP ${res.status} server=${res.headers.get('server') || '?'} ${snippet}`)
+  }
   const data = await res.json()
   const list = (data.ac || data.aircraft || []).filter(isValidADSBfi)
   milCache = { at: Date.now(), list }

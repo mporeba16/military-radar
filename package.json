@@ -9,7 +9,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "lint": "eslint src netlify"
+    "lint": "eslint src netlify cloudflare",
+    "deploy:crons": "wrangler deploy -c cloudflare/wrangler.toml"
   },
   "dependencies": {
     "@netlify/blobs": "^10.7.4",

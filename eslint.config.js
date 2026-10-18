@@ -33,9 +33,10 @@ export default [
     },
   },
 
-  // Netlify functions — Node runtime (fetch/crypto/URL/AbortSignal are globals on Node 18+)
+  // Netlify functions — Node runtime (fetch/crypto/URL/AbortSignal are globals on Node 18+).
+  // Worker Cloudflare (cloudflare/) uruchamia ten sam kod z nodejs_compat.
   {
-    files: ['netlify/**/*.js'],
+    files: ['netlify/**/*.js', 'cloudflare/**/*.js'],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'module',
@@ -46,6 +47,7 @@ export default [
         URL: 'readonly',
         AbortSignal: 'readonly',
         TextEncoder: 'readonly',
+        btoa: 'readonly',
       },
     },
     rules: {

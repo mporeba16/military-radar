@@ -10,3 +10,6 @@ dist/
 
 # Notatki robocze, poza repo
 PLAN_NAPRAWCZY.md
+
+# Sekrety lokalne Workera Cloudflare
+.dev.vars

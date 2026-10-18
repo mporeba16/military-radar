@@ -32,10 +32,9 @@
 [functions."inbound-collect"]
   schedule = "*/2 * * * *"
 
-# Jumbo jety nad Polską i do 100 km od granic (adsb.lol po typie) — patrz lib/heavyEurope.js
-[functions."heavy-collect"]
-  # Co 5 min, nie co minutę — to najdroższa funkcja w kredytach Netlify.
-  schedule = "*/5 * * * *"
+# heavy-collect (jumbo jety z adsb.lol) chodzi na Cloudflare Workers — patrz
+# cloudflare/worker.js. notify, collect i inbound-collect zostają tutaj, bo
+# adsb.fi blokuje zapytania z Cloudflare (403).
 
 [dev]
   command = "npm run dev"

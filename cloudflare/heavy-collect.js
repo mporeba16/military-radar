@@ -3,7 +3,7 @@
 // w lib/heavyEurope.js.
 
 import { getStore, connectLambda } from '@netlify/blobs'
-import { carryForward, fetchHeavyEurope, HEAVY_KEY, HEAVY_STORE } from './lib/heavyEurope.js'
+import { carryForward, fetchHeavyEurope, HEAVY_KEY, HEAVY_STORE } from '../netlify/functions/lib/heavyEurope.js'
 
 export const handler = async (event) => {
   try { if (event?.blobs) connectLambda(event) } catch { /* poza Netlify */ }

@@ -81,7 +81,7 @@ export const handler = async (event) => {
         if (m.hex) byHex.set(m.hex, m)
       }
     } else {
-      error = milRes.status === 'fulfilled' ? `adsb.fi /mil http-${milRes.value.status}` : 'adsb.fi /mil exception'
+      error = milRes.status === 'fulfilled' ? `adsb.fi /mil http-${milRes.value.status}` : `adsb.fi /mil exception: ${milRes.reason?.message}`
     }
 
     // Geo nad Polską — TYLKO maszyny, które aplikacja pokazuje (mil/heli/heavy),
@@ -94,6 +94,9 @@ export const handler = async (event) => {
         const m = mapRecord(a)
         if (m.hex) byHex.set(m.hex, m)
       }
+    } else {
+      const geoErr = geoRes.status === 'fulfilled' ? `http-${geoRes.value.status}` : `exception: ${geoRes.reason?.message}`
+      error = error ? `${error}; geo ${geoErr}` : `adsb.fi geo ${geoErr}`
     }
 
     const aircraft = [...byHex.values()]
