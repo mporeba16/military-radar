@@ -13,3 +13,4 @@ PLAN_NAPRAWCZY.md
 
 # Sekrety lokalne Workera Cloudflare
 .dev.vars
+.wrangler/
