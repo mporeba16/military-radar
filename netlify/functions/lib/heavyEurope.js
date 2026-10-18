@@ -1,11 +1,14 @@
-// Jumbo jety i An-124 nad całą Europą.
+// Jumbo jety i An-124 nad Polską i do 100 km od jej granic.
 //
 // Duże samoloty cywilne nie są w globalnym /mil, a zapytanie geograficzne
-// adsb.fi sięga najwyżej 250 nm od środka Polski — dlatego pojawiały się na
-// mapie dopiero przy granicy z Niemcami i Czechami. adsb.lol ma pytanie po
-// typie, globalne. Pyta o nie wyłącznie cron `heavy-collect` (co minutę),
-// a `aircraft` czyta gotową migawkę z Blobs — ruch na stronie nie trafia do
-// adsb.lol z tego powodu.
+// adsb.fi sięga najwyżej 250 nm od środka Polski — za Szczecinem, Suwałkami
+// i Bieszczadami pas 100 km od granicy wychodzi poza ten okrąg. adsb.lol ma
+// pytanie po typie, globalne; zostawiamy z niego tylko maszyny blisko Polski
+// (dalsze, np. nad Francją, nie są dla nas ciekawe). Pyta o nie wyłącznie
+// cron `heavy-collect` (co 5 minut), a `aircraft` czyta gotową migawkę
+// z Blobs — ruch na stronie nie trafia do adsb.lol z tego powodu.
+
+import { isNearPoland } from './poland.js'
 
 export const HEAVY_STORE = 'heavy-europe'
 export const HEAVY_KEY = 'snapshot'
@@ -17,16 +20,19 @@ export const HEAVY_KEY = 'snapshot'
 export const HEAVY_TYPES = ['A124', 'B748', 'B744']
 
 // Gdy typ dostał 429, jego maszyny przenosimy z poprzedniej migawki, dopóki
-// pozycja nie jest starsza niż to — inaczej ikony by migały.
-const CARRY_MAX_AGE_MS = 3 * 60 * 1000
+// pozycja nie jest starsza niż to — inaczej ikony by migały. Cron chodzi co
+// 5 minut, więc poprzednia migawka ma zwykle ~5 min.
+const CARRY_MAX_AGE_MS = 8 * 60 * 1000
 
-// Ten sam szeroki obszar co w `collect` (Europa, zachodnia Rosja, bliski wschód).
-export const EUROPE_BOX = { lamin: 30, lomin: -15, lamax: 72, lomax: 50 }
+// Ile km od granicy Polski maszyna jeszcze trafia do migawki.
+export const NEAR_POLAND_KM = 100
 
-// Starsza migawka (np. adsb.lol nie odpowiadał kilka minut) nie trafia na mapę.
-export const HEAVY_MAX_AGE_MS = 5 * 60 * 1000
-// Dalej niż tyle nie przesuwamy pozycji „w przód” — po tym czasie kurs mógł się zmienić.
-const MAX_EXTRAPOLATE_S = 180
+// Starsza migawka (np. adsb.lol nie odpowiadał przez przebieg crona) nie trafia
+// na mapę. Musi przetrwać odstęp między przebiegami (5 min) z zapasem.
+export const HEAVY_MAX_AGE_MS = 8 * 60 * 1000
+// Dalej niż tyle nie przesuwamy pozycji „w przód” — po tym czasie kurs mógł się
+// zmienić. Pokrywa odstęp crona; jumbo jety w przelocie lecą zwykle prosto.
+const MAX_EXTRAPOLATE_S = 360
 
 const UA = { 'User-Agent': 'MilitaryRadarPL/1.0 (+https://radar-wojskowy.netlify.app)', Accept: 'application/json' }
 const sleep = ms => new Promise(r => setTimeout(r, ms))
@@ -50,7 +56,8 @@ async function fetchType(type) {
 }
 
 /**
- * Pobiera typy tego przebiegu (po kolei, z odstępem) i zostawia maszyny nad Europą.
+ * Pobiera typy tego przebiegu (po kolei, z odstępem) i zostawia maszyny
+ * nad Polską i do NEAR_POLAND_KM od granicy.
  * Każdy rekord dostaje `_at` — chwilę pobrania, od której liczymy wiek pozycji.
  */
 export async function fetchHeavyEurope(now = Date.now()) {
@@ -61,7 +68,7 @@ export async function fetchHeavyEurope(now = Date.now()) {
     if (i) await sleep(1500)
     try {
       for (const a of await fetchType(type)) {
-        if (a?.hex && inBox(a, EUROPE_BOX) && !byHex.has(a.hex)) byHex.set(a.hex, { ...a, _at: now })
+        if (a?.hex && isNearPoland(a.lat, a.lon, NEAR_POLAND_KM) && !byHex.has(a.hex)) byHex.set(a.hex, { ...a, _at: now })
       }
       fetched.push(type)
     } catch (err) {

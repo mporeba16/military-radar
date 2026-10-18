@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { extrapolate, mergeHeavies, inBox, carryForward, EUROPE_BOX, HEAVY_TYPES } from '../netlify/functions/lib/heavyEurope.js'
+import { extrapolate, mergeHeavies, carryForward, NEAR_POLAND_KM, HEAVY_TYPES } from '../netlify/functions/lib/heavyEurope.js'
+import { distanceToPolandKm, isNearPoland } from '../netlify/functions/lib/poland.js'
 
 // Jumbo jety pojawiały się dopiero przy granicy z Niemcami i Czechami, bo
 // zapytanie geo adsb.fi sięga tylko 250 nm od środka Polski. Resztę Europy
@@ -21,8 +22,8 @@ describe('mergeHeavies', () => {
     expect(mergeHeavies(live, { at: NOW, aircraft: [overFrance] }, BOX, map, NOW)).toBe(live)
   })
 
-  it('pomija migawkę starszą niż 5 minut', () => {
-    expect(mergeHeavies([], { at: NOW - 6 * 60_000, aircraft: [overFrance] }, BOX, map, NOW)).toEqual([])
+  it('pomija migawkę starszą niż 8 minut (cron co 5 min + zapas)', () => {
+    expect(mergeHeavies([], { at: NOW - 9 * 60_000, aircraft: [overFrance] }, BOX, map, NOW)).toEqual([])
   })
 
   it('pomija maszyny poza obszarem zapytania', () => {
@@ -44,18 +45,35 @@ describe('extrapolate', () => {
     expect(a.lon - 10).toBeCloseTo(0.2075, 3)
   })
 
-  it('nie przesuwa dalej niż o 3 minuty i nie rusza maszyn na ziemi', () => {
+  it('nie przesuwa dalej niż o 6 minut i nie rusza maszyn na ziemi', () => {
     const far = extrapolate({ lat: 50, lon: 10, gs: 480, track: 0 }, 3600)
-    expect(far.lat - 50).toBeCloseTo((480 * 180) / 3600 / 60, 5)
+    expect(far.lat - 50).toBeCloseTo((480 * 360) / 3600 / 60, 5)
     const ground = { lat: 50, lon: 10, gs: 10, track: 0, alt_baro: 'ground' }
     expect(extrapolate(ground, 60)).toBe(ground)
   })
 })
 
 describe('konfiguracja', () => {
-  it('obszar obejmuje Francję, a typy to An-124 i 747-8/-400', () => {
-    expect(inBox({ lat: 48.8, lon: 2.3 }, EUROPE_BOX)).toBe(true)
+  it('typy to An-124 i 747-8/-400', () => {
     expect(HEAVY_TYPES).toEqual(['A124', 'B748', 'B744'])
+  })
+
+  it('bierze maszyny nad Polską i do 100 km od granicy, a nie np. nad Francją', () => {
+    expect(NEAR_POLAND_KM).toBe(100)
+    expect(isNearPoland(52.23, 21.01, NEAR_POLAND_KM)).toBe(true)   // Warszawa
+    expect(isNearPoland(52.52, 13.40, NEAR_POLAND_KM)).toBe(true)   // Berlin (~80 km od Odry)
+    expect(isNearPoland(50.45, 30.52, NEAR_POLAND_KM)).toBe(false)  // Kijów
+    expect(isNearPoland(48.21, 16.37, NEAR_POLAND_KM)).toBe(false)  // Wiedeń
+    expect(isNearPoland(48.8, 2.3, NEAR_POLAND_KM)).toBe(false)     // Paryż
+  })
+})
+
+describe('distanceToPolandKm', () => {
+  it('0 nad Polską, rośnie z odległością od granicy', () => {
+    expect(distanceToPolandKm(52.23, 21.01)).toBe(0)
+    // Lipsk leży ~150 km na zachód od granicy pod Zgorzelcem.
+    expect(distanceToPolandKm(51.34, 12.37)).toBeGreaterThan(130)
+    expect(distanceToPolandKm(51.34, 12.37)).toBeLessThan(180)
   })
 })
 
@@ -66,18 +84,18 @@ describe('przenoszenie z poprzedniej migawki (429 adsb.lol)', () => {
   })
 
   it('przenosi maszynę typu, którego teraz nie udało się pobrać', () => {
-    const prev = { at: NOW - 60_000, aircraft: [{ hex: 'aaa111', t: 'B744', _at: NOW - 60_000 }] }
+    const prev = { at: NOW - 5 * 60_000, aircraft: [{ hex: 'aaa111', t: 'B744', _at: NOW - 5 * 60_000 }] }
     const out = carryForward([], ['A124', 'B748'], prev, NOW)
     expect(out.map(a => a.hex)).toEqual(['aaa111'])
   })
 
   it('nie przenosi typu właśnie pobranego (zniknął — wylądował) ani zbyt starego', () => {
-    const prev = { at: NOW - 60_000, aircraft: [{ hex: 'bbb222', t: 'B748', _at: NOW - 60_000 }, { hex: 'ccc333', t: 'B744', _at: NOW - 4 * 60_000 }] }
+    const prev = { at: NOW - 60_000, aircraft: [{ hex: 'bbb222', t: 'B748', _at: NOW - 60_000 }, { hex: 'ccc333', t: 'B744', _at: NOW - 9 * 60_000 }] }
     expect(carryForward([], ['A124', 'B748'], prev, NOW)).toEqual([])
   })
 
   it('wiek pozycji liczony od pobrania rekordu (_at), nie od migawki', () => {
-    const old = { hex: 'ddd444', t: 'B744', lat: 48, lon: 2, _at: NOW - 6 * 60_000 }
+    const old = { hex: 'ddd444', t: 'B744', lat: 48, lon: 2, _at: NOW - 9 * 60_000 }
     expect(mergeHeavies([], { at: NOW, aircraft: [old] }, BOX, map, NOW)).toEqual([])
   })
 })

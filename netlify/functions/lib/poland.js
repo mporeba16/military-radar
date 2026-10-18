@@ -40,3 +40,24 @@ export function isInPoland(lat, lon) {
   }
   return inside
 }
+
+// Odległość w km od obrysu Polski (0 nad Polską). Rzut równoodległościowy
+// wokół punktu — przy ~100 km błąd jest pomijalny.
+export function distanceToPolandKm(lat, lon) {
+  if (lat == null || lon == null) return Infinity
+  if (isInPoland(lat, lon)) return 0
+  const kx = 111.32 * Math.cos(lat * Math.PI / 180), ky = 110.57
+  let best = Infinity
+  for (let i = 0, j = POLAND_POLY.length - 1; i < POLAND_POLY.length; j = i++) {
+    const ax = (POLAND_POLY[j][1] - lon) * kx, ay = (POLAND_POLY[j][0] - lat) * ky
+    const bx = (POLAND_POLY[i][1] - lon) * kx, by = (POLAND_POLY[i][0] - lat) * ky
+    const dx = bx - ax, dy = by - ay
+    const t = Math.max(0, Math.min(1, -(ax * dx + ay * dy) / (dx * dx + dy * dy)))
+    best = Math.min(best, Math.hypot(ax + t * dx, ay + t * dy))
+  }
+  return best
+}
+
+export function isNearPoland(lat, lon, km) {
+  return distanceToPolandKm(lat, lon) <= km
+}

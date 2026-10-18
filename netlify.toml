@@ -32,9 +32,10 @@
 [functions."inbound-collect"]
   schedule = "*/2 * * * *"
 
-# Jumbo jety nad całą Europą (adsb.lol po typie) — patrz lib/heavyEurope.js
+# Jumbo jety nad Polską i do 100 km od granic (adsb.lol po typie) — patrz lib/heavyEurope.js
 [functions."heavy-collect"]
-  schedule = "* * * * *"
+  # Co 5 min, nie co minutę — to najdroższa funkcja w kredytach Netlify.
+  schedule = "*/5 * * * *"
 
 [dev]
   command = "npm run dev"

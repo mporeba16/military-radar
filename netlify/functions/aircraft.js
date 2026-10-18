@@ -390,8 +390,8 @@ export const handler = async (event) => {
     result = staleFallback(stale, Date.now())
   }
 
-  // Jumbo jety nad całą Europą: zapytanie geo adsb.fi sięga tylko 250 nm od
-  // Polski, więc resztę bierzemy z migawki crona heavy-collect (adsb.lol po typie).
+  // Jumbo jety do 100 km od granic: zapytanie geo adsb.fi sięga tylko 250 nm od
+  // środka Polski, więc brzegi bierzemy z migawki crona heavy-collect (adsb.lol po typie).
   if (Array.isArray(result.aircraft)) {
     try {
       const heavy = await getStore(HEAVY_STORE).get(HEAVY_KEY, { type: 'json' })

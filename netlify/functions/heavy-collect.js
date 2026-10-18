@@ -1,4 +1,4 @@
-// Cron co minutę: jumbo jety i An-124 nad całą Europą z adsb.lol (pytanie po typie)
+// Cron co 5 minut: jumbo jety i An-124 nad Polską i do 100 km od granic, z adsb.lol (pytanie po typie)
 // zapisane jako migawka w Blobs — `aircraft` dokleja je do mapy. Szczegóły i powód
 // w lib/heavyEurope.js.
 
