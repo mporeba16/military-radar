@@ -155,3 +155,28 @@ describe('skrót kraju w tytule', () => {
     expect(alertText({ hex: 'ffffff', t: 'C130', kind: 'mil' }, 12).title).toBe('Hercules · 12 km')
   })
 })
+
+describe('jedno powiadomienie na samolot — rola i cel w „w zasięgu”', async () => {
+  const { alertText } = await import('../src/lib/notifyText.js')
+
+  it('tankowiec w okręgu: rola na początku tytułu', () => {
+    const { title } = alertText({ hex: 'ae1234', t: 'K35R', kind: 'mil', alt_baro: 30000, track: 90 }, 40)
+    expect(title.startsWith('Tankowiec · ')).toBe(true)
+    expect(title.endsWith('40 km')).toBe(true)
+  })
+
+  it('blisko: ⚠ zostaje na początku, rola zaraz po nim', () => {
+    const { title } = alertText({ hex: 'a0ec98', flight: 'BRIO66', t: 'CL60', kind: 'mil' }, 6)
+    expect(title.startsWith('⚠ Rozpoznanie (ARTEMIS) · ')).toBe(true)
+  })
+
+  it('zwykły wojskowy bez roli, jak dotąd', () => {
+    const { title } = alertText({ hex: 'ae1234', t: 'C17', kind: 'mil' }, 40)
+    expect(title).not.toMatch(/Tankowiec|Rozpoznanie/)
+  })
+
+  it('jumbo jet lecący do Rzeszowa ma cel w treści', () => {
+    const { body } = alertText({ hex: 'abb6dc', t: 'B748', kind: 'heavy', arrival: { to: 'EPRZ' } }, 30)
+    expect(body.startsWith('→ Rzeszów')).toBe(true)
+  })
+})

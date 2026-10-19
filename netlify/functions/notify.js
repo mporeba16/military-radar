@@ -286,14 +286,29 @@ async function run() {
   const covered = (v) =>
     haversine(cLat, cLon, v.raw.lat, v.raw.lon) + (v.raw.radius ?? 100) <= coverage + 0.5
 
+  // Migawka przylotów (cron `inbound-collect`) — raz na przebieg. Jumbo jet
+  // lecący do Rzeszowa/Krakowa niesie cel do powiadomienia „w zasięgu".
+  const inboundSnap = await getStore(SNAPSHOT_STORE).get(SNAPSHOT_KEY, { type: 'json' }).catch(() => null)
+  const arrivalByHex = new Map((inboundSnap?.inbound || []).map(x => [x.hex, x.route]))
+  const withArrival = list => list.map(a => arrivalByHex.has(a.hex) ? { ...a, arrival: arrivalByHex.get(a.hex) } : a)
+
   // Pass 2 — resolve each sub's aircraft (shared snapshot, or own fetch) and process.
   const results = await Promise.allSettled(deduped.map(async (v) => {
     const radius = v.raw.radius ?? 100
     const aircraft = covered(v)
       ? snapshot.filter(a => haversine(v.raw.lat, v.raw.lon, a.lat, a.lon) <= radius)
       : await fetchMilitaryNear(v.raw.lat, v.raw.lon, radius)
-    return processSubscription(v, aircraft, alertedStore, stats)
+    return processSubscription(v, withArrival(aircraft), alertedStore, stats)
   }))
+
+  // Jedno powiadomienie na samolot: maszyna w okręgu subskrypcji dostaje
+  // powiadomienie „w zasięgu" (z rolą albo celem lotu w treści), a przebiegi
+  // przylotów i rzadkich maszyn pomijają ją dla tego urządzenia.
+  const inRangeByKey = new Map()
+  deduped.forEach((v, i) => {
+    const r = results[i]
+    if (r.status === 'fulfilled' && r.value?.inRange) inRangeByKey.set(v.key, r.value.inRange)
+  })
 
   for (const r of results) {
     if (r.status === 'fulfilled' && r.value) {
@@ -304,14 +319,14 @@ async function run() {
 
   // Pass 4 — jumbo jety i An-124 z celem w Rzeszowie/Krakowie. Czyta migawkę
   // z crona `inbound-collect`, więc nie odpytuje niczego na zewnątrz.
-  await processInbound(loaded, stats).catch(err => {
+  await processInbound(loaded, stats, inboundSnap, inRangeByKey).catch(err => {
     console.error('[notify] inbound pass failed:', err.message)
     stats.inboundError = err.message
   })
 
   // Pass 3 — rzadkie maszyny nad całą Polską. Nie zależą od pozycji
   // użytkownika, więc idą też do subskrypcji bez GPS.
-  await processRare(loaded, stats).catch(err => {
+  await processRare(loaded, stats, inRangeByKey).catch(err => {
     console.error('[notify] rare pass failed:', err.message)
     stats.rareError = err.message
   })
@@ -360,8 +375,7 @@ async function broadcast(recipients, payloadsFor, stats, counter, label) {
 
 const allRecipients = loaded => dedupeByDevice(loaded.filter(v => v.raw?.subscription))
 
-async function processInbound(loaded, stats) {
-  const snap = await getStore(SNAPSHOT_STORE).get(SNAPSHOT_KEY, { type: 'json' }).catch(() => null)
+async function processInbound(loaded, stats, snap, inRangeByKey) {
   const list = snap?.inbound || []
   if (!list.length) return
 
@@ -386,7 +400,8 @@ async function processInbound(loaded, stats) {
   const recipients = allRecipients(loaded)
   await broadcast(recipients, v => fresh
     // Przełącznik lotniska z ustawień urządzenia; brak pola = włączone.
-    .filter(({ airport }) => v.raw.arrivals?.[airport.icao] !== false)
+    .filter(({ x, airport }) => v.raw.arrivals?.[airport.icao] !== false &&
+      !inRangeByKey.get(v.key)?.has(x.hex))
     .map(({ x, airport, min }) => ({
       ...inboundText(x, airport.name, landingClock(min, now), formatEta(min)),
       tag: `inbound-${x.hex}`, hex: x.hex,
@@ -394,7 +409,7 @@ async function processInbound(loaded, stats) {
   console.log(`[notify] inbound: ${fresh.map(f => `${f.x.flight}→${f.airport.icao}`).join(', ')} → ${recipients.length} subs`)
 }
 
-async function processRare(loaded, stats) {
+async function processRare(loaded, stats, inRangeByKey) {
   const rare = findRare(await fetchMilGlobal())
   stats.rareOverPoland = rare.length
   if (!rare.length) return
@@ -412,15 +427,21 @@ async function processRare(loaded, stats) {
   await store.set('alerted', JSON.stringify({ alerted: next, ts: now }))
   if (!fresh.length) return
 
-  const payload = fresh.length <= RARE_GROUP_THRESHOLD
-    ? fresh.map(({ ac, role }) => ({
-        ...rareText(ac, role, nearestAirfieldName(ac.lat, ac.lon)),
-        tag: `rare-${ac.hex}`, hex: ac.hex,
-      }))
-    : [{ ...rareGroupText(fresh), tag: 'rare-group', hex: fresh[0].ac.hex }]
+  // Treść zależy od urządzenia: maszyny w jego okręgu już ma (powiadomienie
+  // „w zasięgu" z rolą), więc tu ich nie powtarzamy.
+  const payloadsFor = v => {
+    const mine = fresh.filter(({ ac }) => !inRangeByKey.get(v.key)?.has(ac.hex))
+    if (!mine.length) return []
+    return mine.length <= RARE_GROUP_THRESHOLD
+      ? mine.map(({ ac, role }) => ({
+          ...rareText(ac, role, nearestAirfieldName(ac.lat, ac.lon)),
+          tag: `rare-${ac.hex}`, hex: ac.hex,
+        }))
+      : [{ ...rareGroupText(mine), tag: 'rare-group', hex: mine[0].ac.hex }]
+  }
 
   const recipients = allRecipients(loaded).filter(v => normalizeKinds(v.raw.kinds).rare)
-  await broadcast(recipients, () => payload, stats, 'rareSent', 'rare')
+  await broadcast(recipients, payloadsFor, stats, 'rareSent', 'rare')
   console.log(`[notify] rare: ${fresh.map(r => `${r.ac.hex}/${r.ac.t}`).join(', ')} → ${recipients.length} subs`)
 }
 
@@ -552,6 +573,7 @@ async function processSubscription({ key, raw, ageMs }, aircraft, alertedStore, 
     subDiag.gpsAgeMs = ageMs
     subDiag.radius = radius
     subDiag.inRange = enriched.length
+    result.inRange = new Set(enriched.map(a => a.hex))
     if (aircraft.length !== enriched.length) subDiag.filteredOutByKind = aircraft.length - enriched.length
     const plan = planAlerts(enriched, eligible)
     subDiag.newAircraft = plan.far

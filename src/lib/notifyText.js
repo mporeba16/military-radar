@@ -1,6 +1,8 @@
 import { getCommonName } from './typeNames'
 import { plForm } from './plural'
 import { countryCodeFromHex } from './countries'
+import { rareRoleFor } from './rareTypes.js'
+import { airportByIcao } from './inbound'
 
 // Treść powiadomień — JEDNO miejsce dla pusha z serwera i dla lokalnego
 // powiadomienia klienta. Wcześniej te same napisy składały się w dwóch plikach
@@ -108,10 +110,19 @@ export function alertText(ac, distKm) {
     titleHasType = !!name
   }
 
+  // Rzadka maszyna (tankowiec, AWACS, rozpoznanie…) w okręgu dostaje TO
+  // powiadomienie zamiast osobnego „nad Polską" — więc rola musi być tutaj,
+  // na początku tytułu (po ⚠, gdy jest blisko).
+  const rare = kind !== 'heli' ? rareRoleFor(ac) : null
+  if (rare) title = title.startsWith('⚠ ') ? `⚠ ${rare} · ${title.slice(2)}` : `${rare} · ${title}`
+
   // Bez znaku wywoławczego (decyzja użytkownika): „RCH744” nic nie mówi
   // komuś, kto patrzy w niebo, a zjadał pierwsze miejsce w treści. Tożsamość
   // maszyny jest na karcie po kliknięciu powiadomienia.
   const parts = []
+  // Jumbo jet lecący do Rzeszowa/Krakowa — z tym samym założeniem: jedno
+  // powiadomienie na samolot, więc cel lotu idzie tutaj.
+  if (ac.arrival?.to) parts.push(`→ ${airportByIcao(ac.arrival.to)?.name || ac.arrival.toCity || ac.arrival.to}`)
   // Kod powtórzyłby tytuł tylko wtedy, gdy nie znaleźliśmy nazwy własnej.
   if (code && !(titleHasType && name === code)) parts.push(code)
   const alt = altMetres(ac.alt_baro)
