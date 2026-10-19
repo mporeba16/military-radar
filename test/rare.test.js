@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { rareRole } from '../src/lib/rareTypes.js'
+import { rareRole, rareRoleFor } from '../src/lib/rareTypes.js'
 import { rareText, rareGroupText } from '../src/lib/notifyText.js'
 import { findRare } from '../netlify/functions/notify.js'
 import { normalizeKinds } from '../netlify/functions/lib/military.js'
@@ -92,5 +92,17 @@ describe('myśliwce nad Polską alarmują jak tankowce', async () => {
   it('niemiecki Eurofighter bez typu w ADS-B (GAFS73D) rozpoznany z wpisu ręcznego', () => {
     const gaf = { hex: '3eacaf', flight: 'GAFS73D', t: '', lat: 52.27, lon: 16.78, alt_baro: 18425 }
     expect(findRare([gaf]).map(r => r.role)).toEqual(['Myśliwiec'])
+  })
+})
+
+describe('rola po opisie z bazy (cywilny kod typu)', () => {
+  it('KC-767A (B762) to tankowiec, Shadow R1 (B350) to rozpoznanie', () => {
+    expect(rareRoleFor({ hex: '33ff01', flight: 'BREUS56', t: 'B762', desc: 'Boeing KC-767A' })).toBe('Tankowiec')
+    expect(rareRoleFor({ hex: '43c001', flight: 'RFR7141', t: 'B350', desc: 'Beech Shadow R1+' })).toBe('Rozpoznanie')
+  })
+  it('zwykły King Air czy 767 bez opisu wojskowego nie jest rzadki', () => {
+    expect(rareRoleFor({ hex: '43c002', t: 'B350', desc: 'BEECHCRAFT Super King Air 350' })).toBeNull()
+    expect(rareRoleFor({ hex: '43c003', t: 'B762', desc: 'BOEING 767-200' })).toBeNull()
+    expect(rareRoleFor({ hex: '43c004', t: 'B762' })).toBeNull()
   })
 })

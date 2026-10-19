@@ -35,7 +35,8 @@ describe('shortTypeName', () => {
     expect(shortTypeName(bryza)).toBe('M28 Bryza')
   })
   it('bez nazwy własnej zostaje kod', () => {
-    expect(shortTypeName(heli)).toBe('EC35')
+    expect(shortTypeName({ ...heli, t: 'C680' })).toBe('C680')
+    expect(shortTypeName(heli)).toBe('H135')
   })
   it('brak typu nie daje nazwy', () => {
     expect(shortTypeName({ hex: 'abc' })).toBe(null)

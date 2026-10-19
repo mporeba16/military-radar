@@ -200,3 +200,16 @@ describe('znak wywoławczy = rejestracja', () => {
     expect(isMilitaryADSBfiRecord({ hex: '48ea46', flight: 'SPOOKY', r: 'SP-OOKY', squawk: '7777' })).toBe(true)
   })
 })
+
+describe('flaga wojskowa z bazy (dbFlags)', () => {
+  it('wojsko bez wojskowego znaku z flagą w bazie jest wojskiem', () => {
+    expect(isMilitaryADSBfiRecord({ hex: '3b7567', flight: 'TTAL91', t: 'A332', dbFlags: 1 })).toBe(true)
+    expect(isMilitaryADSBfiRecord({ hex: '33ffdc', flight: 'LYF275', t: 'C27J', dbFlags: 9 })).toBe(true)
+  })
+  it('inne bity (np. PIA/LADD) nie robią z maszyny wojska', () => {
+    expect(isMilitaryADSBfiRecord({ hex: '3c1234', flight: 'DLH1', t: 'A320', dbFlags: 4 })).toBe(false)
+  })
+  it('szkoleniowy z flagą nadal odpada', () => {
+    expect(isMilitaryADSBfiRecord({ hex: '498495', flight: 'CEF850', t: 'Z42', dbFlags: 1 })).toBe(false)
+  })
+})

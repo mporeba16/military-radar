@@ -164,6 +164,11 @@ export function isMilitaryADSBfiRecord(a) {
   if (GROUND_STATION_PATTERNS.some(re => re.test(callsign))) return false
   if (CIVILIAN_CALLSIGN_PATTERNS.some(re => re.test(callsign))) return false
   if (MILITARY_HEX_PREFIXES.some(p => hex.startsWith(p))) return true
+  // Flaga wojskowa z bazy adsb.fi (dbFlags bit 1) — ta sama, z której
+  // powstaje lista /mil. W zapytaniu geograficznym przychodzi przy rekordzie,
+  // a bez niej wojsko bez wojskowego znaku (francuski MRTT TTAL91, litewski
+  // C-27J LYF275) zależało wyłącznie od tego, czy trafi na listę /mil.
+  if (a.dbFlags & 1) return true
   if (!callsignIsRegistration(hex, callsign, a.r) &&
     MILITARY_CALLSIGN_PATTERNS.some(re => re.test(callsign))) return true
   if (MILITARY_SQUAWKS.has(squawk)) return true

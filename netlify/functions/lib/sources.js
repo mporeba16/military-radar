@@ -157,6 +157,9 @@ function toAlertRecord(a) {
     // Rejestracja rozstrzyga, czyj to śmigłowiec (SP-HX = LPR), gdy znak
     // wywoławczy nic nie mówi.
     reg: a.r || null,
+    // Opis z bazy adsb.fi — po nim rozpoznajemy rolę maszyn o cywilnym kodzie
+    // typu (KC-767A jako B762, Shadow R1 jako B350).
+    desc: a.desc || null,
     lat: a.lat,
     lon: a.lon,
     alt_baro: typeof a.alt_baro === 'number' ? a.alt_baro : null,

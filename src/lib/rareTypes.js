@@ -38,9 +38,19 @@ const CALLSIGN_RULES = [
   [/^BRIO\d/, 'Rozpoznanie (ARTEMIS)'],
 ]
 
+// Maszyny, których kod typu to zwykły samolot cywilny, a rolę zdradza dopiero
+// opis z bazy adsb.fi (pole `desc`): włoski KC-767A nadaje B762, brytyjski
+// Shadow R1 — B350 jak każdy King Air.
+const DESC_RULES = [
+  [/KC-?767|KC-?135|KC-?46|KC-?10\b|KC-?30|MRTT|VOYAGER|STRATOTANKER|PEGASUS/, 'Tankowiec'],
+  [/RC-?135|RIVET JOINT|COMBAT SENT|SHADOW R|ARTEMIS|SENTINEL R|MC-?12|GUARDRAIL|RC-?12|AIRSEEKER/, 'Rozpoznanie'],
+  [/E-?767|SENTRY|WEDGETAIL|GLOBALEYE|ERIEYE/, 'Wczesne ostrzeganie (AWACS)'],
+  [/POSEIDON|P-?8A/, 'Patrol morski'],
+]
+
 /**
  * Rola rzadkiej maszyny z całego rekordu: najpierw wpis ręczny po hexie
- * (knownAircraft), potem znak wywoławczy, na końcu typ.
+ * (knownAircraft), potem znak wywoławczy, typ, a na końcu opis z bazy.
  */
 export function rareRoleFor(ac) {
   const known = knownAircraft(ac?.hex)?.rare
@@ -49,5 +59,9 @@ export function rareRoleFor(ac) {
   for (const [re, role] of CALLSIGN_RULES) if (re.test(cs)) return role
   // Typ z wpisu ręcznego ma pierwszeństwo — niemieckie Eurofightery nadają
   // bez kodu typu i bez tego nie byłyby rozpoznane jako myśliwce.
-  return rareRole(resolvedType(ac))
+  const byType = rareRole(resolvedType(ac))
+  if (byType) return byType
+  const desc = String(ac?.desc || '').toUpperCase()
+  if (desc) for (const [re, role] of DESC_RULES) if (re.test(desc)) return role
+  return null
 }

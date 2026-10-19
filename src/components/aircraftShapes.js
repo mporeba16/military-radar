@@ -300,7 +300,7 @@ export function getShapeKey(t, gs = null, category = null) {
   // Airbus / Eurocopter civilian + light military (AS, EC, H-series)
   if (/^AS35[0-5]?$|^AS55[0-9]?$|^AS502$|^EC12[0-5]$|^EC130$|^EC140$|^H1(20|25|30|45|60|75)$/.test(type)) return 'helicopter'
   // MBB, Robinson, MD, Mi-2 / Mi-4 / Mi-6 / Mi-10 / Mi-14 / Mi-26, Kamov
-  if (/^BO105$|^B105$|^BK11?7$|^R22[A-Z]?$|^R44$|^R66$|^MD5[0-9]$|^MD500$|^MD600$|^MI2$|^MI4$|^MI6$|^MI10$|^MI14$|^MI26$|^KA2[269]$|^KA32$|^KA26$/.test(type)) return 'helicopter'
+  if (/^BO105$|^B105$|^BK11?7$|^R22[A-Z]?$|^R44$|^R66$|^MD5[0-9]$|^MD500$|^MD600$|^MI2$|^MI4$|^MI6$|^MI10$|^MI14$|^MI26$|^KA2[269]$|^KA32$|^KA26$|^EN[24]8$/.test(type)) return 'helicopter'
 
   if (/^UH|^AH|^MH|^HH|^SH|^H6|^H4|^H7|^H9|EC135|EC35|EC145|EC45|EC665|W3A?|MI8|MI17|MI28|KA50|KA52|LYNX|SEAHAWK|WILDCAT|R44|R66|NH90|NH9|MD9|^EXPL|EXPLORER/.test(type)) return 'helicopter'
 
@@ -428,6 +428,7 @@ export function getShapeKey(t, gs = null, category = null) {
   if (/E29[0-9]|E17[0-9]|E19[0-9]|E13[0-9]|E14[0-9]|RJ[0-9]|B46[123]/.test(type)) return 'e390'
   // Twin-engine military transports — extend with An-30/72/74 + C-9 / DC-9 / MD-80/90
   if (/C295|CN235|C235|^CN35$|AN26|AN30|AN32|^AN7[24]$|COALER|CLANK|DHC5|CASA|C27J|C27/.test(type)) return 'twin_large'
+  if (/^AT[47][2-6]$/.test(type)) return 'twin_large'   // ATR 42 / 72
   // PZL M28 Skytruck / Bryza (pochodna An-28) — lekki dwusilnikowy turbośmigłowiec
   // (~7.5 t), klasa King Air / Twin Otter, nie średni transport jak C-295 → twin_small.
   // adsb.fi koduje je NIESPÓJNIE: "M28", "AN28", czasem "A28" — wszystkie to ta sama
@@ -449,7 +450,7 @@ export function getShapeKey(t, gs = null, category = null) {
   if (/KINGAIR|PC12|PC21|PC9|PC7|DHC8|DASH8|BE20|BE9|B350|BE30|SW[234]|L410|L610|C12/.test(type)) return 'twin_small'
   if (/^SF34$|^SB20$|^C70$/.test(type)) return 'twin_small'     // Saab 340 / C-70
   if (/^D328$|^DO328|^C146$|WOLFHOUND/.test(type)) return 'twin_small'  // Dornier 328 / C-146 Wolfhound
-  if (/^DA62|^DA42|^BN2|ISLANDER/.test(type)) return 'twin_small'
+  if (/^DA62|^DA42|^BN2|ISLANDER|^D228$/.test(type)) return 'twin_small'
   if (/CESSNA|C172|C182|C152|G115|G120|G140|SF260|SF50|TB[0-9]|TB20|TB21/.test(type)) return 'cessna'
   if (/^Z42$|^Z142$|^Z242$|^ZLIN|^DR4|^ROBIN|^EXTRA[23456]?$|^M20/.test(type)) return 'cessna'
   if (/CIRRUS|SR22|SR20|^DA40/.test(type)) return 'cirrus_sr22'
@@ -462,6 +463,8 @@ export function getShapeKey(t, gs = null, category = null) {
   // rysujemy śmigłowiec, a nie samolot. Bez tego Mi-8 bez typu wychodził jako
   // odrzutowiec.
   if ((category || '').toUpperCase() === 'A7') return 'helicopter'
+  // B6 = bezzałogowiec.
+  if ((category || '').toUpperCase() === 'B6') return 'uav_small'
 
   return 'jet_swept'
 }

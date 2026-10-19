@@ -171,6 +171,20 @@ export function getCommonName(t) {
     [/^Z42$|^Z142$|^Z242$|^ZLIN/, 'Zlin'],
     [/^TBM/, 'TBM'],
     [/^BN2|ISLANDER/, 'Islander'],
+    // Częste na listach /mil, a karta pokazywała przy nich sam kod ICAO.
+    [/^EC35$|^EC135$|^H135$/, 'H135'],
+    [/^A139$|^AW139$/, 'AW139'],
+    [/^A169$|^AW169$/, 'AW169'],
+    [/^A189$|^AW189$/, 'AW189'],
+    [/^EN48$|^EN28$/, 'Enstrom'],
+    [/C27J/, 'Spartan'],
+    [/^L410$/, 'Turbolet'],
+    [/^B350$|^BE20$|^BE30$|^BE9L$/, 'King Air'],
+    [/DHC6/, 'Twin Otter'],
+    [/^D228$/, 'Dornier 228'],
+    [/^PC24$/, 'PC-24'],
+    [/^PC12$/, 'PC-12'],
+    [/^FA10$/, 'Falcon 10'],
   ]
   for (const [re, name] of map) {
     if (re.test(type)) return name

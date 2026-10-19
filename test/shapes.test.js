@@ -196,7 +196,7 @@ describe('typeLabel — etykieta typu na karcie', () => {
   })
 
   it('bez nazwy własnej zostaje sam kod', () => {
-    expect(typeLabel('EC35')).toBe('EC35')
+    expect(typeLabel('C680')).toBe('C680')
     expect(typeLabel('')).toBeNull()
     expect(typeLabel(null)).toBeNull()
   })
@@ -290,5 +290,21 @@ describe('An-124 ma własną sylwetkę', () => {
     expect(getShapeKey('A124', 400)).toBe('an124')
     expect(getShapeKey('A225', 400)).toBe('an124')
     expect(getShapeKey('B748', 400)).toBe('heavy_4e')
+  })
+})
+
+describe('poprawki sylwetek i nazw z przeglądu /mil (19.10.2026)', () => {
+  it('Enstrom to śmigłowiec, Dornier 228 i ATR to śmigłowe', () => {
+    expect(getShapeKey('EN48', 80)).toBe('helicopter')
+    expect(getShapeKey('D228', 180)).toBe('twin_small')
+    expect(getShapeKey('AT76', 250)).toBe('twin_large')
+  })
+  it('kategoria B6 bez typu to dron', () => {
+    expect(getShapeKey('', 80, 'B6')).toBe('uav_small')
+  })
+  it('częste typy mają nazwy', () => {
+    for (const [t, n] of [['EC35', 'H135'], ['A139', 'AW139'], ['C27J', 'Spartan'], ['L410', 'Turbolet'], ['B350', 'King Air'], ['DHC6', 'Twin Otter']]) {
+      expect(getCommonName(t), t).toBe(n)
+    }
   })
 })
