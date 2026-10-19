@@ -10,6 +10,7 @@ describe('rareRole', () => {
     expect(rareRole('e3tf')).toBe('Wczesne ostrzeganie (AWACS)')
     expect(rareRole('R135')).toBe('Rozpoznanie')
     expect(rareRole('Q4')).toBe('Dron rozpoznawczy')
+    expect(rareRole('ANKA')).toBe('Dron rozpoznawczy')
   })
 
   it('ignores everyday military traffic (myśliwce od 19.10.2026 to „Myśliwiec”)', () => {

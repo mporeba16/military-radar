@@ -123,6 +123,7 @@ describe('getCommonName — desygnatory ICAO z adsb.fi', () => {
     // ADS-B podaje H60/H47/H64/H53 bez litery roli — te maszyny zostawały
     // wtedy bez nazwy własnej (GRZLY81 jako „H47", DRAGO67 jako „H60").
     expect(getCommonName('H60')).toBe('Black Hawk')
+    expect(getCommonName('ANKA')).toBe('Anka')
     expect(getCommonName('H47')).toBe('Chinook')
     expect(getCommonName('H64')).toBe('Apache')
     expect(getCommonName('H53')).toBe('Super Stallion')
@@ -278,6 +279,7 @@ describe('sylwetki śmigłowców i dronów we właściwym rozmiarze', () => {
   it('MQ-9 mniejszy niż Global Hawk', () => {
     expect(getShapeKey('Q4', 300)).toBe('uav')
     expect(getShapeKey('MQ9', 200)).toBe('uav_small')
+    expect(getShapeKey('ANKA', 200)).toBe('uav_small')
   })
 })
 

@@ -16,7 +16,7 @@ const RULES = [
   [/^(E6)$/, 'Samolot łączności (E-6)'],
   [/^(P8)$/, 'Patrol morski'],
   [/^(B52|B1|B2)$/, 'Bombowiec'],
-  [/^(Q4|Q4A|Q4B|RQ4|MQ4|Q9|MQ9)$/, 'Dron rozpoznawczy'],
+  [/^(Q4|Q4A|Q4B|RQ4|MQ4|Q9|MQ9|ANKA)$/, 'Dron rozpoznawczy'],
   [/^(C5M|C5)$/, 'Transportowiec strategiczny'],
   // Myśliwce (prośba użytkownika: każdy myśliwiec nad Polską jak tankowiec).
   // Kody ICAO z adsb.fi; trenażery (M346, HAWK, L39) i szturmowe (A10, SU25)

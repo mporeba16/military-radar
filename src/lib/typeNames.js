@@ -137,6 +137,7 @@ export function getCommonName(t) {
     [/V22|OSPREY/, 'Osprey'],
     [/MQ9|REAPER/, 'Reaper'],
     [/MQ1|PREDATOR/, 'Predator'],
+    [/^ANKA/, 'Anka'],
     [/RQ4|GLOBALHAWK/, 'Global Hawk'],
     [/W3A?$/, 'Sokół'],
     // adsb.fi podaje MI8 dla całej rodziny (Mi-8 i eksportowy Mi-17) i z ADS-B
