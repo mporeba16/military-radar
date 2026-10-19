@@ -4,8 +4,9 @@ import {
   altToMetres, formatAltRange, describeRemarks, isMilitaryReservation,
   activeReservation, groupKey, shortName, trimZones, milUnitSet,
 } from '../src/lib/airspace.js'
+import { MIL_UNITS_PL, MIL_BASES_PL } from '../src/airfields.js'
 
-const MIL = milUnitSet([{ icao: 'EPLK' }, { icao: 'EPKS' }])
+const MIL = milUnitSet(MIL_UNITS_PL)
 
 function feature(designator, type, reservations) {
   return {
@@ -62,6 +63,11 @@ describe('isMilitaryReservation', () => {
     expect(isMilitaryReservation({ unit: 'COP' }, MIL)).toBe(true)
     expect(isMilitaryReservation({ unit: 'EPLK' }, MIL)).toBe(true)
     expect(isMilitaryReservation({ unit: 'EPRA' }, MIL)).toBe(true)
+    expect(isMilitaryReservation({ unit: 'EPLY' }, MIL)).toBe(true)
+    expect(isMilitaryReservation({ unit: 'EPOK' }, MIL)).toBe(true)
+    // Okęcie i Balice: baza na mapie tak, ale ich rezerwacje to głównie ruch cywilny.
+    expect(isMilitaryReservation({ unit: 'EPKK' }, MIL)).toBe(false)
+    expect(isMilitaryReservation({ unit: 'EPWA' }, MIL)).toBe(false)
     expect(isMilitaryReservation({ unit: 'EPBC' }, MIL)).toBe(false)
     expect(isMilitaryReservation({ unit: 'ZZZZ' }, MIL)).toBe(false)
   })
@@ -136,5 +142,26 @@ describe('podkłady wycofane', () => {
     expect(resolveTileId('esri-satellite')).toBe('esri-satellite')
     // nieznane id nadal wraca do pierwszego podkładu
     expect(resolveTileId('cokolwiek')).toBe('osm-adsbx')
+  })
+})
+
+describe('warstwa polskich baz', () => {
+  it('ma wszystkie lotniska wojskowe z OSM, także Łęczycę, Darłowo, Oksywie i Nadarzyce', () => {
+    const icao = MIL_BASES_PL.map(b => b.icao)
+    for (const c of ['EPLY', 'EPDA', 'EPOK', 'EPNA', 'EPWA', 'EPKK', 'EPRA']) expect(icao).toContain(c)
+  })
+})
+
+describe('teren lotnisk wojskowych', async () => {
+  const { MIL_AIRFIELD_AREAS } = await import('../src/data/milAirfieldAreas.js')
+  const { isInPoland } = await import('../netlify/functions/lib/poland.js')
+  it('każda polska baza ma obrys, a obrys leży przy jej współrzędnych', () => {
+    for (const b of MIL_BASES_PL) {
+      const ring = MIL_AIRFIELD_AREAS[b.icao]?.[0]
+      expect(ring, b.icao).toBeTruthy()
+      const [lat, lon] = ring.reduce((s, p) => [s[0] + p[0] / ring.length, s[1] + p[1] / ring.length], [0, 0])
+      expect(Math.hypot(lat - b.lat, (lon - b.lon) * 0.62), b.icao).toBeLessThan(0.03)  // ~3 km
+      expect(isInPoland(lat, lon), b.icao).toBe(true)
+    }
   })
 })

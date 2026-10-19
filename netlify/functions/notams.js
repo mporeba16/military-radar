@@ -10,14 +10,14 @@
 // tak, jak zapowiedzieliśmy autorouterowi (ok. 100 zapytań na dobę).
 
 import { corsHeaders } from './lib/security.js'
-import { MIL_BASES_PL } from '../../src/airfields.js'
+import { MIL_UNITS_PL } from '../../src/airfields.js'
 import { WATCHED_EAST, groupNotams } from '../../src/lib/notams.js'
 
 const API = 'https://api.autorouter.aero/v1.0'
 const FRESH_MS = 15 * 60 * 1000
 const STALE_MAX_MS = 6 * 60 * 60 * 1000
 const MAX_PAGES = 5
-export const AIRPORTS = [...new Set([...WATCHED_EAST, ...MIL_BASES_PL.map(b => b.icao)])]
+export const AIRPORTS = [...new Set([...WATCHED_EAST, ...MIL_UNITS_PL.map(b => b.icao)])]
 
 let token = null   // { value, exp }
 let cache = null   // { at, body }

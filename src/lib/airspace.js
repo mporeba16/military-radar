@@ -23,12 +23,11 @@ export function isDroneReservation(r) {
   return DRONE_TOKENS.test(r?.remarks || '')
 }
 
-// Lotniska, z których latają wojskowe szkoły i śmigłowce, choć nie ma ich na
-// warstwie baz: Radom (Orliki, M-346), Leźnica Wielka (Mi-8, Mi-17).
-const EXTRA_MIL_ICAO = ['EPRA', 'EPLY']
-
+// Kody lotnisk wojskowych (MIL_UNITS_PL) jako jednostki rezerwujące strefy.
+// Radom i Leźnica Wielka były tu kiedyś dopisane osobno, bo nie było ich na
+// warstwie baz — od 19.10.2026 są.
 export function milUnitSet(milBases) {
-  return new Set([...milBases.map(b => b.icao), ...EXTRA_MIL_ICAO])
+  return new Set(milBases.map(b => b.icao))
 }
 
 export function isMilitaryReservation(r, milIcao) {

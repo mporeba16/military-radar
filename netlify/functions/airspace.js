@@ -9,13 +9,13 @@
 // oddajemy ostatnią dobrą wersję, dopóki nie jest starsza niż 6 h.
 
 import { corsHeaders } from './lib/security.js'
-import { MIL_BASES_PL } from '../../src/airfields.js'
+import { MIL_UNITS_PL } from '../../src/airfields.js'
 import { trimZones, milUnitSet } from '../../src/lib/airspace.js'
 
 const SOURCE = 'https://airspace.pansa.pl/map-configuration'
 const FRESH_MS = 10 * 60 * 1000
 const STALE_MAX_MS = 6 * 60 * 60 * 1000
-const MIL_ICAO = milUnitSet(MIL_BASES_PL)
+const MIL_ICAO = milUnitSet(MIL_UNITS_PL)
 
 let cache = null // { at, body }
 

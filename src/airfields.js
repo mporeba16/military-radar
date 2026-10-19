@@ -17,13 +17,23 @@ export const AIRFIELDS = [
   { icao: 'EPPR', name: 'Pruszcz Gdański',   lat: 54.2480, lon: 18.6719, mil: true },
   { icao: 'EPCE', name: 'Siemirowice',       lat: 54.4170, lon: 17.7694, mil: true },
   { icao: 'EPTM', name: 'Tomaszów Maz. (Glinnik)', lat: 51.5783, lon: 20.0968, mil: true },
+  // Dopisane 19.10.2026 po porównaniu z OSM (aeroway=aerodrome z military=*):
+  // tych czterech brakowało, choć OSM ma je jako lotniska wojskowe.
+  { icao: 'EPLY', name: 'Łęczyca (Leźnica Wielka)', lat: 52.0030, lon: 19.1479, mil: true },
+  { icao: 'EPDA', name: 'Darłowo',           lat: 54.4140, lon: 16.3562, mil: true },
+  { icao: 'EPOK', name: 'Gdynia-Oksywie',    lat: 54.5792, lon: 18.5158, mil: true },
+  { icao: 'EPNA', name: 'Nadarzyce',         lat: 53.4546, lon: 16.4883, mil: true },
 
   // — Polskie lotniska cywilne / wspólne —
-  { icao: 'EPWA', name: 'Warszawa-Okęcie',   lat: 52.1657, lon: 20.9671 },
+  // Okęcie (1. BLTr) i Balice (8. BLTr) mają jednostkę wojskową, ale są przede
+  // wszystkim cywilne: `joint` pokazuje bazę na mapie, ale ich rezerwacje
+  // w planie PAŻP i NOTAM-y nie liczą się jako wojskowe (patrz MIL_UNITS_PL).
+  // Radom to przede wszystkim 42. Baza Lotnictwa Szkolnego.
+  { icao: 'EPWA', name: 'Warszawa-Okęcie',   lat: 52.1657, lon: 20.9671, mil: true, joint: true },
   { icao: 'EPMO', name: 'Warszawa-Modlin',   lat: 52.4511, lon: 20.6518 },
-  { icao: 'EPKK', name: 'Kraków-Balice',     lat: 50.0777, lon: 19.7848 },
+  { icao: 'EPKK', name: 'Kraków-Balice',     lat: 50.0777, lon: 19.7848, mil: true, joint: true },
   { icao: 'EPRZ', name: 'Rzeszów-Jasionka',  lat: 50.1100, lon: 22.0190 },
-  { icao: 'EPRA', name: 'Radom',             lat: 51.3892, lon: 21.2133 },
+  { icao: 'EPRA', name: 'Radom',             lat: 51.3892, lon: 21.2133, mil: true },
   { icao: 'EPGD', name: 'Gdańsk',            lat: 54.3776, lon: 18.4662 },
   { icao: 'EPPO', name: 'Poznań-Ławica',     lat: 52.4210, lon: 16.8263 },
   { icao: 'EPWR', name: 'Wrocław',           lat: 51.1027, lon: 16.8858 },
@@ -102,6 +112,9 @@ export const AIRFIELDS = [
 // bazy to treść lokalna, bazy NATO rozciągają się od Azorów po Incirlik i przy
 // widoku na Polskę byłyby tylko szumem, gdyby nie dało się ich zgasić.
 export const MIL_BASES_PL = AIRFIELDS.filter(a => a.mil && a.icao.startsWith('EP'))
+// Lotniska, których kod w planie PAŻP i NOTAM-ach oznacza ruch wojskowy —
+// bez cywilno-wojskowych (Okęcie, Balice), gdzie większość to ruch cywilny.
+export const MIL_UNITS_PL = MIL_BASES_PL.filter(a => !a.joint)
 export const MIL_BASES_NATO = AIRFIELDS.filter(a => a.nato)
 
 function haversine(lat1, lon1, lat2, lon2) {
