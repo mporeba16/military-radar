@@ -266,3 +266,17 @@ describe('Mi-8 / Mi-17', () => {
     expect(typeLabel('MI17')).toBe('Mi-17')
   })
 })
+
+describe('sylwetki śmigłowców i dronów we właściwym rozmiarze', () => {
+  it('Mi-8/Mi-17/Mi-14 jako duży śmigłowiec, nie ogólny', () => {
+    for (const t of ['MI8', 'MI17', 'MI171', 'MI14']) expect(getShapeKey(t, 100), t).toBe('s61')
+  })
+  it('AW139/149 i W-3, NH90 — średni; AW109 — lekki; nic z nich nie dostaje sylwetki CH-53', () => {
+    for (const t of ['A139', 'AW149', 'A169', 'W3', 'W3A', 'NH90', 'B412']) expect(getShapeKey(t, 100), t).toBe('helicopter_medium')
+    for (const t of ['A109', 'AW109', 'A119']) expect(getShapeKey(t, 100), t).toBe('helicopter')
+  })
+  it('MQ-9 mniejszy niż Global Hawk', () => {
+    expect(getShapeKey('Q4', 300)).toBe('uav')
+    expect(getShapeKey('MQ9', 200)).toBe('uav_small')
+  })
+})

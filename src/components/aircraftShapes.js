@@ -239,6 +239,13 @@ export const SHAPES = {
   para: { path: 'M 2.7004841,35.4 C 2.3957197,34.805237 2.3346108,34.071291 2.3487212,33.492639 2.3628316,32.913987 2.4133442,32.511354 2.7,32 9.5741879,27.222774 18.4208,24.315376 32,24.357064 45.579201,24.281104 54.425812,27.222774 61.3,32 c 0.276334,0.514345 0.356292,0.854368 0.375811,1.434709 C 61.69533,34.01505 61.609571,34.773946 61.3,35.4 51.576472,38.439657 40.678687,39.277517 32,39.189844 21.874148,39.356757 12.026431,38.677104 2.7004841,35.4 Z' , cx:32, cy:32, scale:0.47743 },
 }
 
+// Te same rysunki w innej skali — dla maszyn, które dzieliły sylwetkę ze
+// znacznie większymi albo mniejszymi. Pomiar galerii ikon (19.10.2026, zoom 7):
+// MQ-9 (20 m) miał tyle samo co RQ-4 (40 m), Mi-17 (wirnik 21 m) wychodził
+// mniejszy niż Black Hawk (16 m), a W-3 i NH90 (16 m) tyle co EC135 (10 m).
+SHAPES.uav_small = { ...SHAPES.uav, scale: SHAPES.uav.scale * 0.6 }
+SHAPES.helicopter_medium = { ...SHAPES.helicopter, scale: SHAPES.helicopter.scale * 1.3 }
+
 export function getShapeKey(t, gs = null, category = null) {
   const type = (t || '').toUpperCase().replace(/[-\s]/g, '')
 
@@ -247,7 +254,10 @@ export function getShapeKey(t, gs = null, category = null) {
   if (/^PARA/.test(type)) return 'para'
 
   // RQ-4 Global Hawk / RQ-4D Phoenix (NATO AGS) nadaje oznaczenie ICAO "Q4", nie "RQ4".
-  if (/MQ9|MQ1B?|MQ1C|RQ4|^Q4[AB]?$|RQ7|RQ170|REAPER|PREDATOR|GLOBALHAWK|TRITON|HERON|HERMES|WATCHKEEPER/.test(type)) return 'uav'
+  // Global Hawk / Triton (rozpiętość 40 m) w pełnej skali, reszta (MQ-9 20 m,
+  // Heron 17 m, Hermes 15 m) mniejsza.
+  if (/RQ4|^Q4[AB]?$|MQ4|GLOBALHAWK|TRITON|RQ170/.test(type)) return 'uav'
+  if (/MQ9|MQ1B?|MQ1C|RQ7|REAPER|PREDATOR|HERON|HERMES|WATCHKEEPER/.test(type)) return 'uav_small'
   if (/V22|MV22|CV22|OSPREY/.test(type)) return (gs != null && gs < 100) ? 'v22_slow' : 'v22_fast'
   if (/CH47|CH146|MH47|H47|CHINOOK/.test(type)) return 'chinook'
   if (/AH64|H64|APACHE/.test(type)) return 'apache'
@@ -263,7 +273,17 @@ export function getShapeKey(t, gs = null, category = null) {
   if (/AS332|AS532|^AS32$|EC225|EC25|EC725|^H215$|^H225$|PUMA|COUGAR|SUPERPUMA/.test(type)) return 'puma'
   if (/GYRO|AUTOGYRO/.test(type)) return 'gyrocopter'
   if (/^G2CA$|CABRI/.test(type)) return 'helicopter'
-  if (/A139|AW139|AW149|AW169|AW189|A149|A169|H169|H189|AW109|AW119|A109|A119|A129|H119/.test(type)) return 's61'
+  // Mi-8 / Mi-17 / Mi-14 — wirnik 21 m, największe śmigłowce w polskim
+  // wojsku po Chinooku: sylwetka dużego śmigłowca, nie ogólna.
+  if (/^MI(8|8[A-Z]+|14|17|17[0-9]|171|172)$/.test(type)) return 's61'
+  // AgustaWestland średnie (AW139/149/169/189, wirnik 13.8–14.6 m) i lekkie
+  // (AW109/119) — wcześniej wszystkie dostawały sylwetkę CH-53/Sea King
+  // i AW139 wychodził większy niż Black Hawk.
+  if (/A139|AW139|AW149|AW169|AW189|A149|A169|H169|H189/.test(type)) return 'helicopter_medium'
+  if (/AW109|AW119|A109|A119|A129|H119/.test(type)) return 'helicopter'
+  // Średnie śmigłowce bez własnej sylwetki: W-3 Sokół, NH90, Bell 412, Mi-2,
+  // Ka-27/29/32 (wirnik 14–16 m).
+  if (/^W3A?$|^NH90$|^NH9$|^B412$|^MI2$|^KA2[79]$|^KA32$/.test(type)) return 'helicopter_medium'
 
   // Bell light/medium helicopters (excluded the B-1 bomber via earlier match;
   // explicit codes here avoid the B7xx airliners and B-2 bomber).
