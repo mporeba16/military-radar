@@ -25,6 +25,11 @@ const KNOWN = {
   '3f65e3': { type: 'EUFI' },
   '3fa9a2': { type: 'EUFI' },
   '3fac5c': { type: 'EUFI' },
+  // GAFS73D (od użytkownika) i lecące z nim w szyku GAFS73A, GAFS73C — ta sama
+  // pozycja, wysokość i prędkość nad Poznaniem 19.10.2026, też bez typu.
+  '3eacaf': { type: 'EUFI' },
+  '3e93b5': { type: 'EUFI' },
+  '3e8f71': { type: 'EUFI' },
 }
 
 export function knownAircraft(hex) {

@@ -12,8 +12,8 @@ describe('rareRole', () => {
     expect(rareRole('Q4')).toBe('Dron rozpoznawczy')
   })
 
-  it('ignores everyday military traffic', () => {
-    expect(rareRole('F16')).toBeNull()
+  it('ignores everyday military traffic (myśliwce od 19.10.2026 to „Myśliwiec”)', () => {
+    expect(rareRole('F16')).toBe('Myśliwiec')
     expect(rareRole('C130')).toBeNull()
     expect(rareRole('')).toBeNull()
   })
@@ -24,7 +24,7 @@ describe('findRare', () => {
     const found = findRare([
       { hex: 'a', t: 'K35R', lat: 52.2, lon: 19.5, alt_baro: 30000 },   // nad Polską
       { hex: 'b', t: 'K35R', lat: 50.1, lon: 8.6, alt_baro: 30000 },    // Frankfurt
-      { hex: 'c', t: 'F16', lat: 52.2, lon: 19.5, alt_baro: 20000 },    // nie rzadki
+      { hex: 'c', t: 'C130', lat: 52.2, lon: 19.5, alt_baro: 20000 },   // nie rzadki
       { hex: 'd', t: 'E3TF', lat: 52.2, lon: 19.5, alt_baro: 'ground' },
     ])
     expect(found.map(f => f.ac.hex)).toEqual(['a'])
@@ -71,5 +71,24 @@ describe('rareRoleFor — rola z całego rekordu', async () => {
   it('nad Polską trafia do alertów jak tankowiec', () => {
     const brio = { hex: 'a0ec98', flight: 'BRIO66', t: 'CL60', lat: 52.2, lon: 21.0, alt_baro: 31000 }
     expect(findRare([brio]).map(r => r.role)).toEqual(['Rozpoznanie (ARTEMIS)'])
+  })
+})
+
+describe('myśliwce nad Polską alarmują jak tankowce', async () => {
+  const { rareRoleFor } = await import('../src/lib/rareTypes.js')
+  const { findRare } = await import('../netlify/functions/notify.js')
+
+  it('F-16, F-35, Rafale, Gripen, Eurofighter — rola „Myśliwiec”', () => {
+    for (const t of ['F16', 'F35', 'RFAL', 'JS39', 'EUFI', 'F15E', 'FA18'])
+      expect(rareRoleFor({ hex: 'ae0001', t }), t).toBe('Myśliwiec')
+  })
+
+  it('trenażery i transportowce nie', () => {
+    for (const t of ['M346', 'HAWK', 'L39', 'C17', 'C30J']) expect(rareRoleFor({ hex: 'ae0001', t }), t).toBeNull()
+  })
+
+  it('niemiecki Eurofighter bez typu w ADS-B (GAFS73D) rozpoznany z wpisu ręcznego', () => {
+    const gaf = { hex: '3eacaf', flight: 'GAFS73D', t: '', lat: 52.27, lon: 16.78, alt_baro: 18425 }
+    expect(findRare([gaf]).map(r => r.role)).toEqual(['Myśliwiec'])
   })
 })

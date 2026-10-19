@@ -1,13 +1,13 @@
 // Maszyny, których pojawienie się nad Polską samo w sobie jest wiadomością:
 // tankowce, samoloty wczesnego ostrzegania, rozpoznanie, bombowce, drony
-// rozpoznawcze. Myśliwce i transportowce latają codziennie — alert o nich
-// byłby szumem. Rola (a nie nazwa typu) trafia do tytułu powiadomienia, bo to
-// ona mówi, co się dzieje.
+// rozpoznawcze i — od 19.10.2026, na prośbę użytkownika — myśliwce.
+// Transportowce latają codziennie, więc alert o nich byłby szumem. Rola (a nie
+// nazwa typu) trafia do tytułu powiadomienia, bo to ona mówi, co się dzieje.
 //
 // Kody to desygnatory ICAO z adsb.fi. A332 liczy się wyłącznie dlatego, że
 // sprawdzamy tylko listę /mil — tam A330 to tankowiec MRTT, nie samolot
 // linii lotniczej.
-import { knownAircraft } from './knownAircraft.js'
+import { knownAircraft, resolvedType } from './knownAircraft.js'
 
 const RULES = [
   [/^(K35R|K35E|KC46|K46|A332|KC10)$/, 'Tankowiec'],
@@ -18,6 +18,10 @@ const RULES = [
   [/^(B52|B1|B2)$/, 'Bombowiec'],
   [/^(Q4|Q4A|Q4B|RQ4|MQ4|Q9|MQ9)$/, 'Dron rozpoznawczy'],
   [/^(C5M|C5)$/, 'Transportowiec strategiczny'],
+  // Myśliwce (prośba użytkownika: każdy myśliwiec nad Polską jak tankowiec).
+  // Kody ICAO z adsb.fi; trenażery (M346, HAWK, L39) i szturmowe (A10, SU25)
+  // celowo poza listą.
+  [/^(F16|F15|F15[A-Z]|F18|F18[A-Z]|FA18|F35|F35[A-Z]|F22|F4|F14|F5|F5[A-Z]|EUFI|EF2000|RFAL|JS39|JAS39|SB39|MIR2|M2K[A-Z]?|MIRA|MIRF|TORN|AV8B|HARR|FA50|T50|MG29|MG31|SU27|SU30|SU33|SU34|SU35|SU57|SU24)$/, 'Myśliwiec'],
 ]
 
 export function rareRole(type) {
@@ -42,5 +46,7 @@ export function rareRoleFor(ac) {
   if (known) return known
   const cs = String(ac?.flight || '').trim().toUpperCase()
   for (const [re, role] of CALLSIGN_RULES) if (re.test(cs)) return role
-  return rareRole(ac?.t)
+  // Typ z wpisu ręcznego ma pierwszeństwo — niemieckie Eurofightery nadają
+  // bez kodu typu i bez tego nie byłyby rozpoznane jako myśliwce.
+  return rareRole(resolvedType(ac))
 }
