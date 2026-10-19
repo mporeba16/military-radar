@@ -174,6 +174,12 @@ export const SHAPES = {
   // Twin turboprop large — średnie transportowce taktyczne (C-295, C-27J, An-26…).
   // scale podbity z 1.375, bo przy 1.375 renderowały się niemal jak lekkie twiny
   // (twin_small) i ginęły na mapie obok C-130 / odrzutowców.
+  // ATR 42/72 i Dash 8: smukły kadłub, górnopłat z silnikami w 1/3 półrozpiętości,
+  // usterzenie w kształcie T. Wcześniej dzieliły sylwetkę z C-295.
+  atr: { path: ['M32 2 L33.2 2.6 L34 3.8 L34.6 5.6 L34.85 8 L34.85 24 L61.75 25.2 L61.75 28.7 L34.85 29.7 L34.85 40 L34.4 46 L33.6 52 L33 54.5 L40 56.3 L40 58.6 L32.8 58.6 L32.5 60.5 L32 61 L32 61 L31.5 60.5 L31.2 58.6 L24 58.6 L24 56.3 L31 54.5 L30.4 52 L29.6 46 L29.15 40 L29.15 29.7 L2.25 28.7 L2.25 25.2 L29.15 24 L29.15 8 L29.4 5.6 L30 3.8 L30.8 2.6 L32 2 Z', 'M41 19 L41.88 20 L42.25 22 L42.25 29.5 L41 31 L39.75 29.5 L39.75 22 L40.12 20 Z', 'M36.7 18.1 L45.3 18.1 L45.3 18.8 L36.7 18.8 Z', 'M23 19 L23.88 20 L24.25 22 L24.25 29.5 L23 31 L21.75 29.5 L21.75 22 L22.12 20 Z', 'M18.7 18.1 L27.3 18.1 L27.3 18.8 L18.7 18.8 Z'], cx:32, cy:31.5, scale:0.6, sz:44 },
+  // Dornier 228: długi spiczasty nos, prostokątne skrzydło, silniki tuż przy
+  // kadłubie, klasyczne usterzenie. Wcześniej wyglądał jak King Air.
+  do228: { path: ['M32 2 L32.7 3.5 L33.5 6.5 L34.3 9.5 L34.7 12 L34.7 21 L61.2 21 L62.5 22 L62.5 27 L61.2 27.8 L34.7 27.8 L34.7 36 L34.2 44 L33.5 50.5 L33.2 51.5 L43.6 53.5 L43.6 56.5 L33 57 L32.8 60 L32 60.5 L32 60.5 L31.2 60 L31 57 L20.4 56.5 L20.4 53.5 L30.8 51.5 L30.5 50.5 L29.8 44 L29.3 36 L29.3 27.8 L2.8 27.8 L1.5 27 L1.5 22 L2.8 21 L29.3 21 L29.3 12 L29.7 9.5 L30.5 6.5 L31.3 3.5 L32 2 Z', 'M41.7 15 L42.61 16 L43 18 L43 28.5 L41.7 30 L40.4 28.5 L40.4 18 L40.79 16 Z', 'M36.85 14.1 L46.55 14.1 L46.55 14.8 L36.85 14.8 Z', 'M22.3 15 L23.21 16 L23.6 18 L23.6 28.5 L22.3 30 L21 28.5 L21 18 L21.39 16 Z', 'M17.45 14.1 L27.15 14.1 L27.15 14.8 L17.45 14.8 Z'], cx:32, cy:31.3, scale:0.45, sz:40 },
   twin_large: { path: 'M10.1,18.34H7l0-.21c-.08-.54,0-.87.11-1L7.19,17l.2,0,2.35-.33c-.16-.82-.42-2.9-.42-3.14s0-2.71,0-3.51H8c-.12,1.34-.41,1.36-.55,1.37h0c-.19,0-.46,0-.6-1.55L.27,9.52l0-.25c.06-.73.31-.9.45-.93l6-.48a3.65,3.65,0,0,1,.3-2,.45.45,0,0,1,.32-.16h0a.39.39,0,0,1,.3.12A3.67,3.67,0,0,1,8,7.77l1.26-.07c0-.71,0-2.92,0-4.48A3.84,3.84,0,0,1,10.1.4a.4.4,0,0,1,.28-.16h.23A.4.4,0,0,1,10.9.4a3.84,3.84,0,0,1,.87,2.81c0,1.55,0,3.77,0,4.48L13,7.77a3.67,3.67,0,0,1,.29-1.94.38.38,0,0,1,.28-.12.46.46,0,0,1,.34.16,3.66,3.66,0,0,1,.3,2l6,.48c.18,0,.43.21.49.94l0,.25-6.53.3c-.14,1.55-.42,1.55-.59,1.55s-.45,0-.57-1.37H11.74c0,.8,0,3.27,0,3.51s-.26,2.32-.42,3.14l2.38.34h.11l.13.13c.15.18.19.51.11,1l0,.21H10.9l-.4,1Z' , cx:10.5, cy:9.5, scale:1.7 },
 
   // Cessna
@@ -428,7 +434,7 @@ export function getShapeKey(t, gs = null, category = null) {
   if (/E29[0-9]|E17[0-9]|E19[0-9]|E13[0-9]|E14[0-9]|RJ[0-9]|B46[123]/.test(type)) return 'e390'
   // Twin-engine military transports — extend with An-30/72/74 + C-9 / DC-9 / MD-80/90
   if (/C295|CN235|C235|^CN35$|AN26|AN30|AN32|^AN7[24]$|COALER|CLANK|DHC5|CASA|C27J|C27/.test(type)) return 'twin_large'
-  if (/^AT[47][2-6]$/.test(type)) return 'twin_large'   // ATR 42 / 72
+  if (/^AT[47][2-6]$|^DH8[A-D]$/.test(type)) return 'atr'   // ATR 42 / 72, Dash 8
   // PZL M28 Skytruck / Bryza (pochodna An-28) — lekki dwusilnikowy turbośmigłowiec
   // (~7.5 t), klasa King Air / Twin Otter, nie średni transport jak C-295 → twin_small.
   // adsb.fi koduje je NIESPÓJNIE: "M28", "AN28", czasem "A28" — wszystkie to ta sama
@@ -450,7 +456,8 @@ export function getShapeKey(t, gs = null, category = null) {
   if (/KINGAIR|PC12|PC21|PC9|PC7|DHC8|DASH8|BE20|BE9|B350|BE30|SW[234]|L410|L610|C12/.test(type)) return 'twin_small'
   if (/^SF34$|^SB20$|^C70$/.test(type)) return 'twin_small'     // Saab 340 / C-70
   if (/^D328$|^DO328|^C146$|WOLFHOUND/.test(type)) return 'twin_small'  // Dornier 328 / C-146 Wolfhound
-  if (/^DA62|^DA42|^BN2|ISLANDER|^D228$/.test(type)) return 'twin_small'
+  if (/^D228$/.test(type)) return 'do228'
+  if (/^DA62|^DA42|^BN2|ISLANDER/.test(type)) return 'twin_small'
   if (/CESSNA|C172|C182|C152|G115|G120|G140|SF260|SF50|TB[0-9]|TB20|TB21/.test(type)) return 'cessna'
   if (/^Z42$|^Z142$|^Z242$|^ZLIN|^DR4|^ROBIN|^EXTRA[23456]?$|^M20/.test(type)) return 'cessna'
   if (/CIRRUS|SR22|SR20|^DA40/.test(type)) return 'cirrus_sr22'

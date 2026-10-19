@@ -296,8 +296,9 @@ describe('An-124 ma własną sylwetkę', () => {
 describe('poprawki sylwetek i nazw z przeglądu /mil (19.10.2026)', () => {
   it('Enstrom to śmigłowiec, Dornier 228 i ATR to śmigłowe', () => {
     expect(getShapeKey('EN48', 80)).toBe('helicopter')
-    expect(getShapeKey('D228', 180)).toBe('twin_small')
-    expect(getShapeKey('AT76', 250)).toBe('twin_large')
+    expect(getShapeKey('D228', 180)).toBe('do228')
+    expect(getShapeKey('AT76', 250)).toBe('atr')
+    expect(getShapeKey('DH8D', 300)).toBe('atr')
   })
   it('kategoria B6 bez typu to dron', () => {
     expect(getShapeKey('', 80, 'B6')).toBe('uav_small')
