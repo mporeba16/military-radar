@@ -5,7 +5,7 @@ import { fetchMilitaryNear, fetchMilGlobal } from './lib/sources.js'
 import { isInPoland } from './lib/poland.js'
 import { isQuietHours } from './lib/quietHours.js'
 import { pushProvider, isExpiredPush, removeSubscription, pruneCooldown } from './lib/push.js'
-import { rareRole } from '../../src/lib/rareTypes.js'
+import { rareRoleFor } from '../../src/lib/rareTypes.js'
 import { AIRFIELDS } from '../../src/airfields.js'
 // Treść alertów mieszka we wspólnym module — ten sam kod składa push z serwera
 // i lokalne powiadomienie w otwartej aplikacji, więc nie mogą się rozjechać.
@@ -49,7 +49,7 @@ export function findRare(milList) {
     if (a.lat == null || a.lon == null) continue
     if (a.alt_baro === 'ground' || a.on_ground) continue
     if (!isInPoland(a.lat, a.lon)) continue
-    const role = rareRole(a.t)
+    const role = rareRoleFor(a)
     if (role) out.push({ ac: a, role })
   }
   return out

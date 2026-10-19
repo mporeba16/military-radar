@@ -84,9 +84,13 @@
 .ac-info-title {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 4px 7px;
+  /* Jedna linia: zawinięty nagłówek spychał całą kartę w dół i na telefonie
+     wyglądał jak błąd. Brakujące miejsce oddaje nazwa typu (wielokropek,
+     pełna nazwa w podpowiedzi), nigdy znak wywoławczy. */
+  flex-wrap: nowrap;
+  gap: 7px;
   min-width: 0;
+  overflow: hidden;
 }
 
 .ac-info-flag {
@@ -96,6 +100,8 @@
 }
 
 .ac-info-callsign {
+  flex: none;
+  white-space: nowrap;
   font-size: 14.5px;
   font-weight: bold;
   letter-spacing: 1.4px;
@@ -248,14 +254,17 @@
   .ac-info-panel { width: 290px; }
 }
 
-/* Mobile — ten sam pływający panel co na szerokim ekranie, tylko węższy.
-   Wcześniej wysuwał się z góry na całą szerokość i z mapy zostawał dolny pas.
-   Pozycję i wysokość dziedziczy z reguły bazowej; tu różni się szerokością,
-   niższym zdjęciem i warstwą (nad przyciskami paneli, gdyby kiedyś sięgnął
-   ich krawędzi). Przy 250 px kończy się na 262 px, one zaczynają na 334. */
+/* Mobile — ten sam pływający panel co na szerokim ekranie. Wcześniej
+   wysuwał się z góry na całą szerokość i z mapy zostawał dolny pas.
+   Pozycję i wysokość dziedziczy z reguły bazowej; tu różni się szerokością
+   (do kolumny przycisków), niższym zdjęciem i warstwą (nad przyciskami
+   paneli, gdyby kiedyś sięgnął ich krawędzi). */
 @media (max-width: 600px) {
   .ac-info-panel {
-    width: 250px;
+    /* Do kolumny przycisków paneli (44 px + 8 px od prawej krawędzi) z 10 px
+       odstępu — przy 250 px nagłówek nie mieścił się w jednej linii, a obok
+       zostawał pusty pas mapy. */
+    width: min(320px, calc(100vw - 74px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)));
     z-index: 1100;
   }
 
@@ -348,7 +357,11 @@
 }
 
 .ac-info-type {
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   padding: 1px 5px;
   border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 3px;

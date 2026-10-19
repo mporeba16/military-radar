@@ -7,6 +7,8 @@
 // Kody to desygnatory ICAO z adsb.fi. A332 liczy się wyłącznie dlatego, że
 // sprawdzamy tylko listę /mil — tam A330 to tankowiec MRTT, nie samolot
 // linii lotniczej.
+import { knownAircraft } from './knownAircraft.js'
+
 const RULES = [
   [/^(K35R|K35E|KC46|K46|A332|KC10)$/, 'Tankowiec'],
   [/^(E3TF|E3CF|E737|E7)$/, 'Wczesne ostrzeganie (AWACS)'],
@@ -23,4 +25,22 @@ export function rareRole(type) {
   if (!t) return null
   for (const [re, role] of RULES) if (re.test(t)) return role
   return null
+}
+
+// Maszyny, których typ nic nie mówi (CL60 to też zwykły biznesjet), a rolę
+// zdradza znak wywoławczy: BRIO to Challengery ARTEMIS armii USA.
+const CALLSIGN_RULES = [
+  [/^BRIO\d/, 'Rozpoznanie (ARTEMIS)'],
+]
+
+/**
+ * Rola rzadkiej maszyny z całego rekordu: najpierw wpis ręczny po hexie
+ * (knownAircraft), potem znak wywoławczy, na końcu typ.
+ */
+export function rareRoleFor(ac) {
+  const known = knownAircraft(ac?.hex)?.rare
+  if (known) return known
+  const cs = String(ac?.flight || '').trim().toUpperCase()
+  for (const [re, role] of CALLSIGN_RULES) if (re.test(cs)) return role
+  return rareRole(ac?.t)
 }

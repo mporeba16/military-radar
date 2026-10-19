@@ -14,6 +14,11 @@ const KNOWN = {
   // i bez rejestracji (sprawdzone w adsb.fi, adsb.lol, adsbdb i planespotters
   // 21.09.2026), więc bez tego wpisu zostawała na mapie bezimienna.
   '48d8ef': { type: 'C130' },
+  // BRIO66 — N159L, Bombardier Challenger 650 ARTEMIS II armii USA: samolot
+  // rozpoznania elektronicznego. ADS-B podaje CL60 jak dla zwykłego biznesjeta,
+  // więc rolę (alert jak przy tankowcach) bierzemy stąd. Od użytkownika
+  // 19.10.2026; potwierdzone w adsb.fi (desc „Bombardier ARTEMIS II", US ARMY).
+  'a0ec98': { type: 'CL60', unit: 'ARTEMIS', unitFull: 'US Army — rozpoznanie elektroniczne ARTEMIS II', rare: 'Rozpoznanie (ARTEMIS)' },
 }
 
 export function knownAircraft(hex) {

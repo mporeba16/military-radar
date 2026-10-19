@@ -53,3 +53,23 @@ describe('kinds', () => {
     expect(normalizeKinds({ rare: false }).rare).toBe(false)
   })
 })
+
+describe('rareRoleFor — rola z całego rekordu', async () => {
+  const { rareRoleFor } = await import('../src/lib/rareTypes.js')
+  const { findRare } = await import('../netlify/functions/notify.js')
+
+  it('BRIO66 (ARTEMIS, CL60) to rozpoznanie — po hexie i po znaku', () => {
+    expect(rareRoleFor({ hex: 'a0ec98', flight: 'BRIO66  ', t: 'CL60' })).toBe('Rozpoznanie (ARTEMIS)')
+    expect(rareRoleFor({ hex: 'a0ffff', flight: 'BRIO12', t: 'CL60' })).toBe('Rozpoznanie (ARTEMIS)')
+  })
+
+  it('zwykły Challenger nie jest rzadką maszyną, tankowiec dalej po typie', () => {
+    expect(rareRoleFor({ hex: 'a12345', flight: 'N600XX', t: 'CL60' })).toBeNull()
+    expect(rareRoleFor({ hex: 'ae0001', flight: 'LAGR11', t: 'K35R' })).toBe('Tankowiec')
+  })
+
+  it('nad Polską trafia do alertów jak tankowiec', () => {
+    const brio = { hex: 'a0ec98', flight: 'BRIO66', t: 'CL60', lat: 52.2, lon: 21.0, alt_baro: 31000 }
+    expect(findRare([brio]).map(r => r.role)).toEqual(['Rozpoznanie (ARTEMIS)'])
+  })
+})

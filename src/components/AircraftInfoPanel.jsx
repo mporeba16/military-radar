@@ -191,10 +191,9 @@ export default function AircraftInfoPanel({ ac, onClose }) {
           </span>
           {/* Kod typu WRAZ z nazwą własną przy znaku wywoławczym: razem
               odpowiadają na pytanie „co to jest", więc stoją obok siebie.
-              Nagłówek może się zawinąć (patrz .ac-info-title), bo przy wąskiej
-              karcie „E3TF · Sentry (AWACS)" nie zmieści się w jednej linii
-              obok znaku wywoławczego, a skracanie zjadałoby właśnie nazwę. */}
-          {label && <span className="ac-info-type">{label}</span>}
+              Nagłówek ma jedną linię (patrz .ac-info-title); gdy brakuje
+              miejsca, skraca się nazwa typu — pełna jest w podpowiedzi. */}
+          {label && <span className="ac-info-type" title={label}>{label}</span>}
           {known?.unit && (
             <span className="ac-info-unit" title={known.unitFull || known.unit}>{known.unit}</span>
           )}
