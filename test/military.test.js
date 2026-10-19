@@ -156,8 +156,14 @@ describe('isTrainingAircraft', () => {
     expect(isTrainingAircraft('DA40')).toBe(true)
   })
 
+  it('odsiewa Texana, Hawka i TBM (zgłoszone przez użytkownika)', () => {
+    for (const t of ['TEX2', 'HAWK', 'TBM7', 'TBM9', 'PC7', 'TUCA', 'G12T']) {
+      expect(isTrainingAircraft(t), t).toBe(true)
+    }
+  })
+
   it('zostawia szkolno-bojowe, bo te latają zadaniowo', () => {
-    for (const t of ['M346', 'TS11', 'L39', 'HAWK', 'T38']) {
+    for (const t of ['M346', 'TS11', 'L39', 'T38']) {
       expect(isTrainingAircraft(t), t).toBe(false)
     }
   })

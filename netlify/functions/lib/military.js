@@ -36,16 +36,22 @@ const CIVILIAN_CALLSIGN_PATTERNS = [
 // To jedyna rzecz w tej aplikacji odsiewana dlatego, że jest NUDNA, a nie
 // dlatego, że jest błędna — stąd osobna, jawna lista zamiast reguły.
 //
-// Świadomie NIE są tu odrzucone szkolno-bojowe: M-346 Bielik, TS-11 Iskra,
-// L-39 Albatros, Hawk, T-38 Talon. Latają zadaniowo, nie w kręgu, i ich pojawienie
-// się nad Polską jest informacją.
+// Hawk był tu wcześniej świadomie zostawiony jako szkolno-bojowy, ale
+// użytkownika nie interesuje (19.10.2026) — tak samo TBM-700/900, które
+// w lotnictwach wojskowych służą do łącznikowania i szkolenia nawigatorów.
+// M-346 Bielik, L-39, TS-11 i T-38 zostają: to decyzja użytkownika, nie reguła.
 const TRAINING_TYPES = new Set([
   'PZ3T',          // PZL-130 Orlik — Dęblin / Radom
   'G115',          // Grob G115 Tutor — brytyjskie loty zapoznawcze
-  'PC21', 'PC9',   // Pilatus PC-21 / PC-9
-  'DA40', 'DA42',  // Diamond — szkolenie podstawowe i nawigacyjne
-  'T6',            // Beechcraft T-6 Texan II
-  'SF26', 'G120',  // Grob G120TP i szybowce szkolne
+  'G120', 'G12T',  // Grob G120 / G120TP
+  'PC21', 'PC9', 'PC7', // Pilatus PC-21 / PC-9 / PC-7
+  'TEX2', 'T6',    // Beechcraft T-6 Texan II (TEX2 w danych; T6 to stary kod)
+  'HAWK',          // BAE Hawk / T-45 Goshawk
+  'TBM7', 'TBM8', 'TBM9', // SOCATA TBM 700/850/900 — łącznikowe
+  'TUCA',          // Embraer Tucano
+  'SR20',          // Cirrus T-53A — akademia USAF
+  'DA40', 'DA42', 'DV20', // Diamond — szkolenie podstawowe i nawigacyjne
+  'Z42', 'GLIM', 'SF26', // Zlin 242, motoszybowce i szybowce szkolne
 ])
 
 export function isTrainingAircraft(type) {
