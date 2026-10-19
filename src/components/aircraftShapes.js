@@ -266,7 +266,7 @@ export function getShapeKey(t, gs = null, category = null) {
   // Heron 17 m, Hermes 15 m) mniejsza.
   if (/RQ4|^Q4[AB]?$|MQ4|GLOBALHAWK|TRITON|RQ170/.test(type)) return 'uav'
   // TAI Anka (turecki MALE, rozpiętość 17 m) — jak MQ-9.
-  if (/MQ9|MQ1B?|MQ1C|RQ7|REAPER|PREDATOR|HERON|HERMES|WATCHKEEPER|^ANKA/.test(type)) return 'uav_small'
+  if (/MQ9|MQ1B?|MQ1C|RQ7|REAPER|PREDATOR|HERON|HERMES|WATCHKEEPER|^ANKA|^DRON$|^UAV$/.test(type)) return 'uav_small'
   if (/V22|MV22|CV22|OSPREY/.test(type)) return (gs != null && gs < 100) ? 'v22_slow' : 'v22_fast'
   if (/CH47|CH146|MH47|H47|CHINOOK/.test(type)) return 'chinook'
   if (/AH64|H64|APACHE/.test(type)) return 'apache'

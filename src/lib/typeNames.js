@@ -138,6 +138,8 @@ export function getCommonName(t) {
     [/MQ9|REAPER/, 'Reaper'],
     [/MQ1|PREDATOR/, 'Predator'],
     [/^ANKA/, 'Anka'],
+    // Ogólny kod drona bez modelu (np. portugalski UAVision OGS42V „KNIGT76”).
+    [/^(DRON|UAV)$/, 'Dron'],
     [/RQ4|GLOBALHAWK/, 'Global Hawk'],
     [/W3A?$/, 'Sokół'],
     // adsb.fi podaje MI8 dla całej rodziny (Mi-8 i eksportowy Mi-17) i z ADS-B

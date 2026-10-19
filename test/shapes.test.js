@@ -124,6 +124,7 @@ describe('getCommonName — desygnatory ICAO z adsb.fi', () => {
     // wtedy bez nazwy własnej (GRZLY81 jako „H47", DRAGO67 jako „H60").
     expect(getCommonName('H60')).toBe('Black Hawk')
     expect(getCommonName('ANKA')).toBe('Anka')
+    expect(getCommonName('DRON')).toBe('Dron')
     expect(getCommonName('H47')).toBe('Chinook')
     expect(getCommonName('H64')).toBe('Apache')
     expect(getCommonName('H53')).toBe('Super Stallion')
@@ -280,6 +281,7 @@ describe('sylwetki śmigłowców i dronów we właściwym rozmiarze', () => {
     expect(getShapeKey('Q4', 300)).toBe('uav')
     expect(getShapeKey('MQ9', 200)).toBe('uav_small')
     expect(getShapeKey('ANKA', 200)).toBe('uav_small')
+    expect(getShapeKey('DRON', 72)).toBe('uav_small')
   })
 })
 
