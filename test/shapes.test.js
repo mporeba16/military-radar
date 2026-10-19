@@ -280,3 +280,11 @@ describe('sylwetki śmigłowców i dronów we właściwym rozmiarze', () => {
     expect(getShapeKey('MQ9', 200)).toBe('uav_small')
   })
 })
+
+describe('An-124 ma własną sylwetkę', () => {
+  it('An-124 i An-225 — an124, 747 dalej heavy_4e', () => {
+    expect(getShapeKey('A124', 400)).toBe('an124')
+    expect(getShapeKey('A225', 400)).toBe('an124')
+    expect(getShapeKey('B748', 400)).toBe('heavy_4e')
+  })
+})
