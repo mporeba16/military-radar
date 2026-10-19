@@ -6,7 +6,7 @@
 // w adsb.lol (np. włoski C-130J nad Adriatykiem) nie alarmowały i nie miały
 // trasy z serwera.
 
-import { knownAircraft } from '../../../src/lib/knownAircraft.js'
+import { knownAircraft, typeFromCallsign } from '../../../src/lib/knownAircraft.js'
 import {
   classifyExtra, haversine, isMilitaryADSBfiRecord, isMilitaryState, isPlausibleRecord,
   isSuspiciousHex, isTrainingAircraft,
@@ -153,7 +153,7 @@ function toAlertRecord(a) {
     flight: (a.flight || a.hex || '').trim(),
     // Tytuł powiadomienia mówi nazwę maszyny, a nie znak wywoławczy — dla
     // maszyny nadającej bez typu (polski Hercules PLF252) byłby pusty.
-    t: a.t || knownAircraft(a.hex)?.type || '',
+    t: a.t || knownAircraft(a.hex)?.type || typeFromCallsign(a.flight) || '',
     // Rejestracja rozstrzyga, czyj to śmigłowiec (SP-HX = LPR), gdy znak
     // wywoławczy nic nie mówi.
     reg: a.r || null,

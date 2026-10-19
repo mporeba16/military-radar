@@ -55,6 +55,17 @@ describe('Eurofightery Luftwaffe bez typu w ADS-B', async () => {
     expect(getShapeKey(ac.t, 480)).toBe('typhoon')
     expect(getCommonName(ac.t)).toBe('Typhoon')
   })
+  it('nowy egzemplarz z serii GAFS73 (nieznany hex) też jest Eurofighterem', async () => {
+    const { rareRoleFor } = await import('../src/lib/rareTypes.js')
+    const ac = applyKnown({ hex: '3fffff', flight: 'GAFS73Z ', t: '' })
+    expect(ac.t).toBe('EUFI')
+    expect(resolvedType({ hex: '3fffff', flight: 'GAFS73Z' })).toBe('EUFI')
+    expect(rareRoleFor({ hex: '3fffff', flight: 'GAFS73Z', t: '' })).toBe('Myśliwiec')
+  })
+  it('reguła po znaku nie nadpisuje typu z ADS-B ani nie łapie innych GAF', () => {
+    expect(applyKnown({ hex: '3fffff', flight: 'GAFS73Z', t: 'A400' }).t).toBe('A400')
+    expect(applyKnown({ hex: '3fffff', flight: 'GAF648', t: '' }).t).toBe('')
+  })
   it('kody ICAO myśliwców mają nazwy', () => {
     expect(getCommonName('RFAL')).toBe('Rafale')
     expect(getCommonName('JS39')).toBe('Gripen')

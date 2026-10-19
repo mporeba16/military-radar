@@ -30,6 +30,21 @@ const KNOWN = {
   '3eacaf': { type: 'EUFI' },
   '3e93b5': { type: 'EUFI' },
   '3e8f71': { type: 'EUFI' },
+  // GAFS73M (od użytkownika) — kolejny z tej serii nad Odrą.
+  '3f91f1': { type: 'EUFI' },
+}
+
+// Typ po znaku wywoławczym — dla całych serii, gdzie hexy zmieniają się z lotu
+// na lot. GAFS73* to TLG 73 „Steinhoff" z Laage, skrzydło szkoleniowe
+// Eurofighterów (innych maszyn nie ma); nadają bez typu, więc bez reguły każdy
+// nowy egzemplarz trzeba by dopisywać osobno.
+const CALLSIGN_TYPES = [
+  [/^GAFS73[A-Z]?$/, 'EUFI'],
+]
+
+export function typeFromCallsign(flight) {
+  const cs = String(flight || '').trim().toUpperCase()
+  return CALLSIGN_TYPES.find(([re]) => re.test(cs))?.[1] || null
 }
 
 export function knownAircraft(hex) {
@@ -38,7 +53,7 @@ export function knownAircraft(hex) {
 
 // Typ do opisu maszyny: nasz wpis ma pierwszeństwo przed kodem z ADS-B.
 export function resolvedType(ac) {
-  return knownAircraft(ac?.hex)?.type || ac?.t || ''
+  return knownAircraft(ac?.hex)?.type || ac?.t || typeFromCallsign(ac?.flight) || ''
 }
 
 // Uzupełnia rekord o rozpoznany typ u samego wejścia danych. Karta radziła
@@ -46,7 +61,7 @@ export function resolvedType(ac) {
 // powiadomienia czytają ac.t — i dla maszyny nadającej bez typu pokazywały
 // pustkę. Stąd jedno miejsce, przez które przechodzą wszystkie rekordy.
 export function applyKnown(ac) {
-  const known = knownAircraft(ac?.hex)
-  if (!known?.type || ac?.t) return ac
-  return { ...ac, t: known.type }
+  if (ac?.t) return ac
+  const type = knownAircraft(ac?.hex)?.type || typeFromCallsign(ac?.flight)
+  return type ? { ...ac, t: type } : ac
 }
