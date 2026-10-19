@@ -269,10 +269,22 @@ function slugStartsWithReg(link, reg) {
   return !!m && m[1].startsWith(r + '-')
 }
 
+// Typ z adresu zdjęcia jawnie PRZECZY naszemu: kod ma wpis w tablicy aliasów
+// (więc wiemy, jak planespotters go zapisuje), a żaden alias nie pada w adresie.
+// Bez wpisu nie wnioskujemy nic — surowy kod ICAO w adresie zwykle nie stoi.
+function typeContradicts(link, t) {
+  const code = (t || '').toUpperCase().replace(/[-\s]/g, '')
+  if (!TYPE_SLUG_ALIASES[code]) return false
+  return !typeSlugCandidates(t).some(c => link.includes(c))
+}
+
 export function photoHasMatchSignal(photo, ac) {
   const link = (photo.link || '').toLowerCase()
   if (!link) return false
-  if (slugStartsWithReg(link, ac.reg)) return true
+  // Rejestracja z literą też bywa zdublowana między lotnictwami wojskowymi:
+  // szwajcarski Citation „J-001" (J001) dostawał zdjęcie holenderskiego F-16
+  // „J-001". Zgodna rejestracja przy sprzecznym typie to nie dowód.
+  if (slugStartsWithReg(link, ac.reg) && !typeContradicts(link, ac.t)) return true
   const candidates = typeSlugCandidates(ac.t)
   if (candidates.length && candidates.some(c => link.includes(c))) return true
   const callsign = (ac.flight || '').toUpperCase()

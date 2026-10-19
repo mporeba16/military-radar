@@ -227,3 +227,15 @@ describe('czeski Enstrom TH-28 „0460" (BLADE71)', () => {
     expect(photoHasMatchSignal(other, ac)).toBe(false)
   })
 })
+
+describe('szwajcarski Citation „J-001" (J001) a holenderski F-16 „J-001"', () => {
+  const ac = { hex: '4b82dc', flight: 'J001', t: 'C680', reg: 'J-001' }
+  const f16 = { link: 'https://www.planespotters.net/photo/1204569/j-001-koninklijke-luchtmacht-royal-netherlands-air-force-general-dynamics-f-16am-fighting-falcon', _src: 'reg' }
+  it('zdjęcie F-16 nie przechodzi mimo zgodnej rejestracji', () => {
+    expect(photoHasMatchSignal(f16, ac)).toBe(false)
+  })
+  it('zgodna rejestracja z typem bez aliasów nadal wystarcza', () => {
+    const civil = { hex: '48a001', flight: 'SPXYZ', t: 'ZZ99', reg: 'SP-XYZ' }
+    expect(photoHasMatchSignal({ link: 'https://www.planespotters.net/photo/1/sp-xyz-private-some-plane', _src: 'reg' }, civil)).toBe(true)
+  })
+})
