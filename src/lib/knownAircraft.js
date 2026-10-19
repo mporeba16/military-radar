@@ -19,6 +19,12 @@ const KNOWN = {
   // więc rolę (alert jak przy tankowcach) bierzemy stąd. Od użytkownika
   // 19.10.2026; potwierdzone w adsb.fi (desc „Bombardier ARTEMIS II", US ARMY).
   'a0ec98': { type: 'CL60', unit: 'ARTEMIS', unitFull: 'US Army — rozpoznanie elektroniczne ARTEMIS II', rare: 'Rozpoznanie (ARTEMIS)' },
+  // GAFS73E / GAFS73H / GAFS73I — Eurofightery Luftwaffe nad Polską. Nadają
+  // bez typu, rejestracji i kategorii (sprawdzone w adsb.fi 19.10.2026), więc
+  // bez wpisu dostawały domyślną sylwetkę. Od użytkownika.
+  '3f65e3': { type: 'EUFI' },
+  '3fa9a2': { type: 'EUFI' },
+  '3fac5c': { type: 'EUFI' },
 }
 
 export function knownAircraft(hex) {

@@ -44,3 +44,20 @@ describe('knownAircraft', () => {
     expect(knownAircraft(null)).toBeNull()
   })
 })
+
+describe('Eurofightery Luftwaffe bez typu w ADS-B', async () => {
+  const { applyKnown } = await import('../src/lib/knownAircraft.js')
+  const { getCommonName } = await import('../src/lib/typeNames.js')
+  const { getShapeKey } = await import('../src/components/aircraftShapes.js')
+  it('GAFS73E (3f65e3) dostaje typ EUFI, sylwetkę Typhoona i nazwę', () => {
+    const ac = applyKnown({ hex: '3f65e3', flight: 'GAFS73E', t: '' })
+    expect(ac.t).toBe('EUFI')
+    expect(getShapeKey(ac.t, 480)).toBe('typhoon')
+    expect(getCommonName(ac.t)).toBe('Typhoon')
+  })
+  it('kody ICAO myśliwców mają nazwy', () => {
+    expect(getCommonName('RFAL')).toBe('Rafale')
+    expect(getCommonName('JS39')).toBe('Gripen')
+    expect(getCommonName('MIR2')).toBe('Mirage 2000')
+  })
+})
