@@ -214,3 +214,16 @@ describe('L-410 z cudzą rejestracją (LF345)', () => {
     expect(photoHasMatchSignal(cudzy, ac)).toBe(false)
   })
 })
+
+describe('czeski Enstrom TH-28 „0460" (BLADE71)', () => {
+  const ac = { hex: '4984b0', flight: 'BLADE71', t: 'EN48', reg: '0460' }
+  const photo = { link: 'https://www.planespotters.net/photo/1843643/0460-czech-air-force-enstrom-480b-g', _src: 'reg' }
+  it('zdjęcie z planespotters ma sygnał zgodności po typie', () => {
+    expect(photoHasMatchSignal(photo, ac)).toBe(true)
+    expect(scorePhotoMatch(photo, ac)).toBeGreaterThan(100)
+  })
+  it('obce zdjęcie z tym samym numerem nadal odpada', () => {
+    const other = { link: 'https://www.planespotters.net/photo/1/0460-hellenic-air-force-lockheed-f-16', _src: 'reg' }
+    expect(photoHasMatchSignal(other, ac)).toBe(false)
+  })
+})

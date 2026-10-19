@@ -175,6 +175,12 @@ export const TYPE_SLUG_ALIASES = {
   CL30: ['challenger-300'], CL35: ['challenger-350'], CL60: ['challenger-60'],
   C560: ['citation', 'uc-35'], C56X: ['citation', 'uc-35'], C550: ['citation'],
   C525: ['citation'], C510: ['citation'], C750: ['citation'],
+  C680: ['citation-sovereign', 'citation'],
+  // Enstrom: w adresie „enstrom-480b-g" (czeski TH-28 „0460", BLADE71) — kod
+  // EN48 tam nie pada, a rejestracja z samych cyfr nie jest dowodem.
+  EN48: ['enstrom-480', 'enstrom'], EN28: ['enstrom-280', 'enstrom'],
+  D228: ['dornier-228', 'do-228'], FA10: ['falcon-10', 'falcon-100'],
+  AT75: ['atr-72'], AT76: ['atr-72'], AT72: ['atr-72'], AT45: ['atr-42'], AT46: ['atr-42'],
 }
 
 export function typeSlugCandidates(t) {
