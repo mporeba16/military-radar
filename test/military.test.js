@@ -174,3 +174,23 @@ describe('isTrainingAircraft', () => {
     expect(classifyADSBfi({ hex: '48d911', flight: 'PLF12', t: 'PZ3T' })).toBeNull()
   })
 })
+
+describe('znak wywoławczy = rejestracja', () => {
+  it('SP-OOKY nadające „SPOOKY" nie jest wojskiem (zbieżność z AC-130)', () => {
+    expect(isMilitaryADSBfiRecord({ hex: '48ea46', flight: 'SPOOKY  ', r: 'SP-OOKY', t: 'VL3' })).toBe(false)
+  })
+  it('polski SPxxxx z polskiej puli bez rejestracji w rekordzie też nie', () => {
+    expect(isMilitaryADSBfiRecord({ hex: '48ea46', flight: 'SPOOKY', t: '' })).toBe(false)
+    const state = ['48ea46', 'SPOOKY  ', 'Poland', 0, 0, 19, 50, 400, false, 60, 50, 0, null, 400, '7000']
+    expect(isMilitaryState(state)).toBe(false)
+  })
+  it('obca rejestracja jako znak (D-EMON → DEMON) nie jest wojskiem', () => {
+    expect(isMilitaryADSBfiRecord({ hex: '3c1234', flight: 'DEMON', r: 'D-EMON' })).toBe(false)
+  })
+  it('prawdziwy znak SPOOKY spoza polskiej puli dalej jest wojskiem', () => {
+    expect(isMilitaryADSBfiRecord({ hex: '4b1234', flight: 'SPOOKY11', r: 'X-1' })).toBe(true)
+  })
+  it('squawk 7777 nadal działa przy znaku = rejestracja', () => {
+    expect(isMilitaryADSBfiRecord({ hex: '48ea46', flight: 'SPOOKY', r: 'SP-OOKY', squawk: '7777' })).toBe(true)
+  })
+})

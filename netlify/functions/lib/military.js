@@ -52,6 +52,20 @@ export function isTrainingAircraft(type) {
   return TRAINING_TYPES.has(normType(type))
 }
 
+// Znak wywoławczy, który jest po prostu rejestracją maszyny — tak latają
+// prywatne awionetki. Wtedy wzorce znaków wojskowych nie mają sensu: ultralekki
+// VL3 SP-OOKY nadaje „SPOOKY", czyli znak gunshipa AC-130, i trafiał na radar
+// jako wojsko (tak samo groziłoby to np. niemieckiemu D-EMON jako „DEMON").
+// Rejestrację bierzemy z bazy (pole `r`), a gdy jej brak (adsb.lol, OpenSky) —
+// dla polskiej puli adresów (488000–48FFFF) rozpoznajemy wzór SPxxxx.
+function callsignIsRegistration(hex, callsign, reg) {
+  const cs = callsign.toUpperCase()
+  if (!cs) return false
+  if (reg && cs === reg.replace(/-/g, '').toUpperCase()) return true
+  const n = parseInt(hex, 16)
+  return n >= 0x488000 && n <= 0x48FFFF && /^SP[A-Z]{4}$/.test(cs)
+}
+
 const GROUND_STATION_PATTERNS = [/XCAM/i, /XCAT/i, /XBAT/i]
 export const GROUND_STATION_TYPES = new Set(['TWR', 'GND', 'MLAT', 'RADAR'])
 const MILITARY_SQUAWKS = new Set(['7777', '7400'])
@@ -144,7 +158,8 @@ export function isMilitaryADSBfiRecord(a) {
   if (GROUND_STATION_PATTERNS.some(re => re.test(callsign))) return false
   if (CIVILIAN_CALLSIGN_PATTERNS.some(re => re.test(callsign))) return false
   if (MILITARY_HEX_PREFIXES.some(p => hex.startsWith(p))) return true
-  if (MILITARY_CALLSIGN_PATTERNS.some(re => re.test(callsign))) return true
+  if (!callsignIsRegistration(hex, callsign, a.r) &&
+    MILITARY_CALLSIGN_PATTERNS.some(re => re.test(callsign))) return true
   if (MILITARY_SQUAWKS.has(squawk)) return true
   return false
 }
@@ -164,7 +179,8 @@ export function isMilitaryState(ac) {
   if (GROUND_STATION_PATTERNS.some(re => re.test(callsign))) return false
   if (CIVILIAN_CALLSIGN_PATTERNS.some(re => re.test(callsign))) return false
   if (MILITARY_HEX_PREFIXES.some(p => hex.startsWith(p))) return true
-  if (MILITARY_CALLSIGN_PATTERNS.some(re => re.test(callsign))) return true
+  if (!callsignIsRegistration(hex, callsign, null) &&
+    MILITARY_CALLSIGN_PATTERNS.some(re => re.test(callsign))) return true
   if (MILITARY_SQUAWKS.has(squawk)) return true
   return false
 }
