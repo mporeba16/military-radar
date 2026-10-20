@@ -239,3 +239,15 @@ describe('szwajcarski Citation „J-001" (J001) a holenderski F-16 „J-001"', (
     expect(photoHasMatchSignal({ link: 'https://www.planespotters.net/photo/1/sp-xyz-private-some-plane', _src: 'reg' }, civil)).toBe(true)
   })
 })
+
+describe('aliasy z przeglądu 20.10.2026', () => {
+  const cases = [
+    [{ t: 'E50P', flight: 'CWL55', reg: 'ZM335' }, 'https://www.planespotters.net/photo/1839881/zm335-royal-air-force-embraer-phenom-t1-emb-500'],
+    [{ t: 'EC45', flight: 'WWIND207', reg: 'ZM498' }, 'https://www.planespotters.net/photo/1802771/zm498-royal-air-force-airbus-helicopters-jupiter-ht1-mbb-bk117-d-2'],
+    [{ t: 'B77L', flight: 'QAF10', reg: 'A6-MSD' }, 'https://www.planespotters.net/photo/1991831/a7-msd-qatar-amiri-flight-boeing-777-2kqlr'],
+    [{ t: 'P8', flight: '', reg: '63+02' }, 'https://www.planespotters.net/photo/1943158/63-02-marineflieger-german-navy-boeing-p-8a-poseidon-737-800a'],
+  ]
+  it.each(cases)('%o ma sygnał zgodności', (ac, link) => {
+    expect(photoHasMatchSignal({ link, _src: 'hex' }, ac)).toBe(true)
+  })
+})

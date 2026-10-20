@@ -153,10 +153,10 @@ function toAlertRecord(a) {
     flight: (a.flight || a.hex || '').trim(),
     // Tytuł powiadomienia mówi nazwę maszyny, a nie znak wywoławczy — dla
     // maszyny nadającej bez typu (polski Hercules PLF252) byłby pusty.
-    t: a.t || knownAircraft(a.hex)?.type || typeFromCallsign(a.flight) || '',
+    t: (knownAircraft(a.hex)?.fixDb && knownAircraft(a.hex).type) || a.t || knownAircraft(a.hex)?.type || typeFromCallsign(a.flight) || '',
     // Rejestracja rozstrzyga, czyj to śmigłowiec (SP-HX = LPR), gdy znak
     // wywoławczy nic nie mówi.
-    reg: a.r || null,
+    reg: (knownAircraft(a.hex)?.fixDb && knownAircraft(a.hex).reg) || a.r || null,
     // Opis z bazy adsb.fi — po nim rozpoznajemy rolę maszyn o cywilnym kodzie
     // typu (KC-767A jako B762, Shadow R1 jako B350).
     desc: a.desc || null,

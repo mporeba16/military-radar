@@ -54,7 +54,9 @@ function BasesLayer({ zoom, bases, variant, infoRef }) {
     const labelMod = variant === 'nato' ? ' base-marker-label--nato' : ''
     for (const ap of bases) {
       const label = showLabel
-        ? `<span class="base-marker-label${labelMod}">${ap.name}<span class="base-marker-icao">${ap.icao}</span></span>`
+        // Sama nazwa — kod ICAO (EPLK przy Łasku) tylko zaśmiecał mapę
+        // (decyzja użytkownika 20.10.2026); zostaje w dymku po kliknięciu.
+        ? `<span class="base-marker-label${labelMod}">${ap.name}</span>`
         : ''
       const icon = L.divIcon({
         className: 'base-marker',
@@ -65,7 +67,7 @@ function BasesLayer({ zoom, bases, variant, infoRef }) {
         iconAnchor: [12, 12],
       })
       const m = L.marker([ap.lat, ap.lon], { icon, zIndexOffset: -1000, keyboard: false })
-      m.bindTooltip(`${ap.name} · ${ap.icao}`, { direction: 'top', offset: [0, -8], className: `base-tooltip base-tooltip--${variant}` })
+      m.bindTooltip(ap.name, { direction: 'top', offset: [0, -8], className: `base-tooltip base-tooltip--${variant}` })
       m.bindPopup(() => basePopupHtml(ap, variant, { ...infoRef.current, now: Date.now() }), {
         className: `base-popup base-popup--${variant}`, closeButton: false, ...POPUP_PAD,
       })

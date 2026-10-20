@@ -213,3 +213,9 @@ describe('flaga wojskowa z bazy (dbFlags)', () => {
     expect(isMilitaryADSBfiRecord({ hex: '498495', flight: 'CEF850', t: 'Z42', dbFlags: 1 })).toBe(false)
   })
 })
+
+describe('ukryte na prośbę użytkownika (20.10.2026)', () => {
+  it('SF-260, MB-339, Bayraktar TB2 i Anka odpadają', () => {
+    for (const t of ['F260', 'M339', 'BTB2', 'ANKA']) expect(isTrainingAircraft(t), t).toBe(true)
+  })
+})

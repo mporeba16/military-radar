@@ -52,6 +52,11 @@ const TRAINING_TYPES = new Set([
   'SR20',          // Cirrus T-53A — akademia USAF
   'DA40', 'DA42', 'DV20', // Diamond — szkolenie podstawowe i nawigacyjne
   'Z42', 'GLIM', 'SF26', // Zlin 242, motoszybowce i szybowce szkolne
+  'F260',          // SIAI-Marchetti SF-260
+  'M339',          // Aermacchi MB-339 (np. włoskie MM55078)
+  // Nie szkoleniowe, ale też niechciane (decyzja użytkownika 20.10.2026):
+  // tureckie drony latające nad Turcją, widoczne tylko na liście /mil.
+  'BTB2', 'TB2', 'ANKA', // Bayraktar TB2, TAI Anka
 ])
 
 export function isTrainingAircraft(type) {

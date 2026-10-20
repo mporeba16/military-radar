@@ -32,6 +32,11 @@ const KNOWN = {
   '3e8f71': { type: 'EUFI' },
   // GAFS73M (od użytkownika) — kolejny z tej serii nad Odrą.
   '3f91f1': { type: 'EUFI' },
+  // Niemiecki P-8A Poseidon „63+02" (Marineflieger). Baza adsb.fi ma pod tym
+  // adresem stary wpis — motoszybowiec SF25 D-KNIT — więc typ i rejestrację
+  // trzeba NADPISAĆ (`fixDb`), a nie tylko uzupełnić. Od użytkownika
+  // 20.10.2026; zdjęcie w planespotters pod tym hexem potwierdza.
+  '3e7f27': { type: 'P8', reg: '63+02', fixDb: true },
 }
 
 // Typ po znaku wywoławczym — dla całych serii, gdzie hexy zmieniają się z lotu
@@ -52,6 +57,8 @@ export function knownAircraft(hex) {
 }
 
 // Typ do opisu maszyny: nasz wpis ma pierwszeństwo przed kodem z ADS-B.
+// `fixDb`: baza ADS-B ma pod tym adresem inną maszynę — nasz wpis wygrywa
+// także z niepustym typem i rejestracją z rekordu.
 export function resolvedType(ac) {
   return knownAircraft(ac?.hex)?.type || ac?.t || typeFromCallsign(ac?.flight) || ''
 }
@@ -61,7 +68,11 @@ export function resolvedType(ac) {
 // powiadomienia czytają ac.t — i dla maszyny nadającej bez typu pokazywały
 // pustkę. Stąd jedno miejsce, przez które przechodzą wszystkie rekordy.
 export function applyKnown(ac) {
+  const known = knownAircraft(ac?.hex)
+  if (known?.fixDb) {
+    return { ...ac, t: known.type || ac.t, desc: null, ...(known.reg ? { reg: known.reg } : {}) }
+  }
   if (ac?.t) return ac
-  const type = knownAircraft(ac?.hex)?.type || typeFromCallsign(ac?.flight)
+  const type = known?.type || typeFromCallsign(ac?.flight)
   return type ? { ...ac, t: type } : ac
 }

@@ -32,15 +32,6 @@
 .base-marker-label--nato {
   color: #cfb0ff;
 }
-.base-marker-label--nato .base-marker-icao {
-  color: rgba(207, 176, 255, 0.65);
-}
-
-.base-marker-icao {
-  margin-left: 5px;
-  font-size: 9px;
-  color: rgba(255, 156, 163, 0.65);
-}
 
 /* Tooltip bazy — ciemny, spójny z motywem */
 .base-tooltip.leaflet-tooltip {

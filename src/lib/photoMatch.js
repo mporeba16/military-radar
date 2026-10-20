@@ -50,9 +50,11 @@ export const TYPE_SLUG_ALIASES = {
   // Boeing
   B737: ['737'], B738: ['737', '738', '737-800'], B739: ['737', '737-900'],
   B38M: ['737-max-8', '737-8'], B39M: ['737-max-9', '737-9'],
-  B744: ['747', '747-400'], B748: ['747-8'], B752: ['757'], B753: ['757-300'],
-  B762: ['767'], B763: ['767-300'], B764: ['767-400'],
-  B772: ['777-200'], B773: ['777-300'], B77L: ['777-200lr'], B77W: ['777-300er'],
+  B744: ['747', '747-400'], B748: ['747-8'], B752: ['757'], B753: ['757'],
+  B762: ['767'], B763: ['767'], B764: ['767'],
+  // Boeing pisze w adresie kod klienta („777-2kqlr", „777-36ner"), więc
+  // szczegółowe warianty 777 nie pasowały — wystarcza sama rodzina.
+  B772: ['777'], B773: ['777'], B77L: ['777'], B77W: ['777'],
   B788: ['787', '787-8'], B789: ['787-9'], B78X: ['787-10'],
   B703: ['707'], B707: ['707'],
   // Airbus
@@ -120,9 +122,9 @@ export const TYPE_SLUG_ALIASES = {
   // UWAGA: adsb.fi podaje DESYGNATORY ICAO (EC35, EC45), nie nazwy handlowe.
   // Tablica miała tylko te drugie, więc EC135 pogotowia nie dopasowywał się do
   // własnego zdjęcia i karta pokazywała „brak zdjęcia" mimo trafienia w API.
-  EC35: ['ec135', 'ec-135', 'h135'], EC45: ['ec145', 'ec-145', 'h145'],
+  EC35: ['ec135', 'ec-135', 'h135'], EC45: ['ec145', 'ec-145', 'h145', 'bk117', 'bk-117', 'jupiter'],
   EC20: ['ec120'], EC30: ['ec130'], EC55: ['ec155'], EC75: ['ec725', 'h225'],
-  H135: ['h135', 'ec135'], H145: ['h145', 'ec145'], H125: ['h125', 'as350'],
+  H135: ['h135', 'ec135'], H145: ['h145', 'ec145', 'bk117', 'bk-117', 'jupiter'], H125: ['h125', 'as350'],
   H160: ['h160'], H175: ['h175'],
   A109: ['a109'], A139: ['aw139', 'a139'], A169: ['aw169'], A189: ['aw189'],
   A119: ['aw119', 'koala'], A149: ['aw149'], A129: ['a129', 'mangusta'],
@@ -156,7 +158,7 @@ export const TYPE_SLUG_ALIASES = {
   BE20: ['b200', 'king-air', 'c-12'], BE9L: ['king-air', 'c90'], BE9T: ['king-air', 'f90'],
   BE30: ['b300', 'king-air-350', 'king-air'], B350: ['b300', 'king-air-350', 'king-air'],
   EXPL: ['md-900', 'md-902', 'explorer'],
-  F406: ['f406', 'caravan-ii'], E55P: ['phenom-300'], E50P: ['phenom-100'],
+  F406: ['f406', 'caravan-ii'], E55P: ['phenom-300'], E50P: ['phenom-100', 'phenom-t1', 'emb-500', 'phenom'],
   GLF5: ['gulfstream-v', 'gulfstream', 'c-37'], GLF6: ['gulfstream'], C68A: ['citation'],
   // Wojskowe Citationy: USAF i US Army latają nimi jako UC-35, a planespotters
   // pisze „cessna-uc-35a-citation-ultra”. Sam kod C560 w adresie nie występuje,

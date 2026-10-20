@@ -72,3 +72,12 @@ describe('Eurofightery Luftwaffe bez typu w ADS-B', async () => {
     expect(getCommonName('MIR2')).toBe('Mirage 2000')
   })
 })
+
+describe('niemiecki P-8A 63+02 (3e7f27) — baza ma tam motoszybowiec', () => {
+  it('wpis nadpisuje typ, rejestrację i opis z bazy', () => {
+    const ac = applyKnown({ hex: '3e7f27', t: 'SF25', reg: 'D-KNIT', desc: 'SCHEIBE SF-25 Falke' })
+    expect(ac.t).toBe('P8')
+    expect(ac.reg).toBe('63+02')
+    expect(ac.desc).toBeNull()
+  })
+})
