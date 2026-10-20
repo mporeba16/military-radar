@@ -2,6 +2,7 @@
 // Liczone w chwili otwarcia — dymek to migawka, nie żywy widok.
 
 import { basePlan } from '../lib/baseSummary'
+import { zoneSummary } from '../lib/dayPlan'
 import { t } from '../i18n'
 
 const timeFmt = new Intl.DateTimeFormat('pl-PL', {
@@ -34,7 +35,9 @@ export function basePopupHtml(base, variant, { zones, zonesError, now }) {
           `<div class="base-pop__row${r.active ? ' is-active' : ''}">` +
           `<span class="base-pop__time">${timeFmt.format(r.s)}–${timeFmt.format(r.e)}</span>` +
           `<span class="base-pop__who">${esc(who)}</span>` +
-          `<span class="base-pop__zones">${esc(r.zones.join(', '))}${r.active ? ` · ${t('BASE_NOW')}` : ''}</span>` +
+          // Zamiast listy kodów (MRT135, TR11…) — ile stref i odcinków tras;
+          // gdzie dokładnie, widać na mapie.
+          `<span class="base-pop__zones">${esc(zoneSummary(r.zones))}${r.active ? ` · ${t('BASE_NOW')}` : ''}</span>` +
           `</div>`
         )
       }
