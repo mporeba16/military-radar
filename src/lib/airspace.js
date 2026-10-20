@@ -78,6 +78,12 @@ const TYPE_NAMES = {
   W3: 'W-3', AW101: 'AW101', AH64: 'AH-64', UH60: 'UH-60', DA20: 'DA20',
   C150: 'C150', A10: 'A-10', F15: 'F-15', F18: 'F-18', EF2000: 'Eurofighter',
   EUFI: 'Eurofighter', TYPHOON: 'Eurofighter', MIG29: 'MiG-29', AW149: 'AW149', S70: 'S-70',
+  // Bryza raz jako M28, raz jako AN28 (rodowód An-28) — to ta sama maszyna;
+  // bez tego Radom miał dwa identyczne wiersze.
+  AN28: 'M28',
+  // PJE — Parachute Jump Exercise (PJEM: wariant wojskowy): skoki
+  // spadochronowe z Łęczycy, Tomaszowa, Pruszcza Gdańskiego.
+  PJE: 'Skoki spadochronowe', PJEM: 'Skoki spadochronowe',
 }
 // Nazwy maszyn, które umiemy rozpoznać w uwagach — „Plan dnia" pokazuje tylko
 // bloki z co najmniej jedną z nich (samo „wojsko" albo kryptonim nic nie mówi).

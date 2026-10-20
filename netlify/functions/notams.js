@@ -21,6 +21,11 @@ export const AIRPORTS = [...new Set([...WATCHED_EAST, ...MIL_UNITS_PL.map(b => b
 
 let token = null   // { value, exp }
 let cache = null   // { at, body }
+// Po odrzuceniu logowania (401/403) nie pytamy autorouter przez pół godziny.
+// Bez tego każde otwarcie „Planu dnia" to kolejna próba ze złym hasłem —
+// a seria takich prób grozi zablokowaniem konta.
+const AUTH_BACKOFF_MS = 30 * 60 * 1000
+let authBlockedUntil = 0
 
 async function getToken() {
   if (token && Date.now() < token.exp - 5 * 60 * 1000) return token.value
@@ -33,6 +38,9 @@ async function getToken() {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ grant_type: 'client_credentials', client_id: user, client_secret: pass }),
   })
+  if (res.status === 401 || res.status === 403) {
+    throw Object.assign(new Error(`token http-${res.status}`), { code: 'auth' })
+  }
   if (!res.ok) throw new Error(`token http-${res.status}`)
   const data = await res.json()
   if (!data.access_token) throw new Error('token missing')
@@ -73,13 +81,25 @@ export const handler = async (event) => {
   }
 
   const now = Date.now()
-  if (!cache || now - cache.at > FRESH_MS) {
+  // Pół godziny też w CDN, żeby zimne instancje nie ponawiały logowania.
+  const authFailed = () => ({
+    statusCode: 502,
+    headers: { ...headers, 'Cache-Control': 'public, max-age=300, s-maxage=1800' },
+    body: JSON.stringify({ error: 'auth' }),
+  })
+  if (now < authBlockedUntil && (!cache || now - cache.at > STALE_MAX_MS)) return authFailed()
+  if ((!cache || now - cache.at > FRESH_MS) && now >= authBlockedUntil) {
     try {
       const airports = groupNotams(await fetchRows(), AIRPORTS, now)
       cache = { at: now, body: JSON.stringify({ updated: new Date(now).toISOString(), airports }) }
     } catch (err) {
       if (err.code === 'not-configured') {
         return { statusCode: 503, headers, body: JSON.stringify({ error: 'not-configured' }) }
+      }
+      if (err.code === 'auth') {
+        authBlockedUntil = now + AUTH_BACKOFF_MS
+        console.error('[notams]', err.message, '— wstrzymuję próby na 30 min')
+        if (!cache || now - cache.at > STALE_MAX_MS) return authFailed()
       }
       if (!cache || now - cache.at > STALE_MAX_MS) {
         console.error('[notams]', err.message)

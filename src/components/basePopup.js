@@ -30,14 +30,15 @@ export function basePopupHtml(base, variant, { zones, zonesError, now }) {
       const plan = basePlan(base.icao, zones, now)
       if (!plan.length) parts.push(`<div class="base-pop__empty">${t('BASE_PLAN_EMPTY')}</div>`)
       for (const r of plan) {
-        const who = r.who.length ? r.who.join(', ') : '—'
+        const span = r.windows.map(w => `${timeFmt.format(w.s)}–${timeFmt.format(w.e)}`).join(', ')
+        const when = r.active ? ` · ${t('BASE_NOW')}` : r.tomorrow ? ' · jutro' : ''
         parts.push(
           `<div class="base-pop__row${r.active ? ' is-active' : ''}">` +
-          `<span class="base-pop__time">${timeFmt.format(r.s)}–${timeFmt.format(r.e)}</span>` +
-          `<span class="base-pop__who">${esc(who)}</span>` +
+          `<span class="base-pop__time">${span}</span>` +
+          `<span class="base-pop__who">${esc(r.types.join(' · '))}</span>` +
           // Zamiast listy kodów (MRT135, TR11…) — ile stref i odcinków tras;
           // gdzie dokładnie, widać na mapie.
-          `<span class="base-pop__zones">${esc(zoneSummary(r.zones))}${r.active ? ` · ${t('BASE_NOW')}` : ''}</span>` +
+          `<span class="base-pop__zones">${esc(zoneSummary(r.zones))}${when}</span>` +
           `</div>`
         )
       }

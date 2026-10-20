@@ -35,7 +35,7 @@ describe('buildBlocks — blok na typ maszyny', () => {
     expect(blocks.find(b => b.type === 'W-3').category).toBe('heli')
   })
   it('bloki bez rozpoznanej maszyny (samo „wojsko", kryptonim) odpadają', () => {
-    expect(buildBlocks([{ id: 'EPTR23F', res: [res(T12, T12 + H, 'EPLY', 'PJE', 'A055', 'F195')] }])).toHaveLength(0)
+    expect(buildBlocks([{ id: 'EPTR23F', res: [res(T12, T12 + H, 'EPLY', 'FJEM', 'A055', 'F195')] }])).toHaveLength(0)
     expect(blocks.some(b => b.zones.includes('EPD30'))).toBe(false)
   })
 })
