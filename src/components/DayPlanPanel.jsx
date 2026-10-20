@@ -101,8 +101,7 @@ export default function DayPlanPanel({ zones, error, now, notams, onFocus, focus
       )}
 
       <p className="plan-source">
-        Źródło: plan użytkowania przestrzeni PAŻP (AUP/UUP). To rezerwacje stref,
-        nie potwierdzone loty — wojsko często rezerwuje więcej, niż wykorzysta.
+        Źródło: PAŻP (AUP/UUP)
       </p>
     </div>
   )
