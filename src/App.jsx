@@ -385,8 +385,20 @@ export default function App() {
 
   const handleSelect = useCallback(hex => {
     setSelectedHex(prev => prev === hex ? null : hex)
+    // Kliknięcie w mapę albo w maszynę zdejmuje obrys stref z „Planu dnia".
+    setPlanFocus(null)
     if (hex) setActivePanel(null)
   }, [])
+
+  // Obrys stref z „Planu dnia" znika razem z panelem. Wyjątek: na telefonie
+  // panel zamykamy sami po kliknięciu wiersza, żeby było widać mapę — wtedy
+  // obrys zostaje do pierwszego dotknięcia mapy.
+  const keepPlanFocusRef = useRef(false)
+  useEffect(() => {
+    if (activePanel === 'plan') return
+    if (keepPlanFocusRef.current) { keepPlanFocusRef.current = false; return }
+    setPlanFocus(null)
+  }, [activePanel])
 
   // 3× tap on the version footer reveals debug sections (test push, server
   // position, server diagnostics). Resets after 1.5 s of inactivity.
@@ -525,12 +537,18 @@ export default function App() {
               error={airspace.error}
               now={airspace.now}
               notams={notams}
+              focusKey={planFocus?.key}
               onFocus={b => {
-                setPlanFocus({ zones: b.zones, at: Date.now() })
+                // Ponowne kliknięcie tego samego wiersza zdejmuje obrys.
+                if (planFocus?.key === b.key) { setPlanFocus(null); return }
+                setPlanFocus({ key: b.key, zones: b.zones, at: Date.now() })
                 setSelectedHex(null)
                 // Na telefonie panel przykrywa mapę — zamykamy go, żeby było
                 // widać strefy. Na szerokim ekranie panel stoi obok mapy.
-                if (window.matchMedia('(max-width: 600px)').matches) setActivePanel(null)
+                if (window.matchMedia('(max-width: 600px)').matches) {
+                  keepPlanFocusRef.current = true
+                  setActivePanel(null)
+                }
               }}
             />
           )}

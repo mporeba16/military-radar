@@ -155,10 +155,10 @@ export function blocksForDay(blocks, day, now) {
   return blocks.filter(b => b.day === today || (b.s < now && b.e > now))
 }
 
-// Kolejność na liście: trwające, nadchodzące wg najbliższego startu,
-// zakończone na końcu.
+// Kolejność na liście: zakończone na górze (użytkownik chce widzieć, co już
+// latało), potem trwające, potem nadchodzące wg najbliższego startu.
 export function orderForList(blocks, now) {
-  const rank = { active: 0, upcoming: 1, past: 2 }
+  const rank = { past: 0, active: 1, upcoming: 2 }
   return [...blocks].sort((a, b) => {
     const sa = blockStatus(a, now), sb = blockStatus(b, now)
     if (sa !== sb) return rank[sa] - rank[sb]

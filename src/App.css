@@ -846,7 +846,7 @@
 .plan-row--fighter { border-left-color: var(--alert); }
 .plan-row--heli { border-left-color: var(--kind-heli); }
 .plan-row--training { border-left-color: rgba(255, 255, 255, 0.25); }
-.plan-row--past { opacity: 0.45; }
+.plan-row--past { opacity: 0.6; }
 .plan-row--active { background: rgba(227, 220, 85, 0.07); }
 
 .plan-row__time {
@@ -923,3 +923,9 @@
 .plan-source { margin-top: 16px; opacity: 0.8; }
 .plan-row__windows { display: inline; }
 .plan-row__win--past { opacity: 0.5; text-decoration: line-through; }
+.plan-row--past .plan-row__what,
+.plan-row--past .plan-row__windows { text-decoration: line-through; }
+.plan-row--selected {
+  border-color: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5);
+}

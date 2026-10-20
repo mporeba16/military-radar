@@ -11,11 +11,12 @@ const AIRFIELD_NAMES = Object.fromEntries(MIL_BASES_PL.map(b => [b.icao, b.name]
 const timeFmt = new Intl.DateTimeFormat('pl-PL', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' })
 const dateFmt = new Intl.DateTimeFormat('pl-PL', { weekday: 'short', day: 'numeric', month: 'numeric', timeZone: 'Europe/Warsaw' })
 
-function BlockRow({ b, now, onFocus }) {
+function BlockRow({ b, now, onFocus, selected }) {
   const status = blockStatus(b, now)
   return (
     <li>
-      <button className={`plan-row plan-row--${status} plan-row--${b.category}`} onClick={() => onFocus(b)}>
+      <button className={`plan-row plan-row--${status} plan-row--${b.category}${selected ? ' plan-row--selected' : ''}`}
+        aria-pressed={selected} onClick={() => onFocus(b)}>
         <span className="plan-row__time">
           <span className="plan-row__windows">
             {b.windows.map((w, i) => (
@@ -29,16 +30,15 @@ function BlockRow({ b, now, onFocus }) {
         </span>
         <span className="plan-row__what">{b.type}</span>
         <span className="plan-row__meta">
-          {formatAltRange(b.lo, b.hi)} · {b.zonesText} · pokaż na mapie ›
+          {formatAltRange(b.lo, b.hi)} · {b.zonesText}
         </span>
       </button>
     </li>
   )
 }
 
-export default function DayPlanPanel({ zones, error, now, notams, onFocus }) {
+export default function DayPlanPanel({ zones, error, now, notams, onFocus, focusKey }) {
   const [day, setDay] = useState('today')
-  const [showPast, setShowPast] = useState(false)
 
   const blocks = useMemo(() => buildBlocks(zones), [zones])
   const hasTomorrow = useMemo(() => blocksForDay(blocks, 'tomorrow', now).length > 0, [blocks, now])
@@ -46,8 +46,6 @@ export default function DayPlanPanel({ zones, error, now, notams, onFocus }) {
   // Bez filtrów (decyzja użytkownika); same szkolne bloki (M-346, Orlik)
   // odpadają, jak szkoleniowe maszyny na radarze.
   const visible = orderForList(dayBlocks.filter(b => b.category !== 'training'), now)
-  const live = visible.filter(b => blockStatus(b, now) !== 'past')
-  const past = visible.filter(b => blockStatus(b, now) === 'past')
 
   const milNotams = useMemo(() => {
     const out = []
@@ -74,26 +72,16 @@ export default function DayPlanPanel({ zones, error, now, notams, onFocus }) {
 
       {zones == null && !error && <p className="plan-empty">Wczytywanie planu…</p>}
       {error && zones == null && <p className="plan-empty">Plan PAŻP chwilowo niedostępny.</p>}
-      {zones != null && live.length === 0 && past.length === 0 && (
+      {zones != null && visible.length === 0 && (
         <p className="plan-empty">Brak zaplanowanych lotów z podanym typem maszyn.</p>
       )}
 
+      {/* Zakończone na górze, przekreślone — żeby było widać, co już latało. */}
       <ul className="plan-list">
-        {live.map(b => <BlockRow key={b.key} b={b} now={now} onFocus={onFocus} />)}
+        {visible.map(b => (
+          <BlockRow key={b.key} b={b} now={now} onFocus={onFocus} selected={b.key === focusKey} />
+        ))}
       </ul>
-
-      {past.length > 0 && (
-        <>
-          <button className="plan-past-toggle" onClick={() => setShowPast(s => !s)} aria-expanded={showPast}>
-            Zakończone ({past.length}) {showPast ? '⌃' : '⌄'}
-          </button>
-          {showPast && (
-            <ul className="plan-list">
-              {past.map(b => <BlockRow key={b.key} b={b} now={now} onFocus={onFocus} />)}
-            </ul>
-          )}
-        </>
-      )}
 
       {day === 'today' && milNotams.length > 0 && (
         <section className="cp-section plan-notams">

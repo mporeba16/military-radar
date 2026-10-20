@@ -51,6 +51,11 @@ describe('dni i kolejność', () => {
     const order = orderForList(blocksForDay(blocks, 'today', T12), T12).map(b => blockStatus(b, T12))
     expect(order).toEqual(['active', 'active', 'upcoming'])
   })
+  it('zakończone idą na samą górę', () => {
+    const past = { key: 'x', windows: [{ s: T12 - 3 * H, e: T12 - H }], s: T12 - 3 * H, e: T12 - H }
+    const order = orderForList([...blocksForDay(blocks, 'today', T12), past], T12)
+    expect(order[0]).toBe(past)
+  })
   it('startsIn', () => {
     expect(startsIn({ s: T12 + 40 * 60000 }, T12)).toBe('za 40 min')
     expect(startsIn({ s: T12 + 135 * 60000 }, T12)).toBe('za 2 h 15 min')
