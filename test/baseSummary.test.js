@@ -45,7 +45,7 @@ describe('basePlan', () => {
       zone('EPTR23F', [r('EPTM', 'PJE', 7, 12)]),
       zone('EPTR400', [r('EPTM', 'SUP163/26/CLN', 7, 8)]),
     ], T)
-    expect(plan.map(p => p.types)).toEqual([['Skoki spadochronowe']])
+    expect(plan.map(p => p.types)).toEqual([['Skoki']])
   })
 
   it('jutrzejsze wiersze mają znacznik', () => {

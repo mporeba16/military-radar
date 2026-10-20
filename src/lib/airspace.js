@@ -81,9 +81,12 @@ const TYPE_NAMES = {
   // Bryza raz jako M28, raz jako AN28 (rodowód An-28) — to ta sama maszyna;
   // bez tego Radom miał dwa identyczne wiersze.
   AN28: 'M28',
-  // PJE — Parachute Jump Exercise (PJEM: wariant wojskowy): skoki
-  // spadochronowe z Łęczycy, Tomaszowa, Pruszcza Gdańskiego.
-  PJE: 'Skoki spadochronowe', PJEM: 'Skoki spadochronowe',
+  // PJE — najpewniej Parachute Jumping Exercise (skrót z ICAO/AIP), czyli
+  // skoki spadochronowe; PJEM to zapewne jego odmiana. Rezerwują go jednostki
+  // kawalerii powietrznej i śmigłowcowe (Leźnica Wielka, Tomaszów, Pruszcz
+  // Gdański), co pasuje. Nie potwierdzone w dokumentacji PAŻP. Krótko,
+  // bo to też podpis strefy na mapie.
+  PJE: 'Skoki', PJEM: 'Skoki',
 }
 // Nazwy maszyn, które umiemy rozpoznać w uwagach — „Plan dnia" pokazuje tylko
 // bloki z co najmniej jedną z nich (samo „wojsko" albo kryptonim nic nie mówi).
