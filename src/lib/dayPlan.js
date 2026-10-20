@@ -2,11 +2,10 @@
 // kto (jednostka i maszyny), kiedy, na jakiej wysokości i gdzie. Czyste
 // funkcje, bez sieci i Reacta.
 //
-// Jeden lot zajmuje zwykle kilka stref naraz, a jednostka rezerwuje na jeden
+// Jeden lot zajmuje zwykle kilka stref naraz, a jednostki rezerwują na jeden
 // dzień kilka nakładających się okien: Krzesiny potrafią mieć sześć wierszy
-// F-16 na wieczór. Dla użytkownika to jeden dzień lotów, więc blok to
-// (jednostka, dzień) z listą przedziałów godzin.
-import { KNOWN_AIRCRAFT_NAMES, altToMetres, describeRemarks, documentRef, groupKey, shortName, unitLabel } from './airspace.js'
+// F-16 na wieczór. Blok to (typ maszyny, dzień) z listą przedziałów godzin.
+import { KNOWN_AIRCRAFT_NAMES, altToMetres, describeRemarks, groupKey, shortName } from './airspace.js'
 
 const FIGHTERS = new Set(['F-35', 'F-16', 'F-15', 'F-18', 'MiG-29', 'Eurofighter', 'A-10', 'Rafale', 'Gripen'])
 const HELIS = new Set(['Mi-2', 'Mi-8', 'Mi-17', 'Mi-24', 'W-3', 'SW-4', 'AW101', 'AW149', 'AH-64', 'UH-60', 'S-70'])
@@ -84,69 +83,46 @@ export function mergeWindows(windows) {
 }
 
 /**
- * Strefy z /airspace → bloki planu, jeden na jednostkę i dzień. Rezerwacje
- * bez rozpoznanej maszyny („wojsko", poligony, kryptonimy) i same szkolne
- * odpadają.
- * Blok: { key, unit, who, day, s, e, windows, lo, hi, types, category,
- * zones (id-y), zonesText, docs }.
+ * Strefy z /airspace → bloki planu, jeden na TYP MASZYNY i dzień — użytkownik
+ * chce listę tego, co dziś lata, a nie skąd. Rezerwacje bez rozpoznanej
+ * maszyny („wojsko", poligony, kryptonimy) i szkolne odpadają.
+ * Blok: { key, type, day, s, e, windows, lo, hi, category, zones (id-y),
+ * zonesText }.
  */
-export function buildBlocks(zones, airfieldNames) {
-  // 1) Pojedyncze rezerwacje → sloty (jednostka, początek, koniec).
-  const slots = new Map()
+export function buildBlocks(zones) {
+  // Każda rezerwacja trafia do bloków typów, które wymienia w uwagach
+  // („F35/F16" — do obu). Tylko rozpoznane maszyny: kryptonimy i skróty
+  // jednostek („PJE") nie mówią, co poleci. Szkolne (M-346, DA20…) nie dostają
+  // własnych wierszy.
+  const blocks = new Map()
   for (const z of zones || []) {
     for (const r of z.res || []) {
-      const key = `${r.unit || '?'}|${r.s}|${r.e}`
-      let sl = slots.get(key)
-      if (!sl) {
-        sl = { unit: r.unit || null, s: r.s, e: r.e, lo: null, hi: null, types: [], zones: [], docs: [] }
-        slots.set(key, sl)
+      const day = warsawDay(r.s)
+      for (const type of describeRemarks(r.rem)) {
+        if (!KNOWN_AIRCRAFT_NAMES.has(type) || TRAINERS.has(type)) continue
+        const key = `${type}|${day}`
+        let b = blocks.get(key)
+        if (!b) {
+          b = { key, type, day, windows: [], lo: null, hi: null, zones: [] }
+          blocks.set(key, b)
+        }
+        b.windows.push({ s: r.s, e: r.e })
+        b.lo = minAlt(b.lo, r.lo)
+        b.hi = maxAlt(b.hi, r.hi)
+        if (!b.zones.includes(z.id)) b.zones.push(z.id)
       }
-      sl.lo = minAlt(sl.lo, r.lo)
-      sl.hi = maxAlt(sl.hi, r.hi)
-      if (!sl.zones.includes(z.id)) sl.zones.push(z.id)
-      // Tylko rozpoznane maszyny — kryptonimy i skróty jednostek („PJE")
-      // nie mówią, co poleci.
-      for (const t of describeRemarks(r.rem)) {
-        if (KNOWN_AIRCRAFT_NAMES.has(t) && !sl.types.includes(t)) sl.types.push(t)
-      }
-      const doc = documentRef(r.rem)
-      if (doc && !sl.docs.some(d => d.id === doc.id)) sl.docs.push(doc)
     }
-  }
-
-  // 2) Sloty jednej jednostki z jednego dnia → blok.
-  const blocks = new Map()
-  for (const sl of slots.values()) {
-    if (!sl.types.length || blockCategory(sl.types) === 'training') continue
-    const day = warsawDay(sl.s)
-    const key = `${sl.unit || '?'}|${day}`
-    let b = blocks.get(key)
-    if (!b) {
-      b = { key, unit: sl.unit, day, windows: [], lo: null, hi: null, types: [], zones: [], docs: [] }
-      blocks.set(key, b)
-    }
-    b.windows.push({ s: sl.s, e: sl.e })
-    b.lo = minAlt(b.lo, sl.lo)
-    b.hi = maxAlt(b.hi, sl.hi)
-    for (const t of sl.types) if (!b.types.includes(t)) b.types.push(t)
-    for (const id of sl.zones) if (!b.zones.includes(id)) b.zones.push(id)
-    for (const d of sl.docs) if (!b.docs.some(x => x.id === d.id)) b.docs.push(d)
   }
 
   return [...blocks.values()]
     .map(b => {
       const windows = mergeWindows(b.windows)
-      // Szkolne obok śmigłowców Dęblina (M-346, DA20, C150) tylko zaśmiecają
-      // opis — blok jest na liście dzięki pozostałym maszynom.
-      const types = b.types.filter(t => !TRAINERS.has(t))
       return {
         ...b,
-        types,
         windows,
         s: windows[0].s,
         e: windows[windows.length - 1].e,
-        who: unitLabel(b.unit, airfieldNames),
-        category: blockCategory(b.types),
+        category: blockCategory([b.type]),
         zonesText: zoneSummary(b.zones),
       }
     })

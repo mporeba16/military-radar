@@ -27,8 +27,7 @@ function BlockRow({ b, now, onFocus }) {
           {status === 'active' && <span className="plan-row__badge plan-row__badge--live">trwa</span>}
           {status === 'upcoming' && <span className="plan-row__badge">{startsIn(b, now)}</span>}
         </span>
-        <span className="plan-row__what">{b.types.join(' · ')}</span>
-        <span className="plan-row__who">{b.who}</span>
+        <span className="plan-row__what">{b.type}</span>
         <span className="plan-row__meta">
           {formatAltRange(b.lo, b.hi)} · {b.zonesText} · pokaż na mapie ›
         </span>
@@ -41,7 +40,7 @@ export default function DayPlanPanel({ zones, error, now, notams, onFocus }) {
   const [day, setDay] = useState('today')
   const [showPast, setShowPast] = useState(false)
 
-  const blocks = useMemo(() => buildBlocks(zones, AIRFIELD_NAMES), [zones])
+  const blocks = useMemo(() => buildBlocks(zones), [zones])
   const hasTomorrow = useMemo(() => blocksForDay(blocks, 'tomorrow', now).length > 0, [blocks, now])
   const dayBlocks = useMemo(() => blocksForDay(blocks, day, now), [blocks, day, now])
   // Bez filtrów (decyzja użytkownika); same szkolne bloki (M-346, Orlik)
