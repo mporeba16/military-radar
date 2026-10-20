@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Circle, CircleMarker, Polygon, Polyline, useMa
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import './RadarMap.css'
-import { MIL_BASES_PL, MIL_BASES_NATO } from '../airfields'
+import { MIL_BASES_PL, MIL_BASES_NATO, mapLabel } from '../airfields'
 import { BASE_PL, BASE_NATO } from '../lib/palette'
 import AirspaceLayer from './AirspaceLayer'
 import { basePopupHtml } from './basePopup'
@@ -56,7 +56,7 @@ function BasesLayer({ zoom, bases, variant, infoRef }) {
       const label = showLabel
         // Sama nazwa — kod ICAO (EPLK przy Łasku) tylko zaśmiecał mapę
         // (decyzja użytkownika 20.10.2026); zostaje w dymku po kliknięciu.
-        ? `<span class="base-marker-label${labelMod}">${ap.name}</span>`
+        ? `<span class="base-marker-label${labelMod}">${mapLabel(ap)}</span>`
         : ''
       const icon = L.divIcon({
         className: 'base-marker',

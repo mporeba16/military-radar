@@ -4,7 +4,7 @@ import L from 'leaflet'
 import { AIRSPACE } from '../lib/palette'
 import { MIL_BASES_PL } from '../airfields'
 import {
-  activeReservation, describeRemarks, documentRef, formatAltRange, groupKey,
+  KNOWN_AIRCRAFT_NAMES, activeReservation, describeRemarks, documentRef, formatAltRange, groupKey,
   shortName, unitLabel, TYPE_LABELS,
 } from '../lib/airspace'
 import { AREA_LABEL_ZOOM } from './MilRangesLayer'
@@ -74,9 +74,13 @@ export default function AirspaceLayer({ zones, now, zoom }) {
       )))}
 
       {zoom >= AREA_LABEL_ZOOM && groups.map(g => {
+        // Na mapie same maszyny („F-35 · F-16") — kody stref (TS28, MRT)
+        // i kryptonimy z uwag nic nie mówią; są w okienku po kliknięciu.
         const first = g.members[0].cur
-        const who = describeRemarks(first.rem)[0]
-        const text = who ? `${g.name} · ${who}` : g.name
+        const types = describeRemarks(first.rem).filter(x => KNOWN_AIRCRAFT_NAMES.has(x))
+        const text = types.length
+          ? types.join(' · ')
+          : g.name === 'MRT' ? 'trasa wojskowa' : 'strefa wojskowa'
         return (
           <Marker
             key={g.key}

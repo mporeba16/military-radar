@@ -74,8 +74,8 @@ export const AIRFIELDS = [
   { icao: 'EGXC', name: 'RAF Coningsby',     lat: 53.0930, lon: -0.1660, mil: true, nato: true },
   { icao: 'EGQS', name: 'RAF Lossiemouth',   lat: 57.7052, lon: -3.3392, mil: true, nato: true },
   // Francja / Włochy
-  { icao: 'LFSI', name: 'Saint-Dizier',      lat: 48.6360, lon: 4.8994,  mil: true, nato: true },
-  { icao: 'LFMI', name: 'Istres-Le Tubé',    lat: 43.5227, lon: 4.9238,  mil: true, nato: true },
+  { icao: 'LFSI', name: 'Saint-Dizier', short: 'Saint-Dizier',      lat: 48.6360, lon: 4.8994,  mil: true, nato: true },
+  { icao: 'LFMI', name: 'Istres-Le Tubé', short: 'Istres',    lat: 43.5227, lon: 4.9238,  mil: true, nato: true },
   { icao: 'LIPA', name: 'Aviano',            lat: 46.0319, lon: 12.5965, mil: true, nato: true },
   { icao: 'LICZ', name: 'Sigonella',         lat: 37.4017, lon: 14.9224, mil: true, nato: true },
   // Półwysep Iberyjski / Atlantyk
@@ -86,10 +86,10 @@ export const AIRFIELDS = [
   // Skandynawia / Finlandia
   { icao: 'ENOL', name: 'Ørland',            lat: 63.6989, lon: 9.6040,  mil: true, nato: true },
   { icao: 'ENBO', name: 'Bodø',              lat: 67.2692, lon: 14.3653, mil: true, nato: true },
-  { icao: 'ESPA', name: 'Luleå-Kallax',      lat: 65.5438, lon: 22.1220, mil: true, nato: true },
+  { icao: 'ESPA', name: 'Luleå-Kallax', short: 'Luleå',      lat: 65.5438, lon: 22.1220, mil: true, nato: true },
   { icao: 'ESDF', name: 'Ronneby',           lat: 56.2667, lon: 15.2650, mil: true, nato: true },
   { icao: 'EFRO', name: 'Rovaniemi',         lat: 66.5633, lon: 25.8298, mil: true, nato: true },
-  { icao: 'EFKU', name: 'Kuopio-Rissala',    lat: 63.0071, lon: 27.7978, mil: true, nato: true },
+  { icao: 'EFKU', name: 'Kuopio-Rissala', short: 'Kuopio',    lat: 63.0071, lon: 27.7978, mil: true, nato: true },
   // Flanka wschodnia — Bałtyk
   { icao: 'EYSA', name: 'Šiauliai',          lat: 55.8939, lon: 23.3950, mil: true, nato: true },
   { icao: 'EEEI', name: 'Ämari',             lat: 59.2596, lon: 24.2048, mil: true, nato: true },
@@ -102,7 +102,7 @@ export const AIRFIELDS = [
   { icao: 'LHPA', name: 'Pápa (NATO HAW)',   lat: 47.3636, lon: 17.5008, mil: true, nato: true },
   { icao: 'LRCK', name: 'Mihail Kogălniceanu', lat: 44.3622, lon: 28.4883, mil: true, nato: true },
   { icao: 'LBPG', name: 'Graf Ignatiewo',    lat: 42.2904, lon: 24.7140, mil: true, nato: true },
-  { icao: 'LDZD', name: 'Zemunik / Zadar',   lat: 44.0970, lon: 15.3536, mil: true, nato: true },
+  { icao: 'LDZD', name: 'Zemunik / Zadar', short: 'Zadar',   lat: 44.0970, lon: 15.3536, mil: true, nato: true },
   { icao: 'LGSA', name: 'Souda Bay',         lat: 35.5312, lon: 24.1507, mil: true, nato: true },
   { icao: 'LGAD', name: 'Andrawida',         lat: 37.9207, lon: 21.2926, mil: true, nato: true },
   { icao: 'LTAG', name: 'Incirlik',          lat: 37.0021, lon: 35.4259, mil: true, nato: true },
@@ -111,6 +111,19 @@ export const AIRFIELDS = [
 // Dwie statyczne warstwy mapy, rysowane osobno i osobno przełączane: polskie
 // bazy to treść lokalna, bazy NATO rozciągają się od Azorów po Incirlik i przy
 // widoku na Polskę byłyby tylko szumem, gdyby nie dało się ich zgasić.
+// Podpis na mapie: krótko, bo pełne nazwy zachodziły na siebie i na strefy.
+// Bez dopisków w nawiasie („Łęczyca (Leźnica Wielka)" → „Łęczyca"), bez „RAF",
+// a z „Miasto-Lotnisko" zostaje samo lotnisko („Kraków-Balice" → „Balice",
+// „Poznań-Krzesiny" → „Krzesiny") — tak mówi się o tych bazach. Gdy człon po
+// myślniku nic nie mówi (Istres-Le Tubé), wpis ma własne `short`. Pełna nazwa
+// zostaje w dymku i w powiadomieniach.
+export function mapLabel(ap) {
+  if (ap.short) return ap.short
+  const name = ap.name.replace(/\s*\(.*?\)\s*/g, ' ').replace(/^RAF\s+/, '').trim()
+  const parts = name.split('-')
+  return parts.length === 2 && parts[1].trim() ? parts[1].trim() : name
+}
+
 export const MIL_BASES_PL = AIRFIELDS.filter(a => a.mil && a.icao.startsWith('EP'))
 // Lotniska, których kod w planie PAŻP i NOTAM-ach oznacza ruch wojskowy —
 // bez cywilno-wojskowych (Okęcie, Balice), gdzie większość to ruch cywilny.
