@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react'
 import { MIL_BASES_PL } from '../airfields'
 import { formatAltRange } from '../lib/airspace'
 import { blockStatus, blocksForDay, buildBlocks, orderForList, startsIn } from '../lib/dayPlan'
-import { useLocalStorage } from '../hooks/useLocalStorage'
 
 // Panel „Plan dnia": kto, kiedy, jak wysoko i gdzie ma dziś zaplanowane loty
 // — z rezerwacji stref w planie PAŻP. Kliknięcie bloku pokazuje strefy na mapie.
@@ -12,17 +11,9 @@ const AIRFIELD_NAMES = Object.fromEntries(MIL_BASES_PL.map(b => [b.icao, b.name]
 const timeFmt = new Intl.DateTimeFormat('pl-PL', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' })
 const dateFmt = new Intl.DateTimeFormat('pl-PL', { weekday: 'short', day: 'numeric', month: 'numeric', timeZone: 'Europe/Warsaw' })
 
-const CATS = [
-  { id: 'fighter', label: 'Myśliwce' },
-  { id: 'heli', label: 'Śmigłowce' },
-  { id: 'other', label: 'Pozostałe' },
-  { id: 'training', label: 'Szkolenie' },
-]
-const DEFAULT_CATS = { fighter: true, heli: true, other: true, training: false }
-
 function BlockRow({ b, now, onFocus }) {
   const status = blockStatus(b, now)
-  const what = b.types.length ? b.types.join(' · ') : 'wojsko'
+  const what = b.types.join(' · ')
   return (
     <li>
       <button className={`plan-row plan-row--${status} plan-row--${b.category}`} onClick={() => onFocus(b)}>
@@ -44,18 +35,14 @@ function BlockRow({ b, now, onFocus }) {
 
 export default function DayPlanPanel({ zones, error, now, notams, onFocus }) {
   const [day, setDay] = useState('today')
-  const [cats, setCats] = useLocalStorage('radar.planCats', DEFAULT_CATS)
   const [showPast, setShowPast] = useState(false)
 
   const blocks = useMemo(() => buildBlocks(zones, AIRFIELD_NAMES), [zones])
   const hasTomorrow = useMemo(() => blocksForDay(blocks, 'tomorrow', now).length > 0, [blocks, now])
   const dayBlocks = useMemo(() => blocksForDay(blocks, day, now), [blocks, day, now])
-  const counts = useMemo(() => {
-    const c = { fighter: 0, heli: 0, other: 0, training: 0 }
-    for (const b of dayBlocks) c[b.category]++
-    return c
-  }, [dayBlocks])
-  const visible = orderForList(dayBlocks.filter(b => cats[b.category] ?? DEFAULT_CATS[b.category]), now)
+  // Bez filtrów (decyzja użytkownika); same szkolne bloki (M-346, Orlik)
+  // odpadają, jak szkoleniowe maszyny na radarze.
+  const visible = orderForList(dayBlocks.filter(b => b.category !== 'training'), now)
   const live = visible.filter(b => blockStatus(b, now) !== 'past')
   const past = visible.filter(b => blockStatus(b, now) === 'past')
 
@@ -82,22 +69,10 @@ export default function DayPlanPanel({ zones, error, now, notams, onFocus }) {
         </button>
       </div>
 
-      <div className="plan-chips">
-        {CATS.map(c => {
-          const on = cats[c.id] ?? DEFAULT_CATS[c.id]
-          return (
-            <button key={c.id} className={`plan-chip plan-chip--${c.id} ${on ? 'on' : ''}`} aria-pressed={on}
-              onClick={() => setCats({ ...DEFAULT_CATS, ...cats, [c.id]: !on })}>
-              {c.label} <span className="plan-chip__n">{counts[c.id]}</span>
-            </button>
-          )
-        })}
-      </div>
-
       {zones == null && !error && <p className="plan-empty">Wczytywanie planu…</p>}
       {error && zones == null && <p className="plan-empty">Plan PAŻP chwilowo niedostępny.</p>}
       {zones != null && live.length === 0 && past.length === 0 && (
-        <p className="plan-empty">Brak zaplanowanych lotów w wybranych kategoriach.</p>
+        <p className="plan-empty">Brak zaplanowanych lotów z podanym typem maszyn.</p>
       )}
 
       <ul className="plan-list">

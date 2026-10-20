@@ -818,30 +818,6 @@
 }
 .plan-tabs button:disabled { opacity: 0.4; cursor: default; }
 
-.plan-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 14px;
-}
-.plan-chip {
-  min-height: 34px;
-  padding: 0 11px;
-  border-radius: 17px;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text-dim);
-  font: 500 12px var(--font);
-  cursor: pointer;
-}
-.plan-chip.on {
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.35);
-}
-.plan-chip--fighter.on { border-color: rgba(255, 71, 87, 0.7); }
-.plan-chip--heli.on { border-color: rgba(0, 217, 255, 0.7); }
-.plan-chip__n { opacity: 0.6; margin-left: 2px; }
 
 .plan-list {
   list-style: none;

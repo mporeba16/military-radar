@@ -35,7 +35,11 @@ describe('buildBlocks', () => {
   it('kategorie', () => {
     expect(blocks.find(b => b.unit === 'EPDE').category).toBe('training')
     expect(blocks.find(b => b.zones.includes('EPTR154')).category).toBe('heli')
-    expect(blocks.find(b => b.zones.includes('EPD30')).category).toBe('other')
+  })
+  it('bloki bez rozpoznanej maszyny (samo „wojsko", kryptonim) odpadają', () => {
+    const extra = buildBlocks([{ id: 'EPTR23F', res: [res(T12, T12 + H, 'EPLY', 'PJE', 'A055', 'F195')] }], names)
+    expect(extra).toHaveLength(0)
+    expect(blocks.some(b => b.zones.includes('EPD30'))).toBe(false)
   })
 })
 
@@ -48,7 +52,7 @@ describe('dni i kolejność', () => {
   })
   it('trwające, potem nadchodzące, zakończone na końcu', () => {
     const order = orderForList(blocksForDay(blocks, 'today', T12), T12).map(b => blockStatus(b, T12))
-    expect(order).toEqual(['active', 'active', 'upcoming', 'past'])
+    expect(order).toEqual(['active', 'upcoming', 'past'])
   })
   it('startsIn', () => {
     expect(startsIn({ s: T12 + 40 * 60000 }, T12)).toBe('za 40 min')

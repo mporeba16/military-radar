@@ -79,6 +79,9 @@ const TYPE_NAMES = {
   C150: 'C150', A10: 'A-10', F15: 'F-15', F18: 'F-18', EF2000: 'Eurofighter',
   EUFI: 'Eurofighter', TYPHOON: 'Eurofighter', MIG29: 'MiG-29', AW149: 'AW149', S70: 'S-70',
 }
+// Nazwy maszyn, które umiemy rozpoznać w uwagach — „Plan dnia" pokazuje tylko
+// bloki z co najmniej jedną z nich (samo „wojsko" albo kryptonim nic nie mówi).
+export const KNOWN_AIRCRAFT_NAMES = new Set(Object.values(TYPE_NAMES))
 const DROP = /^(W|CLN|OATC|DS|NOT\..*|SUP\d+|\d+|ACSL|LAW)$/
 
 // Odsyłacz do dokumentu, na którym stoi rezerwacja: „NOT.D6513/26/ORZEL” to

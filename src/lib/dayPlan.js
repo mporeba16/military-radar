@@ -5,7 +5,7 @@
 // Jeden lot zajmuje zwykle kilka stref naraz: dywizjon z Łasku rezerwuje
 // TR11A…E, TS7A…E i TS6A…C na te same godziny — w surowym planie to kilkanaście
 // wierszy. Scalamy je po (jednostka, początek, koniec) w jeden blok.
-import { altToMetres, describeRemarks, documentRef, groupKey, shortName, unitLabel } from './airspace.js'
+import { KNOWN_AIRCRAFT_NAMES, altToMetres, describeRemarks, documentRef, groupKey, shortName, unitLabel } from './airspace.js'
 
 const FIGHTERS = new Set(['F-35', 'F-16', 'F-15', 'F-18', 'MiG-29', 'Eurofighter', 'A-10', 'Rafale', 'Gripen'])
 const HELIS = new Set(['Mi-2', 'Mi-8', 'Mi-17', 'Mi-24', 'W-3', 'SW-4', 'AW101', 'AW149', 'AH-64', 'UH-60', 'S-70'])
@@ -53,7 +53,8 @@ export function zoneNames(ids) {
 }
 
 /**
- * Strefy z /airspace → bloki planu, posortowane po początku.
+ * Strefy z /airspace → bloki planu z rozpoznanymi maszynami, posortowane po
+ * początku. Rezerwacje bez typu maszyny („wojsko”, poligony) odpadają.
  * Każdy blok: { key, unit, who, s, e, lo, hi, types, category, zones (id-y),
  * zoneNames, docs }.
  */
@@ -70,12 +71,17 @@ export function buildBlocks(zones, airfieldNames) {
       b.lo = minAlt(b.lo, r.lo)
       b.hi = maxAlt(b.hi, r.hi)
       if (!b.zones.includes(z.id)) b.zones.push(z.id)
-      for (const t of describeRemarks(r.rem)) if (!b.types.includes(t)) b.types.push(t)
+      // Tylko rozpoznane maszyny — kryptonimy i skróty jednostek („PJE")
+      // nie mówią, co poleci.
+      for (const t of describeRemarks(r.rem)) {
+        if (KNOWN_AIRCRAFT_NAMES.has(t) && !b.types.includes(t)) b.types.push(t)
+      }
       const doc = documentRef(r.rem)
       if (doc && !b.docs.some(d => d.id === doc.id)) b.docs.push(doc)
     }
   }
   return [...byKey.values()]
+    .filter(b => b.types.length > 0)
     .map(b => ({
       ...b,
       who: unitLabel(b.unit, airfieldNames),
