@@ -74,13 +74,11 @@ export default function AirspaceLayer({ zones, now, zoom }) {
       )))}
 
       {zoom >= AREA_LABEL_ZOOM && groups.map(g => {
-        // Na mapie same maszyny („F-35 · F-16") — kody stref (TS28, MRT)
-        // i kryptonimy z uwag nic nie mówią; są w okienku po kliknięciu.
+        // Na mapie same maszyny („F-35 · F-16"); kryptonimy z uwag nic nie
+        // mówią. Bez rozpoznanej maszyny — krótki kod strefy („TR499").
         const first = g.members[0].cur
         const types = describeRemarks(first.rem).filter(x => KNOWN_AIRCRAFT_NAMES.has(x))
-        const text = types.length
-          ? types.join(' · ')
-          : g.name === 'MRT' ? 'trasa wojskowa' : 'strefa wojskowa'
+        const text = types.length ? types.join(' · ') : g.name
         return (
           <Marker
             key={g.key}
