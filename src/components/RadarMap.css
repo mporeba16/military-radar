@@ -256,6 +256,12 @@
 
 /* ── Dymek lotniska ──────────────────────────────────────────────────────── */
 .base-popup .leaflet-popup-content-wrapper { border-color: rgba(220, 47, 61, 0.5); }
+/* Dymek bazy to zwykły HTML (Leaflet zmierzy go poprawnie), więc szerokość
+   idzie za treścią: samo „Náměšť LKNA" nie potrzebuje 250 px jak strefa. */
+.base-popup .leaflet-popup-content {
+  width: auto !important;
+  max-width: min(260px, calc(100vw - 72px));
+}
 .base-popup--nato .leaflet-popup-content-wrapper { border-color: rgba(124, 58, 237, 0.6); }
 
 .base-pop {
