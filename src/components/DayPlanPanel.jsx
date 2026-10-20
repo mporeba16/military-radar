@@ -1,0 +1,143 @@
+import { useMemo, useState } from 'react'
+import { MIL_BASES_PL } from '../airfields'
+import { formatAltRange } from '../lib/airspace'
+import { blockStatus, blocksForDay, buildBlocks, orderForList, startsIn } from '../lib/dayPlan'
+import { useLocalStorage } from '../hooks/useLocalStorage'
+
+// Panel „Plan dnia": kto, kiedy, jak wysoko i gdzie ma dziś zaplanowane loty
+// — z rezerwacji stref w planie PAŻP. Kliknięcie bloku pokazuje strefy na mapie.
+
+const AIRFIELD_NAMES = Object.fromEntries(MIL_BASES_PL.map(b => [b.icao, b.name]))
+
+const timeFmt = new Intl.DateTimeFormat('pl-PL', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' })
+const dateFmt = new Intl.DateTimeFormat('pl-PL', { weekday: 'short', day: 'numeric', month: 'numeric', timeZone: 'Europe/Warsaw' })
+
+const CATS = [
+  { id: 'fighter', label: 'Myśliwce' },
+  { id: 'heli', label: 'Śmigłowce' },
+  { id: 'other', label: 'Pozostałe' },
+  { id: 'training', label: 'Szkolenie' },
+]
+const DEFAULT_CATS = { fighter: true, heli: true, other: true, training: false }
+
+function BlockRow({ b, now, onFocus }) {
+  const status = blockStatus(b, now)
+  const what = b.types.length ? b.types.join(' · ') : 'wojsko'
+  return (
+    <li>
+      <button className={`plan-row plan-row--${status} plan-row--${b.category}`} onClick={() => onFocus(b)}>
+        <span className="plan-row__time">
+          {timeFmt.format(b.s)}–{timeFmt.format(b.e)}
+          {status === 'active' && <span className="plan-row__badge plan-row__badge--live">trwa</span>}
+          {status === 'upcoming' && <span className="plan-row__badge">{startsIn(b, now)}</span>}
+        </span>
+        <span className="plan-row__what">{what}</span>
+        <span className="plan-row__who">{b.who}</span>
+        <span className="plan-row__meta">
+          {formatAltRange(b.lo, b.hi)} · {b.zoneNames.join(', ')}
+          {b.docs.length > 0 && ` · ${b.docs.map(d => `${d.kind} ${d.id}`).join(', ')}`}
+        </span>
+      </button>
+    </li>
+  )
+}
+
+export default function DayPlanPanel({ zones, error, now, notams, onFocus }) {
+  const [day, setDay] = useState('today')
+  const [cats, setCats] = useLocalStorage('radar.planCats', DEFAULT_CATS)
+  const [showPast, setShowPast] = useState(false)
+
+  const blocks = useMemo(() => buildBlocks(zones, AIRFIELD_NAMES), [zones])
+  const hasTomorrow = useMemo(() => blocksForDay(blocks, 'tomorrow', now).length > 0, [blocks, now])
+  const dayBlocks = useMemo(() => blocksForDay(blocks, day, now), [blocks, day, now])
+  const counts = useMemo(() => {
+    const c = { fighter: 0, heli: 0, other: 0, training: 0 }
+    for (const b of dayBlocks) c[b.category]++
+    return c
+  }, [dayBlocks])
+  const visible = orderForList(dayBlocks.filter(b => cats[b.category] ?? DEFAULT_CATS[b.category]), now)
+  const live = visible.filter(b => blockStatus(b, now) !== 'past')
+  const past = visible.filter(b => blockStatus(b, now) === 'past')
+
+  const milNotams = useMemo(() => {
+    const out = []
+    for (const [icao, list] of Object.entries(notams?.airports || {})) {
+      for (const n of list) {
+        if ((n.closed || n.mil) && n.to > now) out.push({ ...n, icao })
+      }
+    }
+    return out.sort((a, b) => a.from - b.from)
+  }, [notams, now])
+
+  return (
+    <div className="panel-body plan">
+      <div className="plan-tabs" role="tablist">
+        <button role="tab" aria-selected={day === 'today'} className={day === 'today' ? 'active' : ''} onClick={() => setDay('today')}>
+          Dziś · {dateFmt.format(now)}
+        </button>
+        <button role="tab" aria-selected={day === 'tomorrow'} className={day === 'tomorrow' ? 'active' : ''}
+          disabled={!hasTomorrow} title={hasTomorrow ? undefined : 'PAŻP jeszcze nie opublikował planu na jutro'}
+          onClick={() => setDay('tomorrow')}>
+          Jutro
+        </button>
+      </div>
+
+      <div className="plan-chips">
+        {CATS.map(c => {
+          const on = cats[c.id] ?? DEFAULT_CATS[c.id]
+          return (
+            <button key={c.id} className={`plan-chip plan-chip--${c.id} ${on ? 'on' : ''}`} aria-pressed={on}
+              onClick={() => setCats({ ...DEFAULT_CATS, ...cats, [c.id]: !on })}>
+              {c.label} <span className="plan-chip__n">{counts[c.id]}</span>
+            </button>
+          )
+        })}
+      </div>
+
+      {zones == null && !error && <p className="plan-empty">Wczytywanie planu…</p>}
+      {error && zones == null && <p className="plan-empty">Plan PAŻP chwilowo niedostępny.</p>}
+      {zones != null && live.length === 0 && past.length === 0 && (
+        <p className="plan-empty">Brak zaplanowanych lotów w wybranych kategoriach.</p>
+      )}
+
+      <ul className="plan-list">
+        {live.map(b => <BlockRow key={b.key} b={b} now={now} onFocus={onFocus} />)}
+      </ul>
+
+      {past.length > 0 && (
+        <>
+          <button className="plan-past-toggle" onClick={() => setShowPast(s => !s)} aria-expanded={showPast}>
+            Zakończone ({past.length}) {showPast ? '⌃' : '⌄'}
+          </button>
+          {showPast && (
+            <ul className="plan-list">
+              {past.map(b => <BlockRow key={b.key} b={b} now={now} onFocus={onFocus} />)}
+            </ul>
+          )}
+        </>
+      )}
+
+      {day === 'today' && milNotams.length > 0 && (
+        <section className="cp-section plan-notams">
+          <div className="cp-label">NOTAM-y wojskowe</div>
+          <ul className="plan-list">
+            {milNotams.map(n => (
+              <li key={`${n.icao}-${n.id}`} className={`plan-notam ${n.closed ? 'plan-notam--closed' : ''}`}>
+                <span className="plan-row__time">
+                  {AIRFIELD_NAMES[n.icao] || n.icao} · {n.closed ? 'lotnisko zamknięte' : 'aktywność wojskowa'}
+                </span>
+                <span className="plan-row__meta">{timeFmt.format(n.from)}–{timeFmt.format(n.to)} · {n.id}</span>
+                <span className="plan-notam__text">{n.text}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <p className="plan-source">
+        Źródło: plan użytkowania przestrzeni PAŻP (AUP/UUP). To rezerwacje stref,
+        nie potwierdzone loty — wojsko często rezerwuje więcej, niż wykorzysta.
+      </p>
+    </div>
+  )
+}

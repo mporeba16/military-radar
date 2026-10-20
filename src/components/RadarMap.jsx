@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { MapContainer, TileLayer, Circle, CircleMarker, Polyline, useMap, useMapEvents } from 'react-leaflet'
+import { MapContainer, TileLayer, Circle, CircleMarker, Polygon, Polyline, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import './RadarMap.css'
@@ -197,6 +197,28 @@ function LabelDeclutter() {
 // Przesunięcie mapy musi odświeżyć zestaw widocznych znaczników — bez tego
 // po przesunięciu widoku nowe maszyny pojawiłyby się dopiero przy następnym
 // odświeżeniu danych (do 10 s).
+// Strefy wybrane w „Planie dnia": przybliżenie do nich i wyraźny obrys —
+// także gdy rezerwacja jest dopiero za kilka godzin i warstwa stref jej
+// jeszcze nie rysuje. `focus.at` odróżnia ponowne kliknięcie tego samego bloku.
+function PlanFocusLayer({ zones, focus }) {
+  const map = useMap()
+  const rings = useMemo(() => {
+    if (!focus) return []
+    const ids = new Set(focus.zones)
+    return (zones || []).filter(z => ids.has(z.id)).flatMap(z => z.rings || [])
+  }, [zones, focus])
+  useEffect(() => {
+    if (!rings.length) return
+    const bounds = L.latLngBounds(rings.flat())
+    map.flyToBounds(bounds, { padding: [40, 40], maxZoom: 9, duration: 0.8 })
+  }, [map, rings, focus?.at])
+  if (!rings.length) return null
+  return rings.map((ring, i) => (
+    <Polygon key={`${focus.at}-${i}`} positions={ring} interactive={false}
+      pathOptions={{ color: '#ffffff', weight: 2.5, dashArray: '6 5', fillColor: '#ffffff', fillOpacity: 0.12 }} />
+  ))
+}
+
 function MapViewTracker({ onMove }) {
   useMapEvents({ moveend: onMove, zoomend: onMove })
   return null
@@ -220,7 +242,7 @@ export { TILE_LAYERS, tileThumbUrl, resolveTileId }
 export default function RadarMap({
   aircraft, hasFetched, trails, serverTrails, center, gpsCenter, radius,
   selectedHex, focusHex, onSelect, activeTileId, showBases, showNatoBases, showRanges,
-  airspace, showAirspace, recenterRef,
+  airspace, showAirspace, recenterRef, planFocus,
 }) {
   const initialZoom = 6  // S4: was 5, but icons were too small at default view
   const [zoom, setZoom] = useState(initialZoom)
@@ -300,6 +322,7 @@ export default function RadarMap({
         <TileFilter filter={tileLayer.filter} />
         <ZoomTracker onZoomChange={setZoom} />
         <SelectionFocus aircraft={aircraft} selectedHex={focusHex} />
+        <PlanFocusLayer zones={airspace?.zones} focus={planFocus} />
         <LabelDeclutter />
 
         {showAirspace && airspace?.zones && (

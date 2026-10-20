@@ -5,6 +5,7 @@ import AircraftInfoPanel from './components/AircraftInfoPanel'
 // Panele otwiera się rzadko, a ważą swoje — niech dojdą przy pierwszym
 // otwarciu, a nie przy starcie aplikacji.
 const AlertsPanel = lazy(() => import('./components/AlertsPanel'))
+const DayPlanPanel = lazy(() => import('./components/DayPlanPanel'))
 import PanelFooter from './components/PanelFooter'
 import AlertStack from './components/AlertStack'
 const MapsPanel = lazy(() => import('./components/MapsPanel'))
@@ -12,6 +13,7 @@ import { useGeolocation } from './hooks/useGeolocation'
 import { usePushNotifications } from './hooks/usePushNotifications'
 import { useLocalStorage } from './hooks/useLocalStorage'
 import { useAirspace } from './hooks/useAirspace'
+import { useNotams } from './hooks/useNotams'
 import { useInbound } from './hooks/useInbound'
 import { usePolling } from './hooks/usePolling'
 import { useHexDeepLink } from './hooks/useHexDeepLink'
@@ -51,6 +53,7 @@ export default function App() {
   const [focusHex, setFocusHex] = useState(null)
   const [serverTrails, setServerTrails] = useState(new Map())
   const [activePanel, setActivePanel] = useState(null)
+  const [planFocus, setPlanFocus] = useState(null)
   const [activeTileId, setActiveTileId] = useLocalStorage('radar.tile', 'osm-adsbx')
   const [showBases, setShowBases] = useLocalStorage('radar.bases', true)
   const [showNatoBases, setShowNatoBases] = useLocalStorage('radar.natoBases', true)
@@ -58,7 +61,8 @@ export default function App() {
   const [showAirspace, setShowAirspace] = useLocalStorage('radar.airspace', true)
   // Plan PAŻP zasila też dymek polskiej bazy („co dziś stąd lata”), więc
   // pobieramy go, gdy włączona jest którakolwiek z tych warstw.
-  const airspace = useAirspace(showAirspace || showBases)
+  const airspace = useAirspace(showAirspace || showBases || activePanel === 'plan')
+  const notams = useNotams(activePanel === 'plan')
   // Jumbo jety i An-124 z celem w Rzeszowie albo Krakowie — osobno dla każdego
   // lotniska, bo maszyna bywa widoczna na godziny przed wejściem w nasz obszar.
   const [arrivals, setArrivals] = useLocalStorage('radar.arrivals', { EPRZ: true, EPKK: true })
@@ -427,6 +431,7 @@ export default function App() {
         airspace={airspace}
         showAirspace={showAirspace}
         recenterRef={recenterRef}
+        planFocus={planFocus}
       />
 
       <MapMark isLoading={isLoading} error={error} lastUpdated={lastUpdated} />
@@ -467,6 +472,7 @@ export default function App() {
             <span className="side-panel-title">
               {activePanel === 'alerty' && t('PANEL_ALERTS')}
               {activePanel === 'mapy' && t('PANEL_MAPS')}
+              {activePanel === 'plan' && t('PANEL_PLAN')}
             </span>
             <button className="side-panel-close" onClick={() => setActivePanel(null)} aria-label={t('CLOSE_PANEL')}>✕</button>
           </div>
@@ -511,6 +517,22 @@ export default function App() {
                 bumpVersionTap={bumpVersionTap}
               />
             </AlertsPanel>
+          )}
+
+          {activePanel === 'plan' && (
+            <DayPlanPanel
+              zones={airspace.zones}
+              error={airspace.error}
+              now={airspace.now}
+              notams={notams}
+              onFocus={b => {
+                setPlanFocus({ zones: b.zones, at: Date.now() })
+                setSelectedHex(null)
+                // Na telefonie panel przykrywa mapę — zamykamy go, żeby było
+                // widać strefy. Na szerokim ekranie panel stoi obok mapy.
+                if (window.matchMedia('(max-width: 600px)').matches) setActivePanel(null)
+              }}
+            />
           )}
 
           {activePanel === 'mapy' && (

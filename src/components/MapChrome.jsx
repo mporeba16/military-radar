@@ -17,6 +17,18 @@ function IconBell() {
   )
 }
 
+// Kalendarz — „Plan dnia" (rezerwacje stref z planu PAŻP).
+function IconCalendar() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3.5" y="5" width="17" height="15.5" rx="2" />
+      <path d="M3.5 10h17M8 3v4M16 3v4" />
+      <path d="M7.5 14h3M7.5 17h6" />
+    </svg>
+  )
+}
+
 function IconLayers() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -71,7 +83,7 @@ function IconCrosshair() {
   )
 }
 
-// Kolejność od góry: Mapa, Alerty, GPS. Najczęściej używany
+// Kolejność od góry: Mapa, Plan dnia, Alerty, GPS. Najczęściej używany
 // (GPS) najniżej — najbliżej kciuka na telefonie.
 export function MapPanelButtons({ activePanel, onTogglePanel, onRecenter, hasGps, alertsLevel }) {
   const panelBtn = (id, label, icon, extra = null) => (
@@ -89,6 +101,7 @@ export function MapPanelButtons({ activePanel, onTogglePanel, onRecenter, hasGps
   return (
     <div className="map-ctrl-btns">
       {panelBtn('mapy', t('NAV_MAPS_A11Y'), <IconLayers />)}
+      {panelBtn('plan', t('NAV_PLAN_A11Y'), <IconCalendar />)}
       {panelBtn('alerty', t('NAV_ALERTS_A11Y'), <IconBell />,
         <span className={`icon-btn__dot icon-btn__dot--${alertsLevel}`} aria-hidden="true" />)}
       <button

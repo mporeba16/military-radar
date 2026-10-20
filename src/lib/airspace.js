@@ -77,6 +77,7 @@ const TYPE_NAMES = {
   MI2: 'Mi-2', MI8: 'Mi-8', MI17: 'Mi-17', MI24: 'Mi-24', SW4: 'SW-4',
   W3: 'W-3', AW101: 'AW101', AH64: 'AH-64', UH60: 'UH-60', DA20: 'DA20',
   C150: 'C150', A10: 'A-10', F15: 'F-15', F18: 'F-18', EF2000: 'Eurofighter',
+  EUFI: 'Eurofighter', TYPHOON: 'Eurofighter', MIG29: 'MiG-29', AW149: 'AW149', S70: 'S-70',
 }
 const DROP = /^(W|CLN|OATC|DS|NOT\..*|SUP\d+|\d+|ACSL|LAW)$/
 
