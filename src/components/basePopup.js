@@ -1,9 +1,7 @@
 // HTML dymka lotniska (Leaflet bindPopup przyjmuje tekst, nie komponent).
 // Liczone w chwili otwarcia — dymek to migawka, nie żywy widok.
 
-import { basePlan, baseNearby, NEARBY_KM } from '../lib/baseSummary'
-import { typeLabel } from '../lib/typeNames'
-import { ftToM } from './aircraftShapes'
+import { basePlan } from '../lib/baseSummary'
 import { t } from '../i18n'
 
 const timeFmt = new Intl.DateTimeFormat('pl-PL', {
@@ -14,7 +12,7 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
 }[c]))
 
-export function basePopupHtml(base, variant, { zones, zonesError, aircraft, now }) {
+export function basePopupHtml(base, variant, { zones, zonesError, now }) {
   const parts = [
     `<div class="base-pop">`,
     `<div class="base-pop__title">${esc(base.name)} <span class="base-pop__icao">${esc(base.icao)}</span></div>`,
@@ -41,21 +39,6 @@ export function basePopupHtml(base, variant, { zones, zonesError, aircraft, now 
         )
       }
     }
-  }
-
-  parts.push(`<div class="base-pop__head">${t('BASE_NEARBY_TITLE').replace('{km}', NEARBY_KM)}</div>`)
-  const near = baseNearby(base, aircraft)
-  if (!near.length) parts.push(`<div class="base-pop__empty">${t('BASE_NEARBY_EMPTY')}</div>`)
-  for (const { ac, km } of near) {
-    const alt = ftToM(ac.alt_baro)
-    const type = typeLabel(ac.t) || ac.t || ''
-    parts.push(
-      `<button type="button" class="base-pop__ac" data-hex="${esc(ac.hex)}">` +
-      `<span class="base-pop__cs">${esc(ac.flight?.trim() || ac.hex)}</span>` +
-      `<span class="base-pop__type">${esc(type)}</span>` +
-      `<span class="base-pop__meta">${Math.round(km)} km${alt != null ? ` · ${alt.toLocaleString('pl-PL')} m` : ''}</span>` +
-      `</button>`
-    )
   }
 
   parts.push(`</div>`)

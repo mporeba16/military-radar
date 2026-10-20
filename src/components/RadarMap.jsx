@@ -71,20 +71,7 @@ function BasesLayer({ zoom, bases, variant, infoRef }) {
       m.bindPopup(() => basePopupHtml(ap, variant, { ...infoRef.current, now: Date.now() }), {
         className: `base-popup base-popup--${variant}`, closeButton: false, ...POPUP_PAD,
       })
-      m.on('popupopen', e => {
-        m.closeTooltip()
-        const el = e.popup.getElement()
-        // Leaflet trzyma ten sam element dymka między otwarciami — nasłuch
-        // podpinamy raz, inaczej każde otwarcie dokładałoby kolejny.
-        if (!el || el.dataset.bound) return
-        el.dataset.bound = '1'
-        el.addEventListener('click', ev => {
-          const btn = ev.target.closest('[data-hex]')
-          if (!btn) return
-          infoRef.current.onSelect(btn.dataset.hex)
-          map.closePopup()
-        })
-      })
+      m.on('popupopen', () => m.closeTooltip())
       group.addLayer(m)
     }
   }, [zoom, bases, variant, infoRef, map])
@@ -251,10 +238,10 @@ export default function RadarMap({
   const zoomScale = useMemo(() => iconScaleForZoom(zoom), [zoom])
   const mapRef = useRef(null)
   // Dane dla dymków baz — aktualizowane po renderze, czytane przy otwarciu.
-  const baseInfoRef = useRef({ zones: null, aircraft: [], onSelect: () => {} })
+  const baseInfoRef = useRef({ zones: null })
   useEffect(() => {
-    baseInfoRef.current = { zones: airspace?.zones ?? null, zonesError: !!airspace?.error, aircraft, onSelect }
-  }, [airspace?.zones, airspace?.error, aircraft, onSelect])
+    baseInfoRef.current = { zones: airspace?.zones ?? null, zonesError: !!airspace?.error }
+  }, [airspace?.zones, airspace?.error])
 
   // Akcja „wróć do widoku" wystawiona przez ref, bo przycisk mieszka w chrome
   // nad mapą (MapChrome), a instancja Leafletu tylko tutaj. Osobny stos

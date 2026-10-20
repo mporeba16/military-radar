@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { basePlan, baseNearby } from '../src/lib/baseSummary.js'
+import { basePlan } from '../src/lib/baseSummary.js'
 
 const H = 3600_000
 const zone = (id, res) => ({ id, type: 'TSA', rings: [], res })
@@ -33,18 +33,5 @@ describe('basePlan', () => {
   it('is empty for a base with nothing planned', () => {
     expect(basePlan('EPMB', zones, 0)).toEqual([])
     expect(basePlan('EPLK', null, 0)).toEqual([])
-  })
-})
-
-describe('baseNearby', () => {
-  const base = { lat: 51.55, lon: 19.18 }
-  it('lists airborne aircraft within 50 km, nearest first', () => {
-    const near = baseNearby(base, [
-      { hex: 'a', lat: 51.9, lon: 19.18 },               // ~39 km
-      { hex: 'b', lat: 51.6, lon: 19.18 },               // ~6 km
-      { hex: 'c', lat: 52.2, lon: 19.18 },               // ~72 km
-      { hex: 'd', lat: 51.55, lon: 19.18, on_ground: true },
-    ])
-    expect(near.map(x => x.ac.hex)).toEqual(['b', 'a'])
   })
 })

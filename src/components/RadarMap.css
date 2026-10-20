@@ -298,35 +298,6 @@
   font-size: var(--t-micro);
   color: rgba(255, 255, 255, 0.45);
 }
-.base-pop__ac {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  column-gap: 8px;
-  width: 100%;
-  margin: 0;
-  padding: 5px 0;
-  background: none;
-  border: 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  color: #dce8f5;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.base-pop__ac:hover .base-pop__cs { text-decoration: underline; }
-.base-pop__cs { font-weight: 600; color: #fff; }
-.base-pop__type {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: rgba(255, 255, 255, 0.6);
-}
-.base-pop__meta {
-  grid-column: 2;
-  font-size: var(--t-micro);
-  color: rgba(255, 255, 255, 0.45);
-  font-variant-numeric: tabular-nums;
-}
 
 .airspace-pop__refs {
   margin-top: 8px;

@@ -74,8 +74,6 @@ const STRINGS = {
     BASE_PLAN_ERROR: 'Plan PAŻP chwilowo niedostępny.',
     BASE_PLAN_EMPTY: 'Brak rezerwacji stref do końca dnia.',
     BASE_NOW: 'teraz',
-    BASE_NEARBY_TITLE: 'W powietrzu do {km} km',
-    BASE_NEARBY_EMPTY: 'Nic w pobliżu.',
     AIRSPACE_SOURCE: 'Plan PAŻP (AUP/UUP) — informacyjnie. Rezerwacja to plan, nie lot.',
     INFO_ARRIVAL: 'Cel:',
     INFO_ARRIVAL_GUESS: 'Podchodzi do lądowania:',
