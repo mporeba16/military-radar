@@ -921,3 +921,5 @@
   line-height: 1.5;
 }
 .plan-source { margin-top: 16px; opacity: 0.8; }
+.plan-row__windows { display: inline; }
+.plan-row__win--past { opacity: 0.5; text-decoration: line-through; }

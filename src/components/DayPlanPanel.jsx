@@ -13,20 +13,24 @@ const dateFmt = new Intl.DateTimeFormat('pl-PL', { weekday: 'short', day: 'numer
 
 function BlockRow({ b, now, onFocus }) {
   const status = blockStatus(b, now)
-  const what = b.types.join(' · ')
   return (
     <li>
       <button className={`plan-row plan-row--${status} plan-row--${b.category}`} onClick={() => onFocus(b)}>
         <span className="plan-row__time">
-          {timeFmt.format(b.s)}–{timeFmt.format(b.e)}
+          <span className="plan-row__windows">
+            {b.windows.map((w, i) => (
+              <span key={w.s} className={w.e <= now ? 'plan-row__win--past' : undefined}>
+                {i > 0 && ', '}{timeFmt.format(w.s)}–{timeFmt.format(w.e)}
+              </span>
+            ))}
+          </span>
           {status === 'active' && <span className="plan-row__badge plan-row__badge--live">trwa</span>}
           {status === 'upcoming' && <span className="plan-row__badge">{startsIn(b, now)}</span>}
         </span>
-        <span className="plan-row__what">{what}</span>
+        <span className="plan-row__what">{b.types.join(' · ')}</span>
         <span className="plan-row__who">{b.who}</span>
         <span className="plan-row__meta">
-          {formatAltRange(b.lo, b.hi)} · {b.zoneNames.join(', ')}
-          {b.docs.length > 0 && ` · ${b.docs.map(d => `${d.kind} ${d.id}`).join(', ')}`}
+          {formatAltRange(b.lo, b.hi)} · {b.zonesText} · pokaż na mapie ›
         </span>
       </button>
     </li>

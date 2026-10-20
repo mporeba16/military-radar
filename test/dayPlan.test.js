@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { blockCategory, buildBlocks, blocksForDay, orderForList, startsIn, zoneNames, blockStatus } from '../src/lib/dayPlan.js'
+import { blockCategory, buildBlocks, blocksForDay, orderForList, startsIn, zoneNames, zoneSummary, mergeWindows, blockStatus } from '../src/lib/dayPlan.js'
 
 const H = 3600_000
 // 20.10.2026 12:00 czasu polskiego = 10:00 UTC
@@ -23,7 +23,7 @@ describe('buildBlocks', () => {
   it('scala strefy jednego lotu w blok', () => {
     expect(blocks.filter(b => b.unit === 'EPLK')).toHaveLength(1)
     expect(lask.zones).toEqual(['EPTR11A', 'EPTR11B', 'EPTS7A'])
-    expect(lask.zoneNames).toEqual(['TR11', 'TS7'])
+    expect(lask.zonesText).toBe('2 strefy')
     expect(lask.types).toEqual(['F-35', 'F-16'])
     expect(lask.who).toBe('Łask')
     expect(lask.category).toBe('fighter')
@@ -33,7 +33,7 @@ describe('buildBlocks', () => {
     expect(lask.hi).toBe('F245')
   })
   it('kategorie', () => {
-    expect(blocks.find(b => b.unit === 'EPDE').category).toBe('training')
+    expect(blocks.some(b => b.unit === 'EPDE')).toBe(false) // same szkolne odpadają
     expect(blocks.find(b => b.zones.includes('EPTR154')).category).toBe('heli')
   })
   it('bloki bez rozpoznanej maszyny (samo „wojsko", kryptonim) odpadają', () => {
@@ -52,7 +52,7 @@ describe('dni i kolejność', () => {
   })
   it('trwające, potem nadchodzące, zakończone na końcu', () => {
     const order = orderForList(blocksForDay(blocks, 'today', T12), T12).map(b => blockStatus(b, T12))
-    expect(order).toEqual(['active', 'upcoming', 'past'])
+    expect(order).toEqual(['active', 'upcoming'])
   })
   it('startsIn', () => {
     expect(startsIn({ s: T12 + 40 * 60000 }, T12)).toBe('za 40 min')
@@ -70,5 +70,30 @@ describe('pomocnicze', () => {
   })
   it('zoneNames', () => {
     expect(zoneNames(['EPMRT47', 'EPMRT48', 'EPTS6A'])).toEqual(['MRT47', 'MRT48', 'TS6'])
+  })
+})
+
+describe('scalanie dnia jednostki (Krzesiny F-16)', () => {
+  const k = (s, e, id) => ({ id, res: [res(T12 + s * H, T12 + e * H, 'EPKS', 'F16')] })
+  const blocks = buildBlocks([k(4, 7, 'EPTR11A'), k(4.33, 5.83, 'EPTS2A'), k(8, 9, 'EPTR69A'), k(8, 11, 'EPMRT17'), k(8, 11, 'EPMRT18')], { EPKS: 'Poznań-Krzesiny' })
+  it('jeden blok z dwoma oknami', () => {
+    expect(blocks).toHaveLength(1)
+    expect(blocks[0].windows).toEqual([{ s: T12 + 4 * H, e: T12 + 7 * H }, { s: T12 + 8 * H, e: T12 + 11 * H }])
+    expect(blocks[0].zonesText).toBe('3 strefy + 2 odcinki tras')
+  })
+  it('między oknami status „nadchodzi" i odliczanie do następnego', () => {
+    const at = T12 + 7.5 * H
+    expect(blockStatus(blocks[0], at)).toBe('upcoming')
+    expect(startsIn(blocks[0], at)).toBe('za 30 min')
+    expect(blockStatus(blocks[0], T12 + 9 * H)).toBe('active')
+    expect(blockStatus(blocks[0], T12 + 12 * H)).toBe('past')
+  })
+  it('szkolne typy znikają z opisu bloku ze śmigłowcami', () => {
+    const [b] = buildBlocks([{ id: 'EPTR182', res: [res(T12, T12 + H, 'EPDE', 'M346 SW4 MI2 DA20')] }], {})
+    expect(b.types).toEqual(['SW-4', 'Mi-2'])
+  })
+  it('mergeWindows i zoneSummary', () => {
+    expect(mergeWindows([{ s: 5, e: 8 }, { s: 1, e: 3 }, { s: 3, e: 4 }])).toEqual([{ s: 1, e: 4 }, { s: 5, e: 8 }])
+    expect(zoneSummary(['EPTS6A', 'EPMRT17', 'EPMRT18', 'EPMRT19', 'EPMRT20', 'EPMRT21'])).toBe('1 strefa + 5 odcinków tras')
   })
 })
