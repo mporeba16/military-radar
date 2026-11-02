@@ -17,7 +17,7 @@ import { POLITE_HEADERS, fetchAdsbfiGeo } from './lib/sources.js'
 import { corsHeaders } from './lib/security.js'
 import {
   WATCHED_TYPES, ARRIVAL_AIRPORTS, etaMinutes, distanceKm, isWatchedType, approachGuess,
-  airportByIcao,
+  airportByIcao, verticalRate, leavingAirport, headingDiff, bearingTo,
 } from '../../src/lib/inbound.js'
 
 const UA = POLITE_HEADERS
@@ -53,9 +53,9 @@ async function fetchType(type) {
 // (a ten potrafi odpowiedzieć 429 w środku przebiegu) i łapie maszynę, która
 // jest już blisko — czyli dokładnie tę, o której powiadomienie ma sens.
 // Antonow Airlines (ADB) bierzemy po znaku wywoławczym, bo pole typu bywa puste.
-async function fetchNearPoland() {
+async function fetchNearPoland(records = null) {
   try {
-    return (await fetchAdsbfiGeo()).filter(a =>
+    return (records ?? await fetchAdsbfiGeo()).filter(a =>
       typeof a.lat === 'number' && typeof a.lon === 'number' && (a.flight || '').trim() &&
       (isWatchedType(a.t) || /^ADB\d/.test((a.flight || '').trim().toUpperCase())))
   } catch {
@@ -81,7 +81,7 @@ async function fetchRoute(callsign, store) {
   let route = null
   try {
     const res = await fetch(`https://api.adsbdb.com/v0/callsign/${encodeURIComponent(callsign)}`, {
-      signal: AbortSignal.timeout(8000), headers: UA,
+      signal: AbortSignal.timeout(5000), headers: UA,
     })
     if (res.ok) {
       const fr = (await res.json())?.response?.flightroute
@@ -119,22 +119,28 @@ async function fetchRoute(callsign, store) {
 const LEARNED_TTL_MS = 90 * 24 * 60 * 60 * 1000
 const LEARN_MAX_KM = 12
 const LEARN_MAX_FT = 2500
+// Tylko schodzący samolot. Wcześniej liczyło się też „na ziemi” — i pamięć
+// zapisywała odloty (kołowanie, rozbieg, początek wznoszenia), więc znak
+// wywoławczy lotu POWROTNEGO lądował w pamięci jako „ten siada w Rzeszowie”.
+const LEARN_DESCENT_FPM = -200
 
 const learnedMem = new Map() // callsign → { at, to } | null
 
 const learnedKey = callsign => `landed-${callsign}`
 
-// Zapamiętuje lądowanie: maszyna obserwowanego typu tuż przy lotnisku i nisko
-// (albo już na ziemi) — to podejście końcowe, nie przelot.
+// Zapamiętuje lądowanie: maszyna obserwowanego typu tuż przy lotnisku, nisko
+// i schodząca — to podejście końcowe, nie przelot ani start.
 export async function learnLandings(records, store, now = Date.now()) {
   if (!store) return []
   const learned = []
   for (const a of records) {
     const callsign = (a.flight || '').trim()
     if (!callsign) continue
-    const onGround = a.alt_baro === 'ground' || a.on_ground === true
+    if (a.alt_baro === 'ground' || a.on_ground === true) continue
     const alt = typeof a.alt_baro === 'number' ? a.alt_baro : null
-    if (!onGround && (alt == null || alt > LEARN_MAX_FT)) continue
+    if (alt == null || alt > LEARN_MAX_FT) continue
+    const vr = verticalRate(a)
+    if (vr == null || vr > LEARN_DESCENT_FPM) continue
     const airport = ARRIVAL_AIRPORTS.find(ap => distanceKm(a, ap) <= LEARN_MAX_KM)
     if (!airport) continue
     const rec = { at: now, to: airport.icao }
@@ -162,9 +168,17 @@ async function learnedRoute(callsign, store, now = Date.now()) {
 }
 
 // Migawka leży w Blobs, żeby czytał ją też cron powiadomień — inaczej każdy
-// przebieg notify (co minutę) musiałby sam pytać adsb.lol.
+// przebieg powiadomień musiałby sam pytać adsb.lol.
 export const SNAPSHOT_STORE = 'inbound-snapshot'
 export const SNAPSHOT_KEY = 'latest'
+// Wynik pełnego przebiegu (zapytania o typy do adsb.lol) — pisze go cron na
+// Cloudflare (cloudflare/inbound-deep.js), bo przerwy między zapytaniami
+// kosztowały na Netlify jak praca funkcji. Lekki przebieg w `tick` dokłada
+// do niego świeży ruch nad Polską i zapisuje `latest`.
+export const DEEP_KEY = 'deep'
+// Starsza migawka pełna znaczy, że cron na Cloudflare nie działa — lepiej
+// pokazać same przyloty widziane nad Polską niż pozycje sprzed godziny.
+const DEEP_MAX_AGE_MS = 30 * 60 * 1000
 
 // Dwa tempa. Podejście do lądowania widać dopiero kilkadziesiąt kilometrów
 // przed lotniskiem, czyli przez jakieś dziesięć minut lotu — przy zbieraniu
@@ -172,7 +186,11 @@ export const SNAPSHOT_KEY = 'latest'
 // przebieg (jedno zapytanie do adsb.fi o ruch nad Polską) chodzi co dwie
 // minuty, a ciężki (zapytania o typy do adsb.lol, które limituje ruch)
 // dokłada się do niego tylko co dziesięć.
-export async function collect({ deep = true, store: injected = null } = {}) {
+// `observed` (opcjonalny Set) dostaje hexy WSZYSTKICH maszyn widzianych
+// w tym przebiegu, także odrzuconych — carryForward nie może wskrzesić
+// maszyny, którą właśnie odsialiśmy jako startującą. `nearRecords` to ruch
+// nad Polską już pobrany przez `tick` (bez nich pytamy adsb.fi sami).
+export async function collect({ deep = true, store: injected = null, observed = null, nearRecords = null } = {}) {
   let store = injected
   if (!store) {
     try { store = getStore('flight-routes') } catch { /* bez cache też zadziała */ }
@@ -190,7 +208,7 @@ export async function collect({ deep = true, store: injected = null } = {}) {
     }
   }
 
-  const nearPoland = await fetchNearPoland()
+  const nearPoland = await fetchNearPoland(nearRecords)
   // Zanim cokolwiek policzymy: zapamiętaj, kto właśnie siada w Rzeszowie
   // albo Krakowie. To wiedza na następny raz.
   const learned = await learnLandings(nearPoland, store)
@@ -198,6 +216,7 @@ export async function collect({ deep = true, store: injected = null } = {}) {
   for (const a of nearPoland) {
     if (!seen.has(a.hex)) seen.set(a.hex, a)
   }
+  if (observed) for (const hex of seen.keys()) observed.add(hex)
 
   const out = []
   for (const a of seen.values()) {
@@ -212,6 +231,7 @@ export async function collect({ deep = true, store: injected = null } = {}) {
       alt_baro: typeof a.alt_baro === 'number' ? a.alt_baro : null,
       gs: a.gs != null ? Math.round(a.gs) : null,
       track: a.track != null ? Math.round(a.track) : null,
+      vr: verticalRate(a) != null ? Math.round(verticalRate(a)) : null,
       on_ground: a.alt_baro === 'ground',
     }
 
@@ -237,9 +257,15 @@ export async function collect({ deep = true, store: injected = null } = {}) {
         const remembered = await learnedRoute(callsign, store)
         if (!remembered) continue
         airport = airportByIcao(remembered.to)
+        // Pamięć to tylko przesłanka (a przed poprawką z 02.11.2026 zapisywała
+        // też odloty) — lot, który z daleka leci w przeciwną stronę, tam nie leci.
+        if (ac.track != null && headingDiff(ac.track, bearingTo(ac, airport)) > 90) continue
         route = remembered
       }
     }
+
+    // Cel znany, ale maszyna właśnie z niego startuje albo od niego odlatuje.
+    if (leavingAirport(ac, airport)) continue
 
     out.push({
       ...ac,
@@ -258,10 +284,24 @@ export async function collect({ deep = true, store: injected = null } = {}) {
 // przeniesienia znikałyby z mapy na kilka minut i wracały przy każdym pełnym
 // przebiegu. Pozycja bywa wtedy sprzed kilku minut; to ta sama umowa, na
 // której migawka działała od początku.
-export function carryForward(fresh, prev = []) {
-  const have = new Set(fresh.map(x => x.hex))
+export function carryForward(fresh, prev = [], observed = new Set()) {
+  const have = new Set([...fresh.map(x => x.hex), ...observed])
   const carried = prev.filter(x => x && !have.has(x.hex) && x.route?.guess !== true)
   return [...fresh, ...carried].sort((x, y) => (x.etaMin ?? 1e9) - (y.etaMin ?? 1e9))
+}
+
+// Lekki przebieg — część crona `tick` (co 2 min). `geoRecords` to ruch nad
+// Polską pobrany raz dla wszystkich zadań ticka.
+export async function collectInbound(geoRecords) {
+  const startedAt = Date.now()
+  const store = getStore(SNAPSHOT_STORE)
+  const deepSnap = await store.get(DEEP_KEY, { type: 'json' }).catch(() => null)
+  const deepFresh = deepSnap && startedAt - deepSnap.at < DEEP_MAX_AGE_MS
+  const observed = new Set()
+  const found = await collect({ deep: false, observed, nearRecords: geoRecords })
+  const inbound = carryForward(found, deepFresh ? deepSnap.inbound : [], observed)
+  await store.set(SNAPSHOT_KEY, JSON.stringify({ at: Date.now(), deepAt: deepSnap?.at, inbound }))
+  return `inbound n=${inbound.length}${deepFresh ? '' : ' (brak świeżej migawki pełnej)'} in ${Date.now() - startedAt}ms`
 }
 
 export const handler = async (event) => {
@@ -275,7 +315,7 @@ export const handler = async (event) => {
   const now = Date.now()
   if (!cache || now - cache.at > FRESH_MS) {
     try {
-      // Najpierw migawka z crona (inbound-collect co 2 min) — wtedy otwarcie
+      // Najpierw migawka z crona (tick co 2 min) — wtedy otwarcie
       // aplikacji nie generuje ani jednego zapytania na zewnątrz.
       let inbound = null
       try {

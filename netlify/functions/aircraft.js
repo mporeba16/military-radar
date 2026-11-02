@@ -197,7 +197,7 @@ export const handler = async (event) => {
   // Tryb pobierania trasy konkretnego samolotu — czytamy z naszego bloba.
   // Trasa rośnie podczas:
   //   - aktywnego pollingu klienta (co 5 s, próbka 15 s)
-  //   - scheduled `collect` cron (co 2 min, w tle)
+  //   - cron `tick` (co 2 min, w tle)
   // saveTrails pomija on_ground, więc przerwa > FLIGHT_SPLIT_GAP_MS w danych
   // odpowiada okresowi na ziemi (lub utracie zasięgu ADS-B) — traktujemy ją
   // jako granicę między lotami i zwracamy TYLKO bieżący lot.
@@ -306,7 +306,7 @@ export const handler = async (event) => {
     await snapStore.set(snapKey, JSON.stringify({ ts: Date.now(), aircraft: result.aircraft, source: result._source })).catch(() => {})
   }
 
-  // Trails are also collected by the `collect` cron every 2 min. The live
+  // Trails are also collected by the `tick` cron every 2 min. The live
   // handler runs on every uncached client fetch (~every 10 s while anyone is
   // watching), so writing trails here on every call just duplicated the cron's
   // work. Throttle to once per 60 s per warm instance — enough to keep the

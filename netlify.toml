@@ -23,18 +23,14 @@
     Cache-Control = "no-cache"
     Service-Worker-Allowed = "/"
 
-[functions."notify"]
-  schedule = "* * * * *"
-
-[functions."collect"]
+# Jeden cron na wszystko, co pyta adsb.fi: ślady, przyloty nad Polską
+# i powiadomienia — patrz netlify/functions/tick.js. Zostaje na Netlify,
+# bo adsb.fi blokuje zapytania z Cloudflare (403).
+[functions."tick"]
   schedule = "*/2 * * * *"
 
-[functions."inbound-collect"]
-  schedule = "*/2 * * * *"
-
-# heavy-collect (jumbo jety z adsb.lol) chodzi na Cloudflare Workers — patrz
-# cloudflare/worker.js. notify, collect i inbound-collect zostają tutaj, bo
-# adsb.fi blokuje zapytania z Cloudflare (403).
+# heavy-collect i pełny przebieg przylotów (oba pytają tylko adsb.lol)
+# chodzą na Cloudflare Workers — patrz cloudflare/worker.js.
 
 [dev]
   command = "npm run dev"

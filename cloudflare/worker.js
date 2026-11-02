@@ -11,12 +11,15 @@
 // Każdy cron to osobne wywołanie Workera z własnym limitem procesora.
 
 // adsb.fi stoi za ochroną Cloudflare i Workerom odpowiada 403 (strona
-// z wyzwaniem dla botów) — sprawdzone 2026-10-19. Dlatego tutaj chodzi tylko
-// heavy-collect, który pyta adsb.lol; notify, collect i inbound-collect
-// zostają na Netlify.
+// z wyzwaniem dla botów) — sprawdzone 2026-10-19. Dlatego tutaj chodzą tylko
+// zadania, które pytają adsb.lol; wszystko, co potrzebuje adsb.fi, robi
+// cron `tick` na Netlify.
 const JOBS = {
-  // Minuta 3, 8, 13… — z dala od pełnych minut, kiedy startują crony Netlify.
+  // Minuta 3, 8, 13… — z dala od parzystych minut, kiedy startuje tick.
   '3-59/5 * * * *': () => import('./heavy-collect.js'),
+  // Minuta 1, 11, 21… — nie razem z heavy-collect, bo oba pytają adsb.lol,
+  // a ten po serii zapytań odpowiada 429.
+  '1-59/10 * * * *': () => import('./inbound-deep.js'),
 }
 
 // @netlify/blobs zapamiętuje globalny fetch jako pole klienta i woła go jako

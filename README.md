@@ -70,23 +70,21 @@ ADS-B does not carry a take-off time, so **flight time** counts from the earlies
 ```mermaid
 flowchart LR
   A[adsb.fi / OpenSky] --> F[aircraft<br/>on request, every 5 s]
-  A --> C[collect<br/>cron every 2 min]
+  A --> T[tick<br/>cron every 2 min:<br/>trails, arrivals, push]
   F --> B[(Netlify Blobs<br/>4 h trails)]
-  C --> B
+  T --> B
   F --> P[PWA<br/>React + Leaflet]
   B --> P
-  A --> N[notify<br/>cron every 1 min]
-  N -->|Web Push| P
+  T -->|Web Push| P
 ```
 
 | Function | Role |
 |---|---|
 | `aircraft` | fetches and classifies traffic, returns the trail of a selected aircraft |
-| `collect` | records trails in the background every 2 minutes |
-| `notify` | checks every subscriber's radius each minute and sends push alerts |
+| `tick` | one cron every 2 minutes: fetches the military lists and traffic over Poland once, then records trails, refreshes arrivals over Poland and sends push alerts |
 | `airspace` | proxies and trims the PANSA airspace use plan (no CORS upstream), cached 10 min |
 | `inbound` | serves 747s and An-124s bound for Rzeszów or Kraków |
-| `inbound-collect` | refreshes that list every 10 minutes (adsb.lol + adsbdb) so page traffic never reaches those services |
+| Cloudflare `inbound-deep` | worldwide 747/An-124 lookup every 10 minutes (adsb.lol + adsbdb), so page traffic never reaches those services |
 | `subscribe` / `status` / `test-push` | subscription storage, diagnostics, test push |
 
 ## Running locally

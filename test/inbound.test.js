@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import {
   etaMinutes, distanceKm, formatEta, landingClock, isWatchedType, airportByIcao,
-  approachGuess, headingDiff,
+  approachGuess, headingDiff, leavingAirport,
 } from '../src/lib/inbound.js'
 
 const EPRZ = airportByIcao('EPRZ')
@@ -86,6 +86,74 @@ describe('approachGuess', () => {
   it('wskazuje Kraków maszynie podchodzącej od zachodu', () => {
     const g = approachGuess({ lat: 50.08, lon: 19.3, gs: 250, track: 90, alt_baro: 5000 })
     expect(g?.airport.icao).toBe('EPKK')
+  })
+})
+
+describe('start z Rzeszowa to nie lądowanie', () => {
+  // 747 tuż po starcie z Rzeszowa na zachód — wznosi się, 20 km od pasa.
+  const climbingOut = extra => ({
+    lat: 50.1, lon: 21.74, gs: 220, track: 270, alt_baro: 4000, vr: 2200, ...extra,
+  })
+
+  it('wznoszący się przy lotnisku odpada niezależnie od kursu', () => {
+    // Nawet zawracając w stronę lotniska (zakręt po starcie) — nadal wznosi się.
+    expect(leavingAirport(climbingOut({ track: 90 }), EPRZ)).toBe(true)
+    expect(approachGuess(climbingOut({ track: 90 }))).toBeNull()
+  })
+
+  it('stojący na lotnisku też odpada', () => {
+    expect(leavingAirport({ lat: 50.11, lon: 22.02, on_ground: true }, EPRZ)).toBe(true)
+  })
+
+  it('odlatujący dalej od lotniska odpada, krążący na podejściu nie', () => {
+    // 150 km na zachód, kursem na zachód.
+    expect(leavingAirport({ lat: 50.11, lon: 19.9, track: 270, alt_baro: 25000, vr: 0 }, EPRZ)).toBe(true)
+    // 25 km od pasa, z wiatrem przed zakrętem w podejście — to wciąż lądowanie.
+    expect(leavingAirport({ lat: 50.11, lon: 21.7, track: 270, alt_baro: 3000, vr: -300 }, EPRZ)).toBe(false)
+    expect(leavingAirport(westOfEPRZ({ vr: -800 }), EPRZ)).toBe(false)
+  })
+
+  it('w zbieraniu: cel z planu lotu, ale samolot właśnie startuje — bez wpisu', async () => {
+    const near = [{
+      hex: 'c1', flight: 'GTI8204 ', t: 'B744', r: 'N495MC',
+      lat: 50.1, lon: 21.74, gs: 220, track: 270, alt_baro: 4000, baro_rate: 2200,
+    }]
+    vi.stubGlobal('fetch', async (url) => {
+      const u = String(url)
+      if (/v2\/type\//.test(u)) return { ok: true, status: 200, json: async () => ({ ac: [] }) }
+      if (/adsb\.fi/.test(u)) return { ok: true, status: 200, json: async () => ({ ac: near }) }
+      // Baza tras myli się i podaje Rzeszów jako cel.
+      return { ok: true, status: 200, json: async () => ({ response: { flightroute: {
+        origin: { icao_code: 'EDDP' }, destination: { icao_code: 'EPRZ', municipality: 'Rzeszów' },
+      } } }) }
+    })
+    vi.resetModules()
+    const { collect, carryForward } = await import('../netlify/functions/inbound.js')
+    const observed = new Set()
+    const out = await collect({ deep: false, store: null, observed })
+    expect(out).toEqual([])
+    // Poprzednia migawka miała go jeszcze jako lecącego do Rzeszowa — nie wraca.
+    expect(carryForward(out, [{ hex: 'c1', route: { to: 'EPRZ' } }], observed)).toEqual([])
+    vi.unstubAllGlobals()
+  }, 30000)
+})
+
+describe('wcześniejsze rozpoznanie podejścia', () => {
+  it('łapie schodzącego 747 ok. 200 km przed Rzeszowem, nad Krakowem', () => {
+    // FL220, zniżanie 1500 ft/min, kurs na Rzeszów; Kraków ~30 km obok,
+    // ale na tej wysokości tam nie wyląduje.
+    const g = approachGuess({ lat: 50.0, lon: 19.25, gs: 430, track: 92, alt_baro: 22000, vr: -1500 })
+    expect(g?.airport.icao).toBe('EPRZ')
+    expect(g.etaMin).toBeGreaterThan(12)
+  })
+
+  it('daleko bez zniżania — nic (przelot na stałym pułapie)', () => {
+    expect(approachGuess({ lat: 50.0, lon: 19.25, gs: 430, track: 92, alt_baro: 22000, vr: 0 })).toBeNull()
+    expect(approachGuess({ lat: 50.0, lon: 19.25, gs: 430, track: 92, alt_baro: 22000 })).toBeNull()
+  })
+
+  it('daleko i schodzi, ale celuje obok — nic', () => {
+    expect(approachGuess({ lat: 50.0, lon: 19.25, gs: 430, track: 55, alt_baro: 22000, vr: -1500 })).toBeNull()
   })
 })
 
@@ -226,7 +294,7 @@ describe('pamięć lądowań', () => {
     const store = fakeStore()
     const zapis = await learnLandings([
       // Na progu pasa w Rzeszowie — to lądowanie.
-      { flight: 'CMB336', t: 'B744', lat: 50.11, lon: 22.02, alt_baro: 800 },
+      { flight: 'CMB336', t: 'B744', lat: 50.11, lon: 22.02, alt_baro: 800, baro_rate: -700 },
       // Przelot nad Rzeszowem na wysokości przelotowej — nie liczy się.
       { flight: 'CAO1189', t: 'B744', lat: 50.11, lon: 22.02, alt_baro: 35000 },
       // Nisko, ale 200 km od obserwowanych lotnisk.
@@ -237,6 +305,19 @@ describe('pamięć lądowań', () => {
     expect(store.data.get('landed-CMB336')).toMatchObject({ to: 'EPRZ' })
     expect(store.data.has('landed-CAO1189')).toBe(false)
     expect(store.data.has('landed-GTI999')).toBe(false)
+  })
+
+  it('nie zapamiętuje odlotu: kołowanie, rozbieg ani wznoszenie', async () => {
+    // Para CMB341 (przylot) / CMB342 (odlot) — w pamięci lądowała też ta druga.
+    vi.resetModules()
+    const { learnLandings } = await import('../netlify/functions/inbound.js')
+    const store = fakeStore()
+    const zapis = await learnLandings([
+      { flight: 'CMB342', t: 'B744', lat: 50.11, lon: 22.02, alt_baro: 'ground', gs: 12 },
+      { flight: 'CMB343', t: 'B744', lat: 50.11, lon: 22.0, alt_baro: 1500, baro_rate: 2400 },
+      { flight: 'CMB344', t: 'B744', lat: 50.11, lon: 22.0, alt_baro: 1500 },
+    ], store)
+    expect(zapis).toEqual([])
   })
 
   it('następnym razem alarmuje zaraz po starcie, zza oceanu', async () => {
@@ -261,7 +342,7 @@ describe('pamięć lądowań', () => {
     const store = fakeStore()
     vi.resetModules()
     const uczacy = await import('../netlify/functions/inbound.js')
-    await uczacy.learnLandings([{ flight: 'CMB336', t: 'B744', lat: 50.11, lon: 22.02, alt_baro: 800 }], store)
+    await uczacy.learnLandings([{ flight: 'CMB336', t: 'B744', lat: 50.11, lon: 22.02, alt_baro: 800, baro_rate: -700 }], store)
 
     vi.resetModules()
     const mod = await import('../netlify/functions/inbound.js')

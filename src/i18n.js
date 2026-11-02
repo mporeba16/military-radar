@@ -41,7 +41,7 @@ const STRINGS = {
     RARE_LABEL: 'Rzadkie maszyny nad Polską',
     RARE_HINT: 'Tankowce, AWACS, rozpoznanie, bombowce, drony rozpoznawcze, myśliwce — nad całą Polską, niezależnie od Twojej pozycji i zasięgu. Jeden alert na maszynę na 12 godzin.',
     PUSH_CONNECTING: '◌ Łączenie…',
-    PUSH_DESCRIPTION: 'Alert gdy wojskowy samolot pojawi się w zasięgu GPS — nawet gdy aplikacja jest zamknięta. Sprawdzane co minutę przez serwer.',
+    PUSH_DESCRIPTION: 'Alert gdy wojskowy samolot pojawi się w zasięgu GPS — nawet gdy aplikacja jest zamknięta. Sprawdzane co 2 minuty przez serwer.',
     SOUND_LABEL: 'Dźwięk alertu',
     VIBRATION_LABEL: 'Wibracja',
     SOUND_ON: '◉ WŁ',

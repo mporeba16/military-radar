@@ -1,7 +1,9 @@
-import { getStore, connectLambda } from '@netlify/blobs'
-import { saveTrails } from './aircraft.js'
-import { classifyADSBfi, isPlausibleRecord, isTrainingAircraft } from './lib/military.js'
-import { fetchMilMerged, fetchAdsbfiGeo } from './lib/sources.js'
+// Ślady maszyn w tle — część crona `tick` (co 2 min). Dane (listy /mil
+// i zapytanie geograficzne nad Polską) pobiera tick raz dla wszystkich
+// zadań; tu tylko je filtrujemy i zapisujemy.
+import { getStore } from '@netlify/blobs'
+import { saveTrails } from '../aircraft.js'
+import { classifyADSBfi, isPlausibleRecord, isTrainingAircraft } from './military.js'
 
 // Szeroki bounding box pokrywający Europę + zachodnia Rosja + bliski wschód
 // (lat 30°-72°, lon -15°-50°). Listy /mil są globalne, więc i tak dostaniemy
@@ -32,9 +34,9 @@ function mapRecord(a) {
   }
 }
 
-export const handler = async (event) => {
-  try { if (event?.blobs) connectLambda(event) } catch {}
-
+// `milRes` i `geoRes` to wyniki Promise.allSettled z fetchMilMerged()
+// i fetchAdsbfiGeo().
+export async function collectTrails({ milRes, geoRes }) {
   const startedAt = Date.now()
   let fetched = 0
   let saved = 0
@@ -44,7 +46,6 @@ export const handler = async (event) => {
     // Listy /mil (adsb.fi + adsb.lol, jak na mapie) i zapytanie geograficzne
     // nad Polską — dzięki niemu w tle zbieramy też trasy służbowych śmigłowców
     // i dużych samolotów (B747/An-124), których nie ma na listach /mil.
-    const [milRes, geoRes] = await Promise.allSettled([fetchMilMerged(), fetchAdsbfiGeo()])
     const byHex = new Map()
 
     // /mil — zapisujemy całość (z definicji wojskowe)
@@ -92,7 +93,5 @@ export const handler = async (event) => {
     }))
   } catch {}
 
-  const msg = `[collect] ${error ? `ERROR ${error}` : `OK fetched=${fetched} saved=${saved}`} in ${Date.now() - startedAt}ms`
-  console.log(msg)
-  return { statusCode: 200, body: msg }
+  return `collect ${error ? `ERROR ${error}` : `OK saved=${saved}`} in ${Date.now() - startedAt}ms`
 }

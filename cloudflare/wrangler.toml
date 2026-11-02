@@ -1,4 +1,4 @@
-# Crony radaru (notify, collect, inbound-collect, heavy-collect) — patrz worker.js.
+# Crony radaru, które pytają tylko adsb.lol (heavy-collect, inbound-deep) — patrz worker.js.
 # Wdrożenie: npx wrangler deploy -c cloudflare/wrangler.toml
 name = "radar-crons"
 main = "worker.js"
@@ -13,10 +13,10 @@ workers_dev = false
 NETLIFY_SITE_ID = "462b4c55-9029-4dcb-b151-031f0ea4e610"
 
 [triggers]
-# Tylko heavy-collect (adsb.lol). adsb.fi stoi za ochroną Cloudflare i Workerom
-# odpowiada 403 (strona z wyzwaniem dla botów), więc notify, collect
-# i inbound-collect — które pytają adsb.fi — zostają na Netlify.
-crons = ["3-59/5 * * * *"]
+# Tylko zadania pytające adsb.lol. adsb.fi stoi za ochroną Cloudflare
+# i Workerom odpowiada 403 (strona z wyzwaniem dla botów), więc cron `tick`
+# — który pyta adsb.fi — zostaje na Netlify.
+crons = ["3-59/5 * * * *", "1-59/10 * * * *"]
 
 [observability]
 enabled = true

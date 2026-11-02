@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { rareRole, rareRoleFor } from '../src/lib/rareTypes.js'
 import { rareText, rareGroupText } from '../src/lib/notifyText.js'
-import { findRare } from '../netlify/functions/notify.js'
+import { findRare } from '../netlify/functions/lib/notifyJob.js'
 import { normalizeKinds } from '../netlify/functions/lib/military.js'
 
 describe('rareRole', () => {
@@ -58,7 +58,7 @@ describe('kinds', () => {
 
 describe('rareRoleFor — rola z całego rekordu', async () => {
   const { rareRoleFor } = await import('../src/lib/rareTypes.js')
-  const { findRare } = await import('../netlify/functions/notify.js')
+  const { findRare } = await import('../netlify/functions/lib/notifyJob.js')
 
   it('BRIO66 (ARTEMIS, CL60) to rozpoznanie — po hexie i po znaku', () => {
     expect(rareRoleFor({ hex: 'a0ec98', flight: 'BRIO66  ', t: 'CL60' })).toBe('Rozpoznanie (ARTEMIS)')
@@ -78,7 +78,7 @@ describe('rareRoleFor — rola z całego rekordu', async () => {
 
 describe('myśliwce nad Polską alarmują jak tankowce', async () => {
   const { rareRoleFor } = await import('../src/lib/rareTypes.js')
-  const { findRare } = await import('../netlify/functions/notify.js')
+  const { findRare } = await import('../netlify/functions/lib/notifyJob.js')
 
   it('F-16, F-35, Rafale, Gripen, Eurofighter — rola „Myśliwiec”', () => {
     for (const t of ['F16', 'F35', 'RFAL', 'JS39', 'EUFI', 'F15E', 'FA18'])

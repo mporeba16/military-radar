@@ -1,17 +1,17 @@
 import { getStore } from '@netlify/blobs'
 import webpush from 'web-push'
-import { haversine, normalizeKinds } from './lib/military.js'
-import { fetchMilitaryNear, fetchMilGlobal } from './lib/sources.js'
-import { isInPoland } from './lib/poland.js'
-import { isQuietHours } from './lib/quietHours.js'
-import { pushProvider, isExpiredPush, removeSubscription, pruneCooldown } from './lib/push.js'
-import { rareRoleFor } from '../../src/lib/rareTypes.js'
-import { AIRFIELDS } from '../../src/airfields.js'
+import { haversine, normalizeKinds } from './military.js'
+import { fetchMilitaryNear, fetchMilGlobal } from './sources.js'
+import { isInPoland } from './poland.js'
+import { isQuietHours } from './quietHours.js'
+import { pushProvider, isExpiredPush, removeSubscription, pruneCooldown } from './push.js'
+import { rareRoleFor } from '../../../src/lib/rareTypes.js'
+import { AIRFIELDS } from '../../../src/airfields.js'
 // Treść alertów mieszka we wspólnym module — ten sam kod składa push z serwera
 // i lokalne powiadomienie w otwartej aplikacji, więc nie mogą się rozjechać.
-import { alertText, groupText, rareText, rareGroupText, inboundText, CLOSE_RANGE_KM } from '../../src/lib/notifyText.js'
-import { airportByIcao, etaMinutes, formatEta, landingClock } from '../../src/lib/inbound.js'
-import { SNAPSHOT_STORE, SNAPSHOT_KEY } from './inbound.js'
+import { alertText, groupText, rareText, rareGroupText, inboundText, CLOSE_RANGE_KM } from '../../../src/lib/notifyText.js'
+import { airportByIcao, etaMinutes, formatEta, landingClock } from '../../../src/lib/inbound.js'
+import { SNAPSHOT_STORE, SNAPSHOT_KEY } from '../inbound.js'
 
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY
@@ -157,7 +157,7 @@ export function cooldownMapEqual(a, b) {
   return true
 }
 
-// Scheduled function, cron co minutę (netlify.toml). UWAGA na limit czasu:
+// Część crona `tick` (co 2 minuty, netlify.toml). UWAGA na limit czasu:
 // przy dużym wzroście liczby subskrypcji równoległe fetche + sekwencyjne pushy
 // mogą przekroczyć limit wykonania (Netlify scheduled ~10 s). Ryzyko duplikatów
 // jest już zdjęte — mapy cooldownu zapisujemy PRZED wysyłką (patrz
@@ -172,10 +172,17 @@ export function cooldownMapEqual(a, b) {
 // w nowym formacie (export default), stąd ten format zamiast `handler`.
 const cooldownStore = name => getStore({ name, consistency: 'strong' })
 
-export default async () => {
+// Wywoływane z `tick` po pobraniu wspólnych danych (sources.shareSnapshot),
+// więc fetchMilGlobal i fetchMilitaryNear zwykle nie pytają już sieci.
+export async function runNotify() {
   const { statusCode, body } = await run()
-  return new Response(body, { status: statusCode })
+  if (statusCode !== 200) return `notify ERROR ${body.slice(0, 200)}`
+  return body === 'quiet hours' ? 'notify: cisza nocna' : 'notify OK'
 }
+
+// Push, który nie odpowiada, nie może trzymać całego przebiegu — Netlify
+// liczy kredyty za czas działania funkcji, także za czekanie.
+const PUSH_OPTIONS = { timeout: 5000 }
 
 async function run() {
   // Cisza nocna (1:00–6:00) — bez push i bez odpytywania źródeł. Maszyna,
@@ -286,7 +293,7 @@ async function run() {
   const covered = (v) =>
     haversine(cLat, cLon, v.raw.lat, v.raw.lon) + (v.raw.radius ?? 100) <= coverage + 0.5
 
-  // Migawka przylotów (cron `inbound-collect`) — raz na przebieg. Jumbo jet
+  // Migawka przylotów (zapisana chwilę wcześniej w tym samym ticku) — raz na przebieg. Jumbo jet
   // lecący do Rzeszowa/Krakowa niesie cel do powiadomienia „w zasięgu".
   const inboundSnap = await getStore(SNAPSHOT_STORE).get(SNAPSHOT_KEY, { type: 'json' }).catch(() => null)
   const arrivalByHex = new Map((inboundSnap?.inbound || []).map(x => [x.hex, x.route]))
@@ -318,7 +325,7 @@ async function run() {
   }
 
   // Pass 4 — jumbo jety i An-124 z celem w Rzeszowie/Krakowie. Czyta migawkę
-  // z crona `inbound-collect`, więc nie odpytuje niczego na zewnątrz.
+  // z tego samego ticku, więc nie odpytuje niczego na zewnątrz.
   await processInbound(loaded, stats, inboundSnap, inRangeByKey).catch(err => {
     console.error('[notify] inbound pass failed:', err.message)
     stats.inboundError = err.message
@@ -357,7 +364,7 @@ async function broadcast(recipients, payloadsFor, stats, counter, label) {
   await Promise.allSettled(recipients.map(async v => {
     for (const p of payloadsFor(v)) {
       try {
-        await webpush.sendNotification(v.raw.subscription, JSON.stringify(p))
+        await webpush.sendNotification(v.raw.subscription, JSON.stringify(p), PUSH_OPTIONS)
         stats[counter]++
         stats.notificationsSent++
       } catch (err) {
@@ -448,20 +455,22 @@ async function processRare(loaded, stats, inRangeByKey) {
 async function writeRunStats(stats, runStart) {
   try {
     const runsStore = getStore('push-runs')
-    // Housekeeping gated to ~once/hour so we don't list() stores every minute:
+    // Housekeeping gated to ~once/hour so we don't list() stores every run:
     // purge the legacy `run-<ts>` blobs older versions accumulated, expire stale
     // rate-limit records (their `ts` is >24h old → the window is long gone),
     // wyrzuć dawno porzucone subskrypcje i posprzątaj po nich mapy cooldownu.
     // Idzie PRZED zapisem `latest`, żeby liczniki sprzątania trafiły do podsumowania.
-    if (runStart % 3_600_000 < 60_000) {
+    // Okno 2 minut, bo cron chodzi co 2 minuty — w każdej godzinie trafia
+    // w nie dokładnie jeden przebieg.
+    if (runStart % 3_600_000 < 120_000) {
       await purgeLegacyRunBlobs(runsStore).catch(() => {})
       await purgeStaleRateLimits().catch(() => {})
       await purgeStaleSubscriptions(stats).catch(() => {})
       await purgeOrphanAlerted(stats).catch(() => {})
     }
     // Keep only the latest run summary — status.js reads this. We deliberately
-    // do NOT write a per-run `run-<ts>` blob: the cron fires every minute, so
-    // that grew ~1440 blobs/day unbounded with nothing ever reading them back.
+    // do NOT write a per-run `run-<ts>` blob: the cron fires every 2 minutes, so
+    // that grew ~720 blobs/day unbounded with nothing ever reading them back.
     await runsStore.set('latest', JSON.stringify(stats))
   } catch (err) {
     console.error('[notify] Failed to write run stats:', err.message)
@@ -582,7 +591,7 @@ async function processSubscription({ key, raw, ageMs }, aircraft, alertedStore, 
 
     const send = async (payload, logLabel) => {
       try {
-        await webpush.sendNotification(subscription, JSON.stringify(payload))
+        await webpush.sendNotification(subscription, JSON.stringify(payload), PUSH_OPTIONS)
         result.sent++
         console.log(`[notify] Push OK ${subDiag.pushProvider} ${key} ${logLabel}`)
         return {}

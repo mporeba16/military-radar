@@ -33,7 +33,7 @@ export function adsbfiGeoUrl(lat = POLAND_CENTER.lat, lon = POLAND_CENTER.lon, n
 // Rekordy z odpowiedzi readsb (adsb.fi/adsb.lol podają je jako `ac`, starsze
 // wersje jako `aircraft`). Błąd niesie kod HTTP i początek odpowiedzi — sam
 // „failed" nie mówi, czy to limit zapytań (429), czy blokada (strona 403).
-export async function fetchRecords(url, { timeoutMs = 8000, headers = ADSBFI_HEADERS } = {}) {
+export async function fetchRecords(url, { timeoutMs = 6000, headers = ADSBFI_HEADERS } = {}) {
   const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs), headers })
   if (!res.ok) {
     const snippet = (await res.text().catch(() => '')).replace(/\s+/g, ' ').slice(0, 120)
@@ -47,7 +47,7 @@ export async function fetchRecords(url, { timeoutMs = 8000, headers = ADSBFI_HEA
 
 // Zapytanie geograficzne adsb.fi. Limit to ~1 zapytanie na sekundę, a geo
 // często leci tuż po /mil — przy 429 jedno ponowienie po chwili.
-export async function fetchAdsbfiGeo(lat, lon, nm, { timeoutMs = 8000 } = {}) {
+export async function fetchAdsbfiGeo(lat, lon, nm, { timeoutMs = 6000 } = {}) {
   const url = adsbfiGeoUrl(lat, lon, nm)
   try {
     return await fetchRecords(url, { timeoutMs })
@@ -66,8 +66,8 @@ export async function fetchAdsbfiGeo(lat, lon, nm, { timeoutMs = 8000 } = {}) {
  */
 export async function fetchMilMerged() {
   const [fi, lol] = await Promise.allSettled([
-    fetchRecords(ADSBFI_MIL_URL, { timeoutMs: 10000 }),
-    fetchRecords(ADSBLOL_MIL_URL, { timeoutMs: 8000, headers: POLITE_HEADERS }),
+    fetchRecords(ADSBFI_MIL_URL, { timeoutMs: 6000 }),
+    fetchRecords(ADSBLOL_MIL_URL, { timeoutMs: 6000, headers: POLITE_HEADERS }),
   ])
   if (fi.status === 'rejected' && lol.status === 'rejected') {
     throw new Error(`/mil: ${fi.reason?.message}; ${lol.reason?.message}`)
@@ -115,7 +115,7 @@ export function openSkyStateToAircraft(s) {
 export async function fetchOpenSkyMilitary({ lamin, lomin, lamax, lomax }) {
   try {
     const url = `https://opensky-network.org/api/states/all?lamin=${lamin}&lomin=${lomin}&lamax=${lamax}&lomax=${lomax}`
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000), headers: ADSBFI_HEADERS })
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000), headers: ADSBFI_HEADERS })
     if (!res.ok) return null
     const data = await res.json()
     return (data.states || [])
@@ -125,6 +125,30 @@ export async function fetchOpenSkyMilitary({ lamin, lomin, lamax, lomax }) {
   } catch {
     return null
   }
+}
+
+// ── Wspólna migawka jednego przebiegu crona ───────────────────────────────
+// Cron `tick` pobiera listy /mil i ruch nad Polską RAZ i udostępnia je tutaj
+// wszystkim zadaniom (ślady, przyloty, powiadomienia). Wcześniej trzy osobne
+// crony pytały o to samo, a Netlify liczy kredyty za każdą sekundę funkcji.
+const SHARED_MAX_AGE_MS = 60_000
+let shared = null // { at, mil: records|null, geo: records|null }
+
+// `milRes`/`geoRes` — wyniki Promise.allSettled z fetchMilMerged()
+// i fetchAdsbfiGeo() (domyślne koło: środek Polski, GEO_MAX_NM).
+export function shareSnapshot({ milRes, geoRes }, at = Date.now()) {
+  shared = {
+    at,
+    mil: milRes?.status === 'fulfilled' ? milRes.value.records : null,
+    geo: geoRes?.status === 'fulfilled' ? geoRes.value : null,
+  }
+}
+
+const sharedFresh = () => shared && Date.now() - shared.at < SHARED_MAX_AGE_MS
+
+// Koło (lat, lon, km) mieści się w kole wspólnego zapytania geograficznego.
+function insideSharedGeo(lat, lon, radiusKm) {
+  return haversine(POLAND_CENTER.lat, POLAND_CENTER.lon, lat, lon) + radiusKm <= GEO_MAX_NM * 1.852
 }
 
 // ── Dla powiadomień ─────────────────────────────────────────────────────────
@@ -141,7 +165,7 @@ const isAirborne = a => isPlausibleRecord(a) && a.alt_baro !== 'ground' && !a.on
 /** Wojskowe w powietrzu z adsb.fi i adsb.lol (surowe rekordy readsb). */
 export async function fetchMilGlobal() {
   if (milCache && Date.now() - milCache.at < MIL_CACHE_MS) return milCache.list
-  const { records } = await fetchMilMerged()
+  const { records } = sharedFresh() && shared.mil ? { records: shared.mil } : await fetchMilMerged()
   const list = records.filter(isAirborne)
   milCache = { at: Date.now(), list }
   return list
@@ -191,7 +215,10 @@ export async function fetchMilitaryNear(lat, lon, radiusKm) {
     let extra = []
     try {
       const radiusNm = Math.round(radiusKm * 0.54)
-      extra = (await fetchAdsbfiGeo(lat, lon, radiusNm, { timeoutMs: 4000 })).flatMap(a => {
+      const geo = sharedFresh() && shared.geo && insideSharedGeo(lat, lon, radiusKm)
+        ? shared.geo
+        : await fetchAdsbfiGeo(lat, lon, radiusNm, { timeoutMs: 4000 })
+      extra = geo.flatMap(a => {
         if (!isAirborne(a) || !inBox(a) || milHexes.has(a.hex)) return []
         // Pełny test wojskowy (prefiks hex + znak + squawk) — jak na mapie,
         // żeby maszyna ze squawkiem 7777 nie odpadła tutaj.

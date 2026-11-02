@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { dedupeByDevice, cooldownMapEqual, toCooldownMap } from '../netlify/functions/notify.js'
+import { dedupeByDevice, cooldownMapEqual, toCooldownMap } from '../netlify/functions/lib/notifyJob.js'
 
 describe('dedupeByDevice', () => {
   it('leaves records without a deviceId untouched', () => {
@@ -111,7 +111,7 @@ describe('shared cooldown eligibility', () => {
 })
 
 describe('planAlerts', async () => {
-  const { planAlerts } = await import('../netlify/functions/notify.js')
+  const { planAlerts } = await import('../netlify/functions/lib/notifyJob.js')
   const all = () => true
   const mil = (hex, d) => ({ hex, flight: hex.toUpperCase(), t: 'C17', kind: 'mil', _dist: d })
 

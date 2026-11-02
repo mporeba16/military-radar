@@ -45,6 +45,40 @@ export function distanceKm(ac, airport) {
   return Math.round(haversine(ac.lat, ac.lon, airport.lat, airport.lon))
 }
 
+// Prędkość pionowa w ft/min: baro_rate z ADS-B, a gdy go brak — geom_rate.
+// W migawce trzymamy ją już jako `vr`.
+export function verticalRate(a) {
+  const v = a?.vr ?? a?.baro_rate ?? a?.geom_rate
+  return typeof v === 'number' ? v : null
+}
+
+// ── Start to nie lądowanie ───────────────────────────────────────────────
+// Pomiar na żywo (02.11.2026): pamięć lądowań miała wpisy dla par CMB339 /
+// CMB340, CMB341 / CMB342… — czyli dla lotu, który przyleciał, i dla tego,
+// który odlatywał, bo kołujący do startu samolot też jest „nisko przy
+// lotnisku”. Startujący z Rzeszowa 747 dostawał potem powiadomienie, że
+// w Rzeszowie ląduje. Ten test odsiewa takie maszyny niezależnie od tego,
+// skąd znamy cel (plan lotu, geometria, pamięć).
+const CLIMB_FPM = 300
+const DEPARTURE_ZONE_KM = 60
+const ON_FIELD_KM = 15
+// Na podejściu maszyna potrafi lecieć od lotniska (z wiatrem przed ostatnim
+// zakrętem) — dlatego kurs „od lotniska” liczy się dopiero dalej.
+const PATTERN_KM = 40
+const OUTBOUND_CHECK_KM = 300
+
+export function leavingAirport(ac, airport) {
+  if (!ac || !airport || ac.lat == null || ac.lon == null) return false
+  const km = haversine(ac.lat, ac.lon, airport.lat, airport.lon)
+  // Na ziemi przy lotnisku: albo już wylądował, albo czeka na start.
+  if (ac.on_ground) return km <= ON_FIELD_KM
+  const vr = verticalRate(ac)
+  if (km <= DEPARTURE_ZONE_KM && vr != null && vr >= CLIMB_FPM) return true
+  if (km > PATTERN_KM && km <= OUTBOUND_CHECK_KM && ac.track != null &&
+    headingDiff(ac.track, bearingTo(ac, airport)) > 90) return true
+  return false
+}
+
 // ── Podejście do lądowania rozpoznane z samego lotu ───────────────────────
 // Trasa z adsbdb zna loty rozkładowe, ale ruch, który tu najbardziej
 // interesuje — czartery towarowe do Rzeszowa (NCR, GTI, CKS) — leci pod
@@ -67,6 +101,17 @@ const GUESS_MAX_KM = 120
 const GUESS_MAX_OFF_DEG = 30
 const CRUISE_CEILING_FT = 16000
 
+// Dalsza strefa — bo sam pułap łapał podejście za późno. Rzeczywiste
+// zniżanie to ok. 170 ft na kilometr (ścieżka 3°), więcej niż 130 ft/km
+// w approachCeilingFt, więc 747 schodził pod próg dopiero ~50 km przed
+// lotniskiem: powiadomienie przychodziło 7–10 minut przed lądowaniem.
+// Dalej niż 120 km wymagamy za to, żeby maszyna już wyraźnie schodziła
+// i celowała dokładniej — przelot na stałym pułapie tu nie przejdzie.
+const FAR_GUESS_MAX_KM = 220
+const FAR_GUESS_MAX_OFF_DEG = 20
+const FAR_DESCENT_FPM = -500
+const FAR_CEILING_FT = 32000
+
 // Samo „leci w tę stronę i już zszedł" to za mało: pomiar na żywym ruchu
 // (21.09.2026, 278 maszyn nad Polską) dał 12 wskazań, z czego kilka to były
 // rejsy schodzące do Warszawy — Okęcie leży mniej więcej na linii z zachodu
@@ -83,10 +128,17 @@ const BIG_RUNWAYS = AIRFIELDS.filter(a => BIG_RUNWAY_ICAO.has(a.icao))
 // manewrująca na podejściu potrafi przez moment celować w sąsiednie lotnisko.
 // Pomiar na żywo złapał rejs schodzący do Katowic, który akurat był zwrócony
 // w stronę Krakowa — z samej geometrii wyszedłby zły cel.
+//
+// Lotnisko, nad którym maszyna jest wyraźnie za wysoko, by tam siadać, nie
+// konkuruje: 747 na FL200 40 km od Krakowa nie ląduje w Krakowie, tylko
+// schodzi dalej, do Rzeszowa. Próg z zapasem względem ścieżki 3°.
+const competitorCeilingFt = km => Math.min(FAR_CEILING_FT, 2000 + km * 250)
+
 function nearestBigAirfield(ac) {
   let best = null
   for (const a of BIG_RUNWAYS) {
     const km = haversine(ac.lat, ac.lon, a.lat, a.lon)
+    if (typeof ac.alt_baro === 'number' && ac.alt_baro > competitorCeilingFt(km)) continue
     if (!best || km < best.km) best = { icao: a.icao, km }
   }
   return best
@@ -118,13 +170,19 @@ function approachCeilingFt(km) {
 export function approachGuess(ac, airports = ARRIVAL_AIRPORTS) {
   if (!ac || ac.on_ground || ac.track == null || ac.lat == null || ac.lon == null) return null
   if (typeof ac.alt_baro !== 'number') return null
+  // Wznosi się — to start albo odejście na drugi krąg, nie podejście.
+  const vr = verticalRate(ac)
+  if (vr != null && vr >= CLIMB_FPM) return null
   const nearest = nearestBigAirfield(ac)
   let best = null
   for (const airport of airports) {
     const km = haversine(ac.lat, ac.lon, airport.lat, airport.lon)
-    if (km > GUESS_MAX_KM) continue
-    if (ac.alt_baro > approachCeilingFt(km)) continue
-    if (headingDiff(ac.track, bearingTo(ac, airport)) > GUESS_MAX_OFF_DEG) continue
+    const off = headingDiff(ac.track, bearingTo(ac, airport))
+    const near = km <= GUESS_MAX_KM && ac.alt_baro <= approachCeilingFt(km) &&
+      off <= GUESS_MAX_OFF_DEG
+    const far = km <= FAR_GUESS_MAX_KM && vr != null && vr <= FAR_DESCENT_FPM &&
+      ac.alt_baro <= competitorCeilingFt(km) && off <= FAR_GUESS_MAX_OFF_DEG
+    if (!near && !far) continue
     // Bliżej jest inne duże lotnisko — to ono jest prawdopodobnym celem.
     if (nearest && nearest.icao !== airport.icao && nearest.km < km - 10) continue
     const etaMin = etaMinutes(ac, airport)

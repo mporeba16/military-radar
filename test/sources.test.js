@@ -86,3 +86,43 @@ describe('fetchMilitaryNear (powiadomienia)', () => {
     expect(out.map(a => [a.hex, a.kind])).toEqual([['48c001', 'heli']])
   })
 })
+
+describe('wspólna migawka ticka', () => {
+  const lpr = { hex: '48c001', flight: 'LPR1', r: 'SP-HXA', t: 'EC35', lat: 50.0, lon: 19.9, alt_baro: 1500 }
+
+  it('powiadomienia korzystają z danych pobranych przez tick — bez zapytań do sieci', async () => {
+    const fetchSpy = vi.fn(async () => { throw new Error('nie powinno pytać sieci') })
+    vi.stubGlobal('fetch', fetchSpy)
+    const { shareSnapshot, fetchMilitaryNear, fetchMilGlobal } = await load()
+    shareSnapshot({
+      milRes: { status: 'fulfilled', value: { records: [reach, italian], errors: [] } },
+      geoRes: { status: 'fulfilled', value: [lpr] },
+    })
+    const out = await fetchMilitaryNear(50.06, 19.94, 100)
+    expect(out.map(a => a.hex).sort()).toEqual(['33ff01', '48c001', 'ae1234'])
+    expect((await fetchMilGlobal()).length).toBe(2)
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('koło wychodzące poza wspólne zapytanie geograficzne — pyta samo', async () => {
+    routeFetch({ 'opendata.adsb.fi/api/v2/lat/': json({ ac: [] }) })
+    const { shareSnapshot, fetchMilitaryNear } = await load()
+    shareSnapshot({
+      milRes: { status: 'fulfilled', value: { records: [], errors: [] } },
+      geoRes: { status: 'fulfilled', value: [] },
+    })
+    // Lizbona — daleko poza kołem 250 nm wokół środka Polski.
+    await fetchMilitaryNear(38.7, -9.1, 100)
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/lat/38.7000/lon/-9.1000/'), expect.anything())
+  })
+
+  it('nieudane pobranie w ticku — powiadomienia próbują same', async () => {
+    routeFetch({
+      'opendata.adsb.fi/api/v2/mil': json({ ac: [reach] }),
+      'api.adsb.lol/v2/mil': json({ ac: [] }),
+    })
+    const { shareSnapshot, fetchMilGlobal } = await load()
+    shareSnapshot({ milRes: { status: 'rejected', reason: new Error('429') }, geoRes: { status: 'rejected' } })
+    expect((await fetchMilGlobal()).map(a => a.hex)).toEqual(['ae1234'])
+  })
+})

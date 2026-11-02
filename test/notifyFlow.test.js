@@ -49,7 +49,7 @@ describe('notify — jedno powiadomienie na samolot', () => {
 
   it('tankowiec w okręgu: Kraków dostaje tylko „w zasięgu” z rolą, Gdańsk — „nad Polską”', async () => {
     sky = [{ hex: 'ae1234', flight: 'LAGR11', t: 'K35R', kind: 'mil', lat: 50.3, lon: 20.3, alt_baro: 28000, track: 90 }]
-    const { default: notify } = await import('../netlify/functions/notify.js')
+    const { runNotify: notify } = await import('../netlify/functions/lib/notifyJob.js')
     await notify()
     const krk = sent.filter(p => p.to.endsWith('/krk'))
     const gda = sent.filter(p => p.to.endsWith('/gda'))
@@ -62,7 +62,7 @@ describe('notify — jedno powiadomienie na samolot', () => {
 
   it('kolejny przebieg minutę później nic nie wysyła', async () => {
     sky = [{ hex: 'ae1234', flight: 'LAGR11', t: 'K35R', kind: 'mil', lat: 50.3, lon: 20.3, alt_baro: 28000, track: 90 }]
-    const { default: notify } = await import('../netlify/functions/notify.js')
+    const { runNotify: notify } = await import('../netlify/functions/lib/notifyJob.js')
     await notify()
     sent.length = 0
     await notify()
