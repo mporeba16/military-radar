@@ -1,4 +1,5 @@
 import Toggle from './Toggle'
+import { IconSound, IconVibrate, IconLanding, IconRadar } from './UiIcons'
 import RangeSlider from './RangeSlider'
 import { t } from '../i18n'
 import { planeWord } from '../lib/plural'
@@ -41,6 +42,15 @@ export default function AlertsPanel({
         <span className="ready-title">
           {level === 'ok' ? `◉ ${t('READY_OK')}` : `⚠ ${t('READY_NO_GPS')}`}
         </span>
+        {/* Dlaczego i co zrobić — sam napis „nieaktywne" nie mówił, czego
+            brakuje. Pierwszy brakujący warunek, w kolejności z alertsLevel. */}
+        {level !== 'ok' && (
+          <span className="ready-reason">
+            {!location ? t('READY_REASON_GPS')
+              : kindsOn === 0 ? t('READY_REASON_KINDS')
+                : t('READY_REASON_PUSH')}
+          </span>
+        )}
       </div>
 
       {/* 2. Zasięg — jedyna kontrolka ruszana regularnie, więc idzie na wierzch. */}
@@ -84,7 +94,7 @@ export default function AlertsPanel({
                   onToggle={() => setKinds(prev => ({ ...prev, rare: prev.rare === false }))}
                   label={t('RARE_LABEL')}
                   title={t('RARE_HINT')}
-                  marker={<span className="toggle-ico">🛰</span>}
+                  marker={<span className="toggle-ico"><IconRadar /></span>}
                   state={kinds.rare !== false ? t('SOUND_ON') : t('SOUND_OFF')}
                   stateColor={kinds.rare !== false ? '#00ff88' : 'rgba(255,255,255,0.4)'}
                 />
@@ -106,7 +116,7 @@ export default function AlertsPanel({
             on={soundOn}
             onToggle={() => setSoundOn(s => !s)}
             label={t('SOUND_LABEL')}
-            marker={<span className="toggle-ico">{soundOn ? '🔔' : '🔕'}</span>}
+            marker={<span className="toggle-ico"><IconSound on={soundOn} /></span>}
             state={soundOn ? t('SOUND_ON') : t('SOUND_OFF')}
             stateColor={soundOn ? '#00ff88' : 'rgba(255,255,255,0.4)'}
           />
@@ -115,7 +125,7 @@ export default function AlertsPanel({
               on={vibrateOn}
               onToggle={() => setVibrateOn(v => !v)}
               label={t('VIBRATION_LABEL')}
-              marker={<span className="toggle-ico">📳</span>}
+              marker={<span className="toggle-ico"><IconVibrate /></span>}
               state={vibrateOn ? t('SOUND_ON') : t('SOUND_OFF')}
               stateColor={vibrateOn ? '#00ff88' : 'rgba(255,255,255,0.4)'}
             />
@@ -137,7 +147,7 @@ export default function AlertsPanel({
                 onToggle={() => setArrivals(prev => ({ ...prev, [ap.icao]: prev[ap.icao] === false }))}
                 label={`${ap.name} (${ap.icao})`}
                 title={t('ARRIVALS_HINT')}
-                marker={<span className="toggle-ico">🛬</span>}
+                marker={<span className="toggle-ico"><IconLanding /></span>}
                 state={on ? t('SOUND_ON') : t('SOUND_OFF')}
                 stateColor={on ? KIND_COLORS.heavy : 'rgba(255,255,255,0.4)'}
               />

@@ -155,8 +155,10 @@ export function blocksForDay(blocks, day, now) {
   return blocks.filter(b => b.day === today || (b.s < now && b.e > now))
 }
 
-// Kolejność na liście: zakończone na górze (użytkownik chce widzieć, co już
-// latało), potem trwające, potem nadchodzące wg najbliższego startu.
+// Kolejność na liście: zakończone, trwające, nadchodzące wg najbliższego
+// startu. Panel pokazuje zakończone osobno, zwinięte pod listą (decyzja
+// użytkownika 02.11.2026 — wcześniej stały na górze, ale wieczorem lista
+// składała się z samych przekreśleń).
 export function orderForList(blocks, now) {
   const rank = { past: 0, active: 1, upcoming: 2 }
   return [...blocks].sort((a, b) => {

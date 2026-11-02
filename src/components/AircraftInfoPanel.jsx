@@ -8,6 +8,8 @@ import { compassDir } from '../lib/notifyText'
 import { typePhoto, isSameAirframe } from '../lib/typePhotos'
 import { knownAircraft, resolvedType } from '../lib/knownAircraft'
 import { airportByIcao, etaMinutes, formatEta, landingClock } from '../lib/inbound'
+import { fr24Url } from '../lib/externalLinks'
+import { IconClose } from './UiIcons'
 import './AircraftInfoPanel.css'
 
 // V4: ICAO special transponder codes that mean something serious
@@ -124,7 +126,21 @@ function verticalTrend(ac) {
   return { dir: 'level', icon: '→', label: t('INFO_LEVEL') }
 }
 
-export default function AircraftInfoPanel({ ac, onClose }) {
+// Link do zewnętrznego serwisu z ikoną „otwiera w nowej karcie" — znak ↗
+// z czcionki wyglądał różnie na każdym systemie i był za mały przy napisie.
+function ExtLink({ href, title, children }) {
+  return (
+    <a className="ac-info-action" href={href} target="_blank" rel="noopener noreferrer" title={title}>
+      {children}
+      <svg className="ac-info-action__ico" viewBox="0 0 16 16" aria-hidden="true">
+        <path d="M9 2.5h4.5V7M13.5 2.5 7.5 8.5M12 9.5v3.5a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-8a.5.5 0 0 1 .5-.5H7"
+          fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </a>
+  )
+}
+
+export default function AircraftInfoPanel({ ac, onClose, following = false, onToggleFollow }) {
   const { photo, state: photoState } = useAircraftPhoto(ac.hex, ac.reg, ac)
   const [imgError, setImgError] = useState(false)
   const altM = ftToM(ac.alt_baro)
@@ -198,7 +214,9 @@ export default function AircraftInfoPanel({ ac, onClose }) {
             <span className="ac-info-unit" title={known.unitFull || known.unit}>{known.unit}</span>
           )}
         </span>
-        <button className="ac-info-close" onClick={onClose} aria-label={t('CLOSE_AIRCRAFT_PANEL')}>✕</button>
+        <button className="ac-info-close" onClick={onClose} aria-label={t('CLOSE_AIRCRAFT_PANEL')}>
+          <IconClose size={14} />
+        </button>
       </div>
 
       {specialSquawk && (
@@ -217,7 +235,7 @@ export default function AircraftInfoPanel({ ac, onClose }) {
             className="ac-info-photo"
             onError={() => setImgError(true)}
           />
-          <span className="ac-info-photo-credit">© {photo.photographer}</span>
+          <span className="ac-info-photo-credit" title={`© ${photo.photographer}`}>© {photo.photographer}</span>
         </a>
       )}
 
@@ -296,21 +314,43 @@ export default function AircraftInfoPanel({ ac, onClose }) {
         </div>
         <div className="ac-info-metric" title={t('INFO_TRACK_HINT')}>
           <span className="ac-info-metric__line">
-            <span className="ac-info-metric__val">{ac.track != null ? Math.round(ac.track) : '—'}</span>
-            {dir && <span className="ac-info-metric__unit">°{dir}</span>}
+            {/* Stopień przy liczbie, kierunek jako jednostka — „48 °NE"
+                wyglądało jak błąd. */}
+            <span className="ac-info-metric__val">{ac.track != null ? `${Math.round(ac.track)}°` : '—'}</span>
+            {dir && <span className="ac-info-metric__unit">{dir}</span>}
           </span>
           <span className="ac-info-metric__label">{t('INFO_TRACK')}</span>
         </div>
       </div>
 
-      <a
-        className="ac-info-ext-link"
-        href={`https://globe.adsbexchange.com/?icao=${ac.hex}`}
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        {t('EXT_LINK')}
-      </a>
+      {/* Równe przyciski: ADS-B Exchange, Flightradar24 (gdy jest znak
+          wywoławczy) i śledzenie (gdy maszyna jest w powietrzu — śledzenie
+          i tak kończy lądowanie). Brakujące oddają miejsce pozostałym. */}
+      <div className="ac-info-actions">
+        <ExtLink href={`https://globe.adsbexchange.com/?icao=${ac.hex}`} title={t('EXT_LINK')}>
+          {t('EXT_LINK_SHORT')}
+        </ExtLink>
+        {fr24Url(ac) && (
+          <ExtLink href={fr24Url(ac)} title={t('FR24_LINK')}>{t('FR24_LINK_SHORT')}</ExtLink>
+        )}
+        {onToggleFollow && !ac.on_ground && (
+          <button
+            className={`ac-info-action ac-info-follow${following ? ' ac-info-follow--on' : ''}`}
+            onClick={onToggleFollow}
+            aria-pressed={following}
+            title={t('FOLLOW_A11Y')}
+          >
+            {/* Celownik w tym samym stylu co ikona przy ADS-B; włączony
+                ma wypełniony środek. */}
+            <svg className="ac-info-action__ico" viewBox="0 0 16 16" aria-hidden="true">
+              <circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
+              <path d="M8 1v2.5M8 12.5V15M1 8h2.5M12.5 8H15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              <circle cx="8" cy="8" r={following ? 2.6 : 1.4} fill="currentColor" />
+            </svg>
+            {following ? t('FOLLOW_ON') : t('FOLLOW_OFF')}
+          </button>
+        )}
+      </div>
     </div>
   )
 }

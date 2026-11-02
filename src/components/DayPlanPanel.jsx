@@ -38,14 +38,19 @@ function BlockRow({ b, now, onFocus, selected }) {
 }
 
 export default function DayPlanPanel({ zones, error, now, notams, onFocus, focusKey }) {
-  const [day, setDay] = useState('today')
-
+  // Tylko dziś: PAŻP udostępnia jeden dzień planu (06:00–06:00 UTC), a planu
+  // na jutro nie da się pobrać nawet wieczorem (sprawdzone 02.11.2026 o 21:52)
+  // — zakładka „Jutro" była przez to zawsze wyszarzona.
   const blocks = useMemo(() => buildBlocks(zones), [zones])
-  const hasTomorrow = useMemo(() => blocksForDay(blocks, 'tomorrow', now).length > 0, [blocks, now])
-  const dayBlocks = useMemo(() => blocksForDay(blocks, day, now), [blocks, day, now])
+  const dayBlocks = useMemo(() => blocksForDay(blocks, 'today', now), [blocks, now])
   // Bez filtrów (decyzja użytkownika); same szkolne bloki (M-346, Orlik)
   // odpadają, jak szkoleniowe maszyny na radarze.
   const visible = orderForList(dayBlocks.filter(b => b.category !== 'training'), now)
+  // Zakończone zwinięte na dół: wieczorem lista składała się z samych
+  // przekreśleń i to, co jeszcze przed nami, ginęło między nimi.
+  const past = visible.filter(b => blockStatus(b, now) === 'past')
+  const ahead = visible.filter(b => blockStatus(b, now) !== 'past')
+  const [pastOpen, setPastOpen] = useState(false)
 
   const milNotams = useMemo(() => {
     const out = []
@@ -59,16 +64,7 @@ export default function DayPlanPanel({ zones, error, now, notams, onFocus, focus
 
   return (
     <div className="panel-body plan">
-      <div className="plan-tabs" role="tablist">
-        <button role="tab" aria-selected={day === 'today'} className={day === 'today' ? 'active' : ''} onClick={() => setDay('today')}>
-          Dziś · {dateFmt.format(now)}
-        </button>
-        <button role="tab" aria-selected={day === 'tomorrow'} className={day === 'tomorrow' ? 'active' : ''}
-          disabled={!hasTomorrow} title={hasTomorrow ? undefined : 'PAŻP jeszcze nie opublikował planu na jutro'}
-          onClick={() => setDay('tomorrow')}>
-          Jutro
-        </button>
-      </div>
+      <div className="plan-day">Dziś · {dateFmt.format(now)}</div>
 
       {zones == null && !error && <p className="plan-empty">Wczytywanie planu…</p>}
       {error && zones == null && <p className="plan-empty">Plan PAŻP chwilowo niedostępny.</p>}
@@ -76,14 +72,33 @@ export default function DayPlanPanel({ zones, error, now, notams, onFocus, focus
         <p className="plan-empty">Brak zaplanowanych lotów z podanym typem maszyn.</p>
       )}
 
-      {/* Zakończone na górze, przekreślone — żeby było widać, co już latało. */}
+      {zones != null && past.length > 0 && ahead.length === 0 && (
+        <p className="plan-empty">Na dziś nic więcej nie zaplanowano.</p>
+      )}
+
       <ul className="plan-list">
-        {visible.map(b => (
+        {ahead.map(b => (
           <BlockRow key={b.key} b={b} now={now} onFocus={onFocus} selected={b.key === focusKey} />
         ))}
       </ul>
 
-      {day === 'today' && milNotams.length > 0 && (
+      {past.length > 0 && (
+        <>
+          <button className="plan-past-toggle" aria-expanded={pastOpen} onClick={() => setPastOpen(o => !o)}>
+            <span>Zakończone dziś ({past.length})</span>
+            <span className="plan-past-toggle__chev" aria-hidden="true">{pastOpen ? '▴' : '▾'}</span>
+          </button>
+          {pastOpen && (
+            <ul className="plan-list">
+              {past.map(b => (
+                <BlockRow key={b.key} b={b} now={now} onFocus={onFocus} selected={b.key === focusKey} />
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+
+      {milNotams.length > 0 && (
         <section className="cp-section plan-notams">
           <div className="cp-label">NOTAM-y wojskowe</div>
           <ul className="plan-list">

@@ -1,6 +1,14 @@
-import { useState } from 'react'
 import { t } from '../i18n'
-import { readViewportReport } from '../lib/viewportProbe'
+import UsageStats from './UsageStats'
+import Toggle from './Toggle'
+import { IconPulse, IconChart } from './UiIcons'
+
+// Nazwy problemów z lib/health.js (serwer).
+const HEALTH_LABELS = {
+  tick: 'zadania ticka',
+  sources: 'źródła danych',
+  worker: 'cron na Cloudflare',
+}
 
 function formatAge(ms) {
   if (ms == null) return '—'
@@ -13,36 +21,6 @@ function formatAge(ms) {
   return `${Math.round(h / 24)} dni`
 }
 
-// Wymiary okna odczytane na urządzeniu — jedyny sposób, żeby zobaczyć, co iOS
-// naprawdę robi z trybem standalone i wcięciami bezpiecznymi.
-function ViewportDiag() {
-  const [rep, setRep] = useState(() => readViewportReport())
-  const wiersz = (k, v) => (
-    <div className="diag__row" key={k}>{k}: <span className="diag__v">{v}</span></div>
-  )
-  if (!rep) return null
-  const { insets } = rep
-  return (
-    <section className="cp-section">
-      <div className="cp-label">Okno</div>
-      <div className="diag">
-        {wiersz('standalone', rep.standalone ? 'tak' : 'NIE')}
-        {wiersz('screenY', rep.screenY)}
-        {wiersz('outerHeight', rep.outerH)}
-        {wiersz('innerHeight', rep.innerH)}
-        {wiersz('screen.height', rep.screenH)}
-        {wiersz('visualViewport', rep.visualH)}
-        {wiersz('clientHeight', rep.dvh)}
-        {wiersz('.app', rep.appH)}
-        {wiersz('mapa', rep.mapH)}
-        {wiersz('wcięcia (g/d/l/p)', `${insets.top} / ${insets.bottom} / ${insets.left} / ${insets.right}`)}
-        {wiersz('dpr', rep.dpr)}
-        <button className="link-btn mt6" onClick={() => setRep(readViewportReport())}>Zmierz ponownie</button>
-      </div>
-    </section>
-  )
-}
-
 // Stopka panelu Alerty — wersja i ukryta diagnostyka. Dawniej osobny panel
 // Ustawienia, który po usunięciu sekcji GPS nie miał już nic poza tym.
 export default function PanelFooter({
@@ -50,6 +28,7 @@ export default function PanelFooter({
   radius, isSubscribed,
   error,
   debugUnlocked, debugOpen, setDebugOpen, fetchData, handleTestPush, testPushStatus, syncError, serverStatus,
+  healthAlerts, setHealthAlerts,
   version, bumpVersionTap,
 }) {
 
@@ -65,7 +44,7 @@ export default function PanelFooter({
         </button>
         {debugUnlocked && (
           <button className="panel-footer__dbg" onClick={() => setDebugOpen(o => !o)} aria-expanded={debugOpen}>
-            🔧 {t('DEBUG_TOGGLE')} {debugOpen ? '⌃' : '⌄'}
+            <IconChart /> {t('DEBUG_TOGGLE')} {debugOpen ? '⌃' : '⌄'}
           </button>
         )}
       </div>
@@ -76,7 +55,7 @@ export default function PanelFooter({
             <button className="btn-refresh" onClick={fetchData}>{t('REFRESH_BTN')}</button>
           </section>
 
-          <ViewportDiag />
+          <UsageStats />
 
           {isSubscribed && (
             <section className="cp-section">
@@ -88,6 +67,32 @@ export default function PanelFooter({
               {testPushStatus?.kind === 'ok' && <p className="ok small mt6">{t('TEST_PUSH_OK')}</p>}
               {testPushStatus?.kind === 'err' && (
                 <p className="err small mt6 break">✗ {testPushStatus.detail}</p>
+              )}
+            </section>
+          )}
+
+          {isSubscribed && (
+            <section className="cp-section">
+              <div className="cp-label">{t('HEALTH_LABEL')}</div>
+              <div className="toggle-list">
+                <Toggle
+                  on={healthAlerts}
+                  onToggle={() => setHealthAlerts(v => !v)}
+                  label={t('HEALTH_TOGGLE')}
+                  title={t('HEALTH_HINT')}
+                  marker={<span className="toggle-ico"><IconPulse /></span>}
+                  state={healthAlerts ? t('SOUND_ON') : t('SOUND_OFF')}
+                  stateColor={healthAlerts ? '#00ff88' : 'rgba(255,255,255,0.4)'}
+                />
+              </div>
+              {Array.isArray(serverStatus?.health) && (
+                serverStatus.health.length === 0
+                  ? <p className="ok small mt6">◉ {t('HEALTH_ALL_OK')}</p>
+                  : serverStatus.health.map(h => (
+                      <p key={h.id} className="err small mt6 break">
+                        ✗ {HEALTH_LABELS[h.id] || h.id} · od {formatAge(Date.now() - h.since)}: {h.detail}
+                      </p>
+                    ))
               )}
             </section>
           )}

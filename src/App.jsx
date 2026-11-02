@@ -8,6 +8,7 @@ const AlertsPanel = lazy(() => import('./components/AlertsPanel'))
 const DayPlanPanel = lazy(() => import('./components/DayPlanPanel'))
 import PanelFooter from './components/PanelFooter'
 import AlertStack from './components/AlertStack'
+import { IconClose } from './components/UiIcons'
 const MapsPanel = lazy(() => import('./components/MapsPanel'))
 import { useGeolocation } from './hooks/useGeolocation'
 import { usePushNotifications } from './hooks/usePushNotifications'
@@ -17,6 +18,7 @@ import { useNotams } from './hooks/useNotams'
 import { useInbound } from './hooks/useInbound'
 import { usePolling } from './hooks/usePolling'
 import { useHexDeepLink } from './hooks/useHexDeepLink'
+import { useUsagePing } from './hooks/useUsagePing'
 import { fetchMilitaryAircraft } from './api'
 import { haversine, bearing } from './lib/geo'
 import { alertsLevel, kindsOnCount } from './lib/alertsState'
@@ -46,11 +48,18 @@ export default function App() {
   const [kinds, setKinds] = useLocalStorage('radar.kinds', { mil: true, heli: true, heavy: true, rare: true })
   const [soundOn, setSoundOn] = useLocalStorage('radar.sound', true)
   const [vibrateOn, setVibrateOn] = useLocalStorage('radar.vibrate', true)
+  // Alarmy o awariach serwera — przełącznik w diagnostyce (lib/health.js).
+  const [healthAlerts, setHealthAlerts] = useLocalStorage('radar.healthAlerts', false)
   const [selectedHex, setSelectedHex] = useState(null)
   // Maszyna, do której mapa ma dolecieć: TYLKO wybór spoza mapy (link #hex,
   // kliknięte powiadomienie). Kliknięcie ikony na mapie nigdy nie przesuwa
   // widoku — użytkownik patrzy tam, gdzie chce patrzeć.
   const [focusHex, setFocusHex] = useState(null)
+  // Śledzenie: mapa podąża za zaznaczoną maszyną, dopóki ta nie wyląduje albo
+  // nie zniknie z radaru. Zawsze dotyczy zaznaczonej — zmiana albo zamknięcie
+  // karty kończy śledzenie.
+  const [followHex, setFollowHex] = useState(null)
+  const [followNotice, setFollowNotice] = useState(null)
   const [serverTrails, setServerTrails] = useState(new Map())
   const [activePanel, setActivePanel] = useState(null)
   const [planFocus, setPlanFocus] = useState(null)
@@ -101,7 +110,10 @@ export default function App() {
     isSubscribed, subResolved, isSubscribing, subscribe, unsubscribe, sendTestPush,
     permissionState, subscribeError, syncError, serverStatus,
   } = usePushNotifications(location, radius, kinds, arrivals,
-    debugUnlocked && debugOpen && activePanel === 'alerty')
+    debugUnlocked && debugOpen && activePanel === 'alerty', healthAlerts)
+
+  // Anonimowy licznik użytkowników — raz na dobę, gdy znamy już stan pusha.
+  useUsagePing(subResolved, isSubscribed)
 
   // Gdy aktywny jest push serwerowy, NIE strzelamy też lokalnym powiadomieniem
   // systemowym — inaczej (w foreground) ten sam samolot daje dwa komunikaty.
@@ -348,6 +360,45 @@ export default function App() {
     [aircraftWithArrivals, selectedHex]
   )
 
+  // Koniec śledzenia: inna maszyna albo zamknięta karta (po cichu), lądowanie
+  // albo dwa odświeżenia bez maszyny w danych (z komunikatem). Dwa, nie
+  // jedno — pojedynczy brak to zwykle chwilowa dziura w odbiorze.
+  const followMissRef = useRef(0)
+  const lastFollowNameRef = useRef(null)
+  useEffect(() => {
+    if (!followHex) return
+    const ac = aircraftWithArrivals.find(a => a.hex === followHex)
+    if (!ac) {
+      // Zaznaczenie znika po tylu samych brakach (SELECTION_GRACE_CYCLES) —
+      // wtedy też mówimy, że maszyna zniknęła, a nie kończymy po cichu.
+      followMissRef.current++
+      if (followMissRef.current >= 2 || selectedHex !== followHex) {
+        setFollowHex(null)
+        setFollowNotice(`${lastFollowNameRef.current || followHex} ${t('FOLLOW_ENDED_LOST')}`)
+      }
+      return
+    }
+    followMissRef.current = 0
+    lastFollowNameRef.current = ac.flight?.trim() || followHex
+    if (selectedHex !== followHex) { setFollowHex(null); return }
+    if (ac.on_ground) {
+      setFollowHex(null)
+      setFollowNotice(`${lastFollowNameRef.current} ${t('FOLLOW_ENDED_LANDED')}`)
+    }
+  }, [aircraftWithArrivals, followHex, selectedHex])
+
+  useEffect(() => {
+    if (!followNotice) return
+    const id = setTimeout(() => setFollowNotice(null), 5000)
+    return () => clearTimeout(id)
+  }, [followNotice])
+
+  const toggleFollow = useCallback(() => {
+    followMissRef.current = 0
+    setFollowNotice(null)
+    setFollowHex(prev => prev === selectedHex ? null : selectedHex)
+  }, [selectedHex])
+
   // Filtr kategorii — mapa pokazuje tylko włączone typy. Zaznaczony samolot
   // zostaje widoczny, nawet gdy jego kategoria jest wyłączona (żeby nie znikał
   // panel informacyjny po przełączeniu filtra).
@@ -444,6 +495,7 @@ export default function App() {
         showAirspace={showAirspace}
         recenterRef={recenterRef}
         planFocus={planFocus}
+        followHex={followHex}
       />
 
       <MapMark isLoading={isLoading} error={error} lastUpdated={lastUpdated} />
@@ -467,8 +519,12 @@ export default function App() {
           key={selectedAc.hex}
           ac={selectedAc}
           onClose={() => setSelectedHex(null)}
+          following={followHex === selectedAc.hex}
+          onToggleFollow={toggleFollow}
         />
       )}
+
+      {followNotice && <div className="follow-notice" role="status">{followNotice}</div>}
 
       <AlertStack alerts={alerts} onDismiss={dismissAlert} />
 
@@ -486,7 +542,7 @@ export default function App() {
               {activePanel === 'mapy' && t('PANEL_MAPS')}
               {activePanel === 'plan' && t('PANEL_PLAN')}
             </span>
-            <button className="side-panel-close" onClick={() => setActivePanel(null)} aria-label={t('CLOSE_PANEL')}>✕</button>
+            <button className="side-panel-close" onClick={() => setActivePanel(null)} aria-label={t('CLOSE_PANEL')}><IconClose size={18} /></button>
           </div>
 
           <Suspense fallback={<p className="panel-loading">{t('LOADING_PANEL')}</p>}>
@@ -525,6 +581,8 @@ export default function App() {
                 testPushStatus={testPushStatus}
                 syncError={syncError}
                 serverStatus={serverStatus}
+                healthAlerts={healthAlerts}
+                setHealthAlerts={setHealthAlerts}
                 version={version}
                 bumpVersionTap={bumpVersionTap}
               />

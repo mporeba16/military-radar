@@ -129,6 +129,32 @@ function SelectionFocus({ aircraft, selectedHex }) {
   return null
 }
 
+// Śledzenie maszyny: przy włączeniu dolot do niej (z przybliżeniem do
+// FOLLOW_MIN_ZOOM, jeśli widok był szerszy), potem przy każdym odświeżeniu
+// przesunięcie mapy za nową pozycją. Przesunięcie trwa mniej więcej tyle, co
+// animacja ikony (AircraftLayer), więc samolot zostaje w środku ekranu.
+// Przybliżanie i oddalanie działa normalnie; przesunięcie palcem wytrzyma
+// do następnego odświeżenia — śledzenie wyłącza się przyciskiem na karcie.
+const FOLLOW_MIN_ZOOM = 8
+const FOLLOW_PAN_S = 2
+
+function FollowAircraft({ aircraft, followHex }) {
+  const map = useMap()
+  const startedRef = useRef(null)
+  useEffect(() => {
+    if (!followHex) { startedRef.current = null; return }
+    const ac = aircraft.find(a => a.hex === followHex)
+    if (!ac || ac.lat == null || ac.lon == null) return
+    if (startedRef.current !== followHex) {
+      startedRef.current = followHex
+      map.flyTo([ac.lat, ac.lon], Math.max(map.getZoom(), FOLLOW_MIN_ZOOM), { duration: 0.8 })
+      return
+    }
+    map.panTo([ac.lat, ac.lon], { animate: true, duration: FOLLOW_PAN_S, easeLinearity: 0.5 })
+  }, [aircraft, followHex, map])
+  return null
+}
+
 // Podpisy baz, stref i poligonów przy przybliżeniu 7 wchodziły na siebie
 // (Nadarzyce na Mirosławcu, strefy PAŻP na nazwach baz). Po każdej zmianie
 // widoku i każdej zmianie markerów ukrywamy podpis, który nachodzi na już
@@ -229,7 +255,7 @@ export { TILE_LAYERS, tileThumbUrl, resolveTileId }
 export default function RadarMap({
   aircraft, hasFetched, trails, serverTrails, center, gpsCenter, radius,
   selectedHex, focusHex, onSelect, activeTileId, showBases, showNatoBases, showRanges,
-  airspace, showAirspace, recenterRef, planFocus,
+  airspace, showAirspace, recenterRef, planFocus, followHex,
 }) {
   const initialZoom = 6  // S4: was 5, but icons were too small at default view
   const [zoom, setZoom] = useState(initialZoom)
@@ -309,6 +335,7 @@ export default function RadarMap({
         <TileFilter filter={tileLayer.filter} />
         <ZoomTracker onZoomChange={setZoom} />
         <SelectionFocus aircraft={aircraft} selectedHex={focusHex} />
+        <FollowAircraft aircraft={aircraft} followHex={followHex} />
         <PlanFocusLayer zones={airspace?.zones} focus={planFocus} />
         <LabelDeclutter />
 

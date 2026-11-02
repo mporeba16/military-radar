@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { getDeviceId } from '../lib/deviceId'
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || ''
 
@@ -24,27 +25,14 @@ function urlBase64ToUint8Array(base64String) {
   return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)))
 }
 
-// Stabilny identyfikator urządzenia — pozwala serwerowi usunąć stary endpoint
-// po rotacji push (inaczej to samo urządzenie dostaje zdublowane powiadomienia).
-function getDeviceId() {
-  try {
-    let id = localStorage.getItem('radar.deviceId')
-    if (!id) {
-      id = (crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`)
-      localStorage.setItem('radar.deviceId', id)
-    }
-    return id
-  } catch { return null }
-}
-
-async function syncToServer(sub, lat, lon, radius, kinds, arrivals) {
+async function syncToServer(sub, lat, lon, radius, kinds, arrivals, health) {
   if (!sub) return { ok: false, error: 'no-subscription' }
   try {
     const res = await fetch('/.netlify/functions/subscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        subscription: sub.toJSON(), lat, lon, radius, kinds, arrivals, deviceId: getDeviceId(),
+        subscription: sub.toJSON(), lat, lon, radius, kinds, arrivals, health, deviceId: getDeviceId(),
       }),
     })
     let payload = null
@@ -52,7 +40,10 @@ async function syncToServer(sub, lat, lon, radius, kinds, arrivals) {
     if (!res.ok) {
       const code = payload?.error || `http-${res.status}`
       const detail = payload?.detail ? `: ${payload.detail}` : ''
-      return { ok: false, error: `${code}${detail}` }
+      // Serwer przepuszcza jeden zapis na 10 s. Odrzucony nie może przepaść —
+      // niósł zwykle najświeższą pozycję albo ustawienie.
+      const retryAfterMs = res.status === 429 ? Number(payload?.retryAfterMs) || 10_000 : null
+      return { ok: false, error: `${code}${detail}`, retryAfterMs }
     }
     return { ok: true, hasGps: payload?.hasGps }
   } catch (err) {
@@ -75,7 +66,7 @@ async function fetchStatus(sub) {
   }
 }
 
-export function usePushNotifications(location, radius, kinds, arrivals, statusEnabled = false) {
+export function usePushNotifications(location, radius, kinds, arrivals, statusEnabled = false, healthAlerts = false) {
   const [isSubscribed, setIsSubscribed] = useState(false)
   // Czy znamy już stan subskrypcji? Zanim asynchroniczne getSubscription() się
   // rozwiąże, isSubscribed jest false — gdyby klient w tym oknie odpalił lokalne
@@ -90,6 +81,9 @@ export function usePushNotifications(location, radius, kinds, arrivals, statusEn
     typeof Notification !== 'undefined' ? Notification.permission : 'unsupported'
   )
   const subRef = useRef(null)
+  // Podbicie wymusza ponowny zapis na serwerze: po odrzuceniu 429 i zaraz po
+  // włączeniu powiadomień.
+  const [syncNonce, setSyncNonce] = useState(0)
 
   // Pozycja zaokrąglona i kategorie rozłożone na wartości proste — dzięki temu
   // efekt synchronizacji reaguje na realną zmianę, a nie na nową referencję
@@ -130,17 +124,26 @@ export function usePushNotifications(location, radius, kinds, arrivals, statusEn
   // Pozycja, zasięg i filtr kategorii lecą na serwer po ustaniu zmian. Każda
   // kolejna zmiana kasuje poprzedni timer, więc przeciągnięcie suwaka przez
   // cały tor kończy się jednym zapytaniem z wartością końcową.
+  //
+  // Pozycja z GPS przychodzi zwykle kilka sekund po zapisie przy starcie
+  // aplikacji — wcześniej trafiała na limit serwera (jeden zapis na 10 s)
+  // i przepadała do następnej zmiany. Teraz po 429 zapis idzie jeszcze raz,
+  // gdy limit minie.
   useEffect(() => {
     if (!isSubscribed || !subRef.current) return
+    let retryId = null
+    let cancelled = false
     const id = setTimeout(() => {
       syncToServer(subRef.current, syncLat, syncLon, radius, {
         mil: wantMil, heli: wantHeli, heavy: wantHeavy, rare: wantRare,
-      }, arrivalsKey ? JSON.parse(arrivalsKey) : undefined).then(res => {
+      }, arrivalsKey ? JSON.parse(arrivalsKey) : undefined, healthAlerts).then(res => {
+        if (cancelled) return
         setSyncError(res.ok ? null : res.error)
+        if (res.retryAfterMs) retryId = setTimeout(() => setSyncNonce(n => n + 1), res.retryAfterMs + 250)
       })
     }, SYNC_DEBOUNCE_MS)
-    return () => clearTimeout(id)
-  }, [isSubscribed, syncLat, syncLon, radius, wantMil, wantHeli, wantHeavy, wantRare, arrivalsKey])
+    return () => { cancelled = true; clearTimeout(id); clearTimeout(retryId) }
+  }, [isSubscribed, syncLat, syncLon, radius, wantMil, wantHeli, wantHeavy, wantRare, arrivalsKey, healthAlerts, syncNonce])
 
   // Diagnostyka serwerowa, odświeżana co minutę — tylko gdy jest na ekranie
   // (rozwinięta diagnostyka). Wcześniej każde urządzenie z pushem pytało co
@@ -185,10 +188,11 @@ export function usePushNotifications(location, radius, kinds, arrivals, statusEn
       })
       subRef.current = sub
       setIsSubscribed(true)
-      const res = await syncToServer(sub, syncLat, syncLon, radius, {
-        mil: wantMil, heli: wantHeli, heavy: wantHeavy,
-      })
-      if (!res.ok) setSyncError(res.error)
+      // Zapis na serwerze robi efekt synchronizacji wyżej — z kompletem
+      // ustawień. Wcześniej szedł też stąd, bez przełącznika rzadkich maszyn
+      // i lotnisk: nowa subskrypcja dostawała przyloty i rzadkie maszyny mimo
+      // wyłączenia, a poprawny zapis z efektu odbijał się od limitu 10 s.
+      setSyncNonce(n => n + 1)
     } catch (err) {
       console.error('Push subscribe failed:', err)
       if (Notification.permission === 'granted') {
@@ -199,7 +203,7 @@ export function usePushNotifications(location, radius, kinds, arrivals, statusEn
     } finally {
       setIsSubscribing(false)
     }
-  }, [syncLat, syncLon, radius, wantMil, wantHeli, wantHeavy])
+  }, [])
 
   const unsubscribe = useCallback(async () => {
     const sub = subRef.current

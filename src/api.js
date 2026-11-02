@@ -26,14 +26,3 @@ export async function fetchMilitaryAircraft(center, radiusKm, signal) {
     isDemo: !!data._demo,
   }
 }
-
-export async function subscribePush(subscription) {
-  const res = await fetch(`${API_BASE}/subscribe`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(subscription)
-  })
-  if (!res.ok) throw new Error('Subskrypcja push nie powiodła się')
-  return res.json()
-}
-

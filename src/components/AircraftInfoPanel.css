@@ -187,6 +187,13 @@
   position: absolute;
   bottom: 0;
   right: 0;
+  /* Długie nazwisko autora wychodziło poza kartę — teraz wielokropek,
+     a pełny podpis w podpowiedzi. */
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   background: rgba(0, 0, 0, 0.55);
   color: rgba(255, 255, 255, 0.7);
   font-size: 9px;
@@ -234,19 +241,54 @@
   100% { background-position: -200% 0; }
 }
 
-.ac-info-ext-link {
-  display: block;
-  margin: 6px 12px 10px;
-  color: rgba(0, 170, 255, 0.85);
-  font-size: 11px;
-  text-decoration: none;
-  letter-spacing: 0.3px;
-  transition: color 0.15s;
+/* Dolny pasek: link do ADS-B Exchange i śledzenie, po równo. */
+.ac-info-actions {
+  display: flex;
+  gap: 6px;
+  margin: 8px 12px 10px;
 }
 
-.ac-info-ext-link:hover {
-  color: #33ccff;
-  text-decoration: underline;
+.ac-info-action {
+  flex: 1 1 0;
+  min-width: 0;
+  /* 44 px — minimum pola dotyku (Apple HIG). */
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 3px;
+  color: rgba(255, 255, 255, 0.8);
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 0.4px;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.ac-info-action__ico {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+}
+
+/* Oba przyciski w tym samym kolorze — zieleń tylko dla włączonego
+   śledzenia, żeby kolor znaczył stan, a nie rodzaj przycisku. */
+.ac-info-action:hover {
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.45);
+}
+
+.ac-info-follow--on,
+.ac-info-follow--on:hover {
+  color: #00ff88;
+  border-color: rgba(0, 255, 136, 0.65);
+  background: rgba(0, 255, 136, 0.12);
 }
 
 /* Wider card on big desktops where 250px looks small */
@@ -362,12 +404,26 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  padding: 1px 5px;
-  border: 1px solid rgba(255, 255, 255, 0.22);
+  padding: 1px 6px;
+  /* Wyraźniej niż wcześniej (10 px, 72% bieli) — na telefonie w słońcu nazwa
+     typu ginęła. Nadal o stopień ciszej niż znak wywoławczy: lżejsza i
+     mniejsza, za to na lekkim tle. */
+  border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 3px;
-  font-size: var(--t-micro);
+  background: rgba(255, 255, 255, 0.07);
+  font-size: var(--t-small);
+  font-weight: 600;
   letter-spacing: 0.4px;
-  color: rgba(255, 255, 255, 0.72);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+/* Ramki obok znaku wywoławczego: równy odstęp nad i pod napisem — liczony
+   od wielkich liter, nie od pudełka czcionki (to ma u góry więcej zapasu,
+   więc równy padding dawał 5,3 px nad literami i 4 px pod nimi). */
+.ac-info-type,
+.ac-info-unit {
+  padding-top: 2px;
+  padding-bottom: 3px;
 }
 
 /* Mobile — musi stać PO regułach odczytów, inaczej one wygrywają kolejnością. */

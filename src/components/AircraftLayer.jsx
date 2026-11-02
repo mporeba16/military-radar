@@ -5,8 +5,11 @@
 import { useEffect, useRef } from 'react'
 import { useMap } from 'react-leaflet'
 import L from 'leaflet'
-import { SHAPES, getShapeKey } from './aircraftShapes'
+import { SHAPES, getShapeKey, ftToM } from './aircraftShapes'
 import { buildIconSvg, MIN_TAP_TARGET, squawkAlertColor } from './aircraftIcon'
+import { typeLabel } from '../lib/typeNames'
+import { resolvedType } from '../lib/knownAircraft'
+import { t } from '../i18n'
 
 // F2: scale aircraft icons with zoom — clamped so they stay readable
 export function iconScaleForZoom(z) {
@@ -69,6 +72,31 @@ function buildLeafletIcon(ac, isSelected, zoomScale) {
   })
 }
 
+// Krótki opis maszyny: dymek po najechaniu (komputer) i nazwa dla czytnika
+// ekranu. Bez niego na komputerze trzeba było klikać każdą ikonę po kolei,
+// żeby się dowiedzieć, co to jest.
+export function aircraftLabel(ac) {
+  const name = ac.flight?.trim() || ac.hex
+  const type = typeLabel(resolvedType(ac))
+  const altM = ftToM(ac.alt_baro)
+  const alt = ac.on_ground ? t('AC_ON_GROUND')
+    : altM != null ? `${altM.toLocaleString('pl-PL')} m` : null
+  return [name, type, alt].filter(Boolean).join(' · ')
+}
+
+// Dymek tylko tam, gdzie jest kursor. Na telefonie dotknięcie otwiera kartę,
+// a dymek wyskakiwałby przy tym na ułamek sekundy i zasłaniał sąsiednie ikony.
+const CAN_HOVER = typeof window !== 'undefined' && window.matchMedia?.('(hover: hover)').matches
+
+// Kolejność nakładania: zaznaczona zawsze na wierzchu, pod nią wyżej lecące
+// nad niżej lecącymi (jak w rzeczywistości). Ikona pod kursorem wychodzi na
+// wierzch (riseOnHover), więc przy dwóch zlanych ikonach da się wskazać
+// tę spodnią. Pozycji nie rozsuwamy — to zakłamałoby, gdzie maszyna jest.
+function zOffset(ac, isSelected) {
+  if (isSelected) return 100000
+  return Math.round(Math.max(0, Math.min(ac.alt_baro || 0, 60000)) / 10)
+}
+
 // Zapas wokół widoku: znacznik tuż za krawędzią ma już swój marker, więc
 // przy przesuwaniu mapy nic nie „doskakuje" z opóźnieniem.
 const VIEW_PAD = 0.35
@@ -127,8 +155,19 @@ export default function AircraftLayer({ aircraft, selectedHex, onSelect, zoomSca
       const v22Slow = /V22|MV22|CV22|OSPREY/i.test(ac.t || '') && ac.gs != null && ac.gs < 100 ? 1 : 0
       const iconKey = `${trackQ}|${altQ}|${v22Slow}|${ac.t || ''}|${ac.kind || ''}|${squawkAlertColor(ac.squawk) || ''}|${isSelected ? 1 : 0}|${ac.on_ground ? 1 : 0}|${zoomScale}`
 
+      const label = aircraftLabel(ac)
+      const z = zOffset(ac, isSelected)
       const existing = markersRef.current.get(ac.hex)
       if (existing) {
+        if (existing.label !== label) {
+          existing.label = label
+          existing.marker.getElement()?.setAttribute('aria-label', label)
+          if (CAN_HOVER) existing.marker.setTooltipContent(label)
+        }
+        if (existing.z !== z) {
+          existing.z = z
+          existing.marker.setZIndexOffset(z)
+        }
         if (existing.posKey !== posKey) {
           // Plausibility check — reject teleports
           const prev = existing.marker.getLatLng()
@@ -156,13 +195,19 @@ export default function AircraftLayer({ aircraft, selectedHex, onSelect, zoomSca
       } else {
         const marker = L.marker([ac.lat, ac.lon], {
           icon: buildLeafletIcon(ac, isSelected, zoomScale),
+          riseOnHover: true,
+          zIndexOffset: z,
         })
         const hex = ac.hex
         marker.on('click', (e) => {
           if (e.originalEvent) e.originalEvent.stopPropagation()
           onSelect?.(hex)
         })
-        markersRef.current.set(ac.hex, { marker, posKey, iconKey, lastUpdateTs: Date.now() })
+        marker.on('add', () => marker.getElement()?.setAttribute('aria-label', markersRef.current.get(hex)?.label || label))
+        if (CAN_HOVER) {
+          marker.bindTooltip(label, { direction: 'top', offset: [0, -14], className: 'ac-tooltip', opacity: 1 })
+        }
+        markersRef.current.set(ac.hex, { marker, posKey, iconKey, label, z, lastUpdateTs: Date.now() })
         additions.push(marker)
       }
     }

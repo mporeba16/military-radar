@@ -4,6 +4,23 @@ import Toggle from './Toggle'
 import { t } from '../i18n'
 import { BASE_PL, BASE_NATO, RANGE, AIRSPACE } from '../lib/palette'
 import { KIND_ROWS } from '../lib/alertsState'
+import { buildIconSvg } from './aircraftIcon'
+
+// Miniatura ikony z mapy zamiast kolorowej kropki. Kropki (zielona, turkusowa,
+// bursztynowa) wyglądały jak legenda kolorów, a na mapie kolor ikony znaczy
+// WYSOKOŚĆ — kategorię niesie sylwetka i obwódka (śmigłowce i duże samoloty).
+// Miniatura pokazuje dokładnie to, czego szukać na mapie.
+const KIND_SAMPLE = {
+  mil: { t: 'F16', kind: 'mil' },
+  heli: { t: 'H60', kind: 'heli' },
+  heavy: { t: 'B744', kind: 'heavy' },
+}
+const kindIconHtml = Object.fromEntries(Object.entries(KIND_SAMPLE).map(([k, ac]) =>
+  [k, buildIconSvg({ ...ac, hex: k, track: 0, alt_baro: null }, false, 1)]))
+
+function KindIcon({ kind }) {
+  return <span className={`toggle-kind-ico toggle-kind-ico--${kind}`} aria-hidden="true" dangerouslySetInnerHTML={{ __html: kindIconHtml[kind] }} />
+}
 
 // Panel „Mapy": podkład, nakładki i kategorie maszyn.
 //
@@ -81,7 +98,7 @@ export default function MapsPanel({
               background: showBases ? 'rgba(220, 47, 61, 0.25)' : 'transparent',
               color: showBases ? BASE_PL : 'rgba(255,255,255,0.3)',
             }} />}
-            state={showBases ? '◉' : '○'}
+            state={showBases ? t('SOUND_ON') : t('SOUND_OFF')}
             stateColor={showBases ? BASE_PL : 'rgba(255,255,255,0.4)'}
           />
           <Toggle
@@ -92,7 +109,7 @@ export default function MapsPanel({
               background: showNatoBases ? 'rgba(124, 58, 237, 0.3)' : 'transparent',
               color: showNatoBases ? BASE_NATO : 'rgba(255,255,255,0.3)',
             }} />}
-            state={showNatoBases ? '◉' : '○'}
+            state={showNatoBases ? t('SOUND_ON') : t('SOUND_OFF')}
             stateColor={showNatoBases ? BASE_NATO : 'rgba(255,255,255,0.4)'}
           />
           <Toggle
@@ -103,7 +120,7 @@ export default function MapsPanel({
               background: showRanges ? 'rgba(232, 116, 28,0.28)' : 'transparent',
               color: showRanges ? RANGE : 'rgba(255,255,255,0.3)',
             }} />}
-            state={showRanges ? '◉' : '○'}
+            state={showRanges ? t('SOUND_ON') : t('SOUND_OFF')}
             stateColor={showRanges ? RANGE : 'rgba(255,255,255,0.4)'}
           />
           <Toggle
@@ -115,7 +132,7 @@ export default function MapsPanel({
               background: showAirspace ? 'rgba(227, 220, 85, 0.12)' : 'transparent',
               color: showAirspace ? AIRSPACE : 'rgba(255,255,255,0.3)',
             }} />}
-            state={showAirspace ? '◉' : '○'}
+            state={showAirspace ? t('SOUND_ON') : t('SOUND_OFF')}
             stateColor={showAirspace ? AIRSPACE : 'rgba(255,255,255,0.4)'}
           />
         </div>
@@ -137,11 +154,8 @@ export default function MapsPanel({
               label={t(labelKey)}
               title={t('FILTER_HINT')}
               style={{ opacity: kinds[key] ? 1 : 0.55 }}
-              marker={<span className="toggle-dot" style={{
-                background: kinds[key] ? color : 'transparent',
-                border: `2px solid ${color}`,
-              }} />}
-              state={kinds[key] ? '◉' : '○'}
+              marker={<KindIcon kind={key} />}
+              state={kinds[key] ? t('SOUND_ON') : t('SOUND_OFF')}
               stateColor={kinds[key] ? color : 'rgba(255,255,255,0.4)'}
             />
           ))}
