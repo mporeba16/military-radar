@@ -18,6 +18,8 @@ export const ADSBFI_HEADERS = { 'User-Agent': 'MilitaryRadarPL/1.0', Accept: 'ap
 // adsb.lol, adsbdb — z adresem strony, żeby wiedzieli, kto pyta.
 export const POLITE_HEADERS = { 'User-Agent': 'MilitaryRadarPL/1.0 (+https://radar-wojskowy.netlify.app)', Accept: 'application/json' }
 
+const sleep = ms => new Promise(r => setTimeout(r, ms))
+
 // Środek geograficzny Polski — z promieniem 250 nm (~463 km, maksimum adsb.fi)
 // jedno zapytanie geograficzne pokrywa cały kraj wraz z pograniczem.
 export const POLAND_CENTER = { lat: 52.0, lon: 19.4 }
@@ -53,9 +55,41 @@ export async function fetchAdsbfiGeo(lat, lon, nm, { timeoutMs = 6000 } = {}) {
     return await fetchRecords(url, { timeoutMs })
   } catch (err) {
     if (err.status !== 429) throw err
-    await new Promise(r => setTimeout(r, 1200))
+    await sleep(1200)
     return fetchRecords(url, { timeoutMs: Math.min(timeoutMs, 6000) })
   }
+}
+
+/**
+ * Wszystkie maszyny podanych typów z całego świata (adsb.lol /v2/type).
+ * Jedyne źródło, które łapie 747 jeszcze nad Atlantykiem — adsb.fi nie ma
+ * pytania po typie. Typy po kolei, z odstępem, bo adsb.lol po kilku
+ * zapytaniach pod rząd odpowiada 429; przy 429 jedno ponowienie po dłuższej
+ * przerwie. Typ, który się nie udał, trafia do `failed` i nie zabiera reszty.
+ * Wcześniej dwie kopie tej funkcji (migawka nad Europą i przyloty) pytały
+ * o te same trzy typy w dwóch osobnych cronach.
+ */
+export async function fetchAdsbLolTypes(types, { gapMs = 1500, retryMs = 3000, timeoutMs = 6000 } = {}) {
+  const byHex = new Map()
+  const fetched = []
+  const failed = []
+  for (const [i, type] of types.entries()) {
+    if (i) await sleep(gapMs)
+    const url = `https://api.adsb.lol/v2/type/${type}`
+    const get = () => fetchRecords(url, { timeoutMs, headers: POLITE_HEADERS })
+    try {
+      const records = await get().catch(async err => {
+        if (err.status !== 429) throw err
+        await sleep(retryMs)
+        return get()
+      })
+      for (const a of records) if (a?.hex && !byHex.has(a.hex)) byHex.set(a.hex, a)
+      fetched.push(type)
+    } catch (err) {
+      failed.push(`${type}: ${err.message}`)
+    }
+  }
+  return { records: [...byHex.values()], fetched, failed }
 }
 
 /**
@@ -144,6 +178,16 @@ export function shareSnapshot({ milRes, geoRes }, at = Date.now()) {
   }
 }
 
+// Ruch nad Polską z migawki ticka. Gdy tick nie dostał go od adsb.fi, puste
+// zamiast ponownego pytania: fetchAdsbfiGeo już raz ponowił po 429, więc
+// trzecia próba chwilę później zwykle też padnie, a każde czekanie (do 6 s)
+// Netlify liczy w kredytach. Inaczej niż listy /mil — tamte bez ponowienia,
+// więc powiadomienia próbują je pobrać same.
+// `undefined` — brak świeżej migawki (wywołanie spoza ticka), pytamy sami.
+export function sharedGeo() {
+  return sharedFresh() ? shared.geo ?? [] : undefined
+}
+
 const sharedFresh = () => shared && Date.now() - shared.at < SHARED_MAX_AGE_MS
 
 // Koło (lat, lon, km) mieści się w kole wspólnego zapytania geograficznego.
@@ -215,9 +259,8 @@ export async function fetchMilitaryNear(lat, lon, radiusKm) {
     let extra = []
     try {
       const radiusNm = Math.round(radiusKm * 0.54)
-      const geo = sharedFresh() && shared.geo && insideSharedGeo(lat, lon, radiusKm)
-        ? shared.geo
-        : await fetchAdsbfiGeo(lat, lon, radiusNm, { timeoutMs: 4000 })
+      const fromTick = insideSharedGeo(lat, lon, radiusKm) ? sharedGeo() : undefined
+      const geo = fromTick ?? await fetchAdsbfiGeo(lat, lon, radiusNm, { timeoutMs: 4000 })
       extra = geo.flatMap(a => {
         if (!isAirborne(a) || !inBox(a) || milHexes.has(a.hex)) return []
         // Pełny test wojskowy (prefiks hex + znak + squawk) — jak na mapie,

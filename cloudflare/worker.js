@@ -15,11 +15,8 @@
 // zadania, które pytają adsb.lol; wszystko, co potrzebuje adsb.fi, robi
 // cron `tick` na Netlify.
 const JOBS = {
-  // Minuta 3, 8, 13… — z dala od parzystych minut, kiedy startuje tick.
-  '3-59/5 * * * *': () => import('./heavy-collect.js'),
-  // Minuta 1, 11, 21… — nie razem z heavy-collect, bo oba pytają adsb.lol,
-  // a ten po serii zapytań odpowiada 429.
-  '1-59/10 * * * *': () => import('./inbound-deep.js'),
+  // Co 5 minut od minuty 3 — nie razem z tickiem w pełnych dziesiątkach.
+  '3-59/5 * * * *': () => import('./types-collect.js'),
 }
 
 // @netlify/blobs zapamiętuje globalny fetch jako pole klienta i woła go jako
@@ -28,13 +25,9 @@ const JOBS = {
 const nativeFetch = globalThis.fetch.bind(globalThis)
 globalThis.fetch = (...args) => nativeFetch(...args)
 
-// Handlery czytają klucze VAPID z process.env przy imporcie modułu, a
-// @netlify/blobs bierze siteID i token z globalnego kontekstu. Oba ustawiamy
-// z sekretów Workera, ZANIM zaimportujemy którykolwiek handler.
+// @netlify/blobs bierze siteID i token z globalnego kontekstu — ustawiamy
+// go z sekretów Workera, ZANIM zaimportujemy którykolwiek handler.
 function prepareEnv(env) {
-  for (const k of ['VAPID_PUBLIC_KEY', 'VAPID_PRIVATE_KEY', 'VAPID_SUBJECT']) {
-    if (env[k]) process.env[k] = env[k]
-  }
   globalThis.netlifyBlobsContext = btoa(JSON.stringify({
     siteID: env.NETLIFY_SITE_ID,
     token: env.NETLIFY_TOKEN,

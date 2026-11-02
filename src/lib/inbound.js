@@ -13,8 +13,10 @@ import { AIRFIELDS } from '../airfields'
 // zapytanie o typ, którego nikt nie lata, zabiera limit temu, o który chodzi.
 // Pomiar na żywo (21.09.2026): B744 → 44 maszyny, B748 → 28, a B742, B743,
 // B74D, B74R i B74F → zero. B74F w ogóle nie jest kodem ICAO, a Rusłany
-// (A124) stały na końcu listy i padały na 429 po pustych zapytaniach.
-export const WATCHED_TYPES = ['B744', 'B748', 'A124']
+// (A124) stały na końcu listy i padały na 429 po pustych zapytaniach —
+// dlatego teraz idą pierwsze. Ta sama lista zasila migawkę jumbo jetów nad
+// Europą (lib/heavyEurope.js): obie powstają z jednego pobrania.
+export const WATCHED_TYPES = ['A124', 'B748', 'B744']
 
 // Do rozpoznawania maszyny w danych (nie do odpytywania) — szerzej niż lista
 // wyżej, bo w rekordzie może stać dowolna odmiana 747.

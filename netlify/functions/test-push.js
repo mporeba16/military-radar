@@ -1,11 +1,7 @@
 import { getStore, connectLambda } from '@netlify/blobs'
 import webpush from 'web-push'
-import crypto from 'crypto'
 import { corsHeaders, isValidPushEndpoint, rateLimit } from './lib/security.js'
-
-const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY
-const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY
-const VAPID_EMAIL = process.env.VAPID_SUBJECT || process.env.VAPID_EMAIL || 'mailto:admin@example.com'
+import { endpointKey, vapidConfig } from './lib/push.js'
 
 export const handler = async (event) => {
   connectLambda(event)
@@ -16,7 +12,8 @@ export const handler = async (event) => {
     return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) }
   }
 
-  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
+  const vapid = vapidConfig()
+  if (!vapid.configured) {
     return { statusCode: 500, headers, body: JSON.stringify({ error: 'vapid-not-configured' }) }
   }
 
@@ -32,7 +29,7 @@ export const handler = async (event) => {
     return { statusCode: 400, headers, body: JSON.stringify({ error: 'invalid-endpoint' }) }
   }
 
-  const key = crypto.createHash('sha256').update(endpoint).digest('hex').slice(0, 32)
+  const key = endpointKey(endpoint)
 
   // 1 test push per 5 min per endpoint — stops anyone with a stolen endpoint
   // URL from spamming notifications to the owner.
@@ -58,7 +55,7 @@ export const handler = async (event) => {
     return { statusCode: 404, headers, body: JSON.stringify({ error: 'subscription-not-found' }) }
   }
 
-  webpush.setVapidDetails(VAPID_EMAIL, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY)
+  webpush.setVapidDetails(vapid.subjectOrDefault, vapid.publicKey, vapid.privateKey)
 
   const payload = JSON.stringify({
     title: 'Test powiadomienia',

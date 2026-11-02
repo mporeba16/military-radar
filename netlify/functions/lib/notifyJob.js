@@ -4,7 +4,7 @@ import { haversine, normalizeKinds } from './military.js'
 import { fetchMilitaryNear, fetchMilGlobal } from './sources.js'
 import { isInPoland } from './poland.js'
 import { isQuietHours } from './quietHours.js'
-import { pushProvider, isExpiredPush, removeSubscription, pruneCooldown } from './push.js'
+import { pushProvider, isExpiredPush, removeSubscription, pruneCooldown, vapidConfig } from './push.js'
 import { rareRoleFor } from '../../../src/lib/rareTypes.js'
 import { AIRFIELDS } from '../../../src/airfields.js'
 // Treść alertów mieszka we wspólnym module — ten sam kod składa push z serwera
@@ -12,10 +12,7 @@ import { AIRFIELDS } from '../../../src/airfields.js'
 import { alertText, groupText, rareText, rareGroupText, inboundText, CLOSE_RANGE_KM } from '../../../src/lib/notifyText.js'
 import { airportByIcao, etaMinutes, formatEta, landingClock } from '../../../src/lib/inbound.js'
 import { SNAPSHOT_STORE, SNAPSHOT_KEY } from '../inbound.js'
-
-const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY
-const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY
-const VAPID_EMAIL = process.env.VAPID_SUBJECT || process.env.VAPID_EMAIL || 'mailto:admin@example.com'
+import { USAGE_STORE, USAGE_KEEP_DAYS, warsawDay } from './usage.js'
 
 const MAX_POSITION_AGE_MS = 7 * 24 * 60 * 60 * 1000  // 7 days
 // Don't re-alert the same aircraft within this window. JEDEN cooldown na hex,
@@ -177,7 +174,11 @@ const cooldownStore = name => getStore({ name, consistency: 'strong' })
 export async function runNotify() {
   const { statusCode, body } = await run()
   if (statusCode !== 200) return `notify ERROR ${body.slice(0, 200)}`
-  return body === 'quiet hours' ? 'notify: cisza nocna' : 'notify OK'
+  if (body === 'quiet hours') return 'notify: cisza nocna'
+  // Przebieg bez kluczy VAPID kończy się kodem 200 (to nie awaria źródeł),
+  // ale w logu ticka nie może wyglądać jak udany.
+  const error = JSON.parse(body).error
+  return error ? `notify ERROR ${error}` : 'notify OK'
 }
 
 // Push, który nie odpowiada, nie może trzymać całego przebiegu — Netlify
@@ -189,10 +190,11 @@ async function run() {
   // która nadal jest w zasięgu o 6:00, dostanie alert w pierwszym przebiegu.
   if (isQuietHours()) return { statusCode: 200, body: 'quiet hours' }
   const runStart = Date.now()
+  const vapid = vapidConfig()
   const stats = {
     startedAt: new Date(runStart).toISOString(),
-    vapidConfigured: !!(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY),
-    vapidSubject: VAPID_EMAIL,
+    vapidConfigured: vapid.configured,
+    vapidSubject: vapid.subjectOrDefault,
     totalSubs: 0,
     skippedNoGps: 0,
     skippedStaleGps: 0,
@@ -204,14 +206,14 @@ async function run() {
     perSub: [],
   }
 
-  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
+  if (!vapid.configured) {
     console.log('[notify] VAPID keys not configured, skipping run')
     stats.error = 'VAPID not configured'
     await writeRunStats(stats, runStart)
     return { statusCode: 200, body: JSON.stringify(stats) }
   }
 
-  webpush.setVapidDetails(VAPID_EMAIL, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY)
+  webpush.setVapidDetails(vapid.subjectOrDefault, vapid.publicKey, vapid.privateKey)
 
   let subsStore, alertedStore, blobs
   try {
@@ -452,36 +454,43 @@ async function processRare(loaded, stats, inRangeByKey) {
   console.log(`[notify] rare: ${fresh.map(r => `${r.ac.hex}/${r.ac.t}`).join(', ')} → ${recipients.length} subs`)
 }
 
+// Sprzątanie raz na godzinę ma twardy limit czasu. Pomiar z 02.11.2026: o każdej
+// pełnej godzinie tick trwał 15 s i był ubijany (499), a Netlify ponawiał go
+// dwa razy — samo wylistowanie 59 tys. starych blobów `run-…` w push-runs
+// trwało 16 s, więc ich kasowanie nigdy się nie kończyło i wracało co godzinę.
+// Te bloby kasuje się raz, ręcznie; tu został limit, żeby żadne sprzątanie nie
+// mogło już zatrzymać przebiegu.
+const HOUSEKEEPING_BUDGET_MS = 4000
+
 async function writeRunStats(stats, runStart) {
   try {
     const runsStore = getStore('push-runs')
     // Housekeeping gated to ~once/hour so we don't list() stores every run:
-    // purge the legacy `run-<ts>` blobs older versions accumulated, expire stale
-    // rate-limit records (their `ts` is >24h old → the window is long gone),
-    // wyrzuć dawno porzucone subskrypcje i posprzątaj po nich mapy cooldownu.
-    // Idzie PRZED zapisem `latest`, żeby liczniki sprzątania trafiły do podsumowania.
-    // Okno 2 minut, bo cron chodzi co 2 minuty — w każdej godzinie trafia
-    // w nie dokładnie jeden przebieg.
+    // expire stale rate-limit records (their `ts` is >24h old → the window is
+    // long gone), wyrzuć dawno porzucone subskrypcje i posprzątaj po nich mapy
+    // cooldownu. Idzie PRZED zapisem `latest`, żeby liczniki sprzątania trafiły
+    // do podsumowania. Okno 2 minut, bo cron chodzi co 2 minuty — w każdej
+    // godzinie trafia w nie dokładnie jeden przebieg.
     if (runStart % 3_600_000 < 120_000) {
-      await purgeLegacyRunBlobs(runsStore).catch(() => {})
-      await purgeStaleRateLimits().catch(() => {})
-      await purgeStaleSubscriptions(stats).catch(() => {})
-      await purgeOrphanAlerted(stats).catch(() => {})
+      const work = Promise.allSettled([
+        purgeOldUsage(runStart),
+        purgeStaleRateLimits(),
+        purgeStaleSubscriptions(stats).then(() => purgeOrphanAlerted(stats)),
+      ])
+      let timer
+      const timedOut = await Promise.race([
+        work.then(() => false),
+        new Promise(r => { timer = setTimeout(() => r(true), HOUSEKEEPING_BUDGET_MS) }),
+      ])
+      clearTimeout(timer)
+      if (timedOut) stats.housekeeping = 'przerwane po limicie czasu'
     }
-    // Keep only the latest run summary — status.js reads this. We deliberately
-    // do NOT write a per-run `run-<ts>` blob: the cron fires every 2 minutes, so
-    // that grew ~720 blobs/day unbounded with nothing ever reading them back.
+    // Keep only the latest run summary — status.js reads this. Per-run
+    // `run-<ts>` blobs are gone: nothing ever read them back.
     await runsStore.set('latest', JSON.stringify(stats))
   } catch (err) {
     console.error('[notify] Failed to write run stats:', err.message)
   }
-}
-
-async function purgeLegacyRunBlobs(runsStore) {
-  const { blobs } = await runsStore.list()
-  await Promise.allSettled((blobs || [])
-    .filter(b => b.key.startsWith('run-'))
-    .map(b => runsStore.delete(b.key)))
 }
 
 // Rekord, którego klient nie odświeżył od miesiąca, jest martwy: notify pomija
@@ -522,6 +531,18 @@ async function purgeOrphanAlerted(stats) {
     console.log(`[notify] purged orphan cooldown map key=${b.key}`)
   }))
   if (orphans.length) stats.orphanAlertedRemoved = orphans.length
+}
+
+// Licznik użytkowników (lib/usage.js) trzyma dni do USAGE_KEEP_DAYS. Co
+// godzinę kasujemy tydzień dni tuż za tą granicą — zwykle już pusty, ale
+// gdyby sprzątanie kiedyś nie chodziło przez kilka dni, i tak je dogoni.
+async function purgeOldUsage(now) {
+  const store = getStore(USAGE_STORE)
+  for (let i = USAGE_KEEP_DAYS; i < USAGE_KEEP_DAYS + 7; i++) {
+    const day = warsawDay(now - i * 86_400_000)
+    const { blobs } = await store.list({ prefix: `${day}/` })
+    await Promise.allSettled((blobs || []).map(b => store.delete(b.key)))
+  }
 }
 
 const RATE_LIMIT_MAX_AGE_MS = 24 * 60 * 60 * 1000

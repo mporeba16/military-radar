@@ -29,8 +29,8 @@
 [functions."tick"]
   schedule = "*/2 * * * *"
 
-# heavy-collect i pełny przebieg przylotów (oba pytają tylko adsb.lol)
-# chodzą na Cloudflare Workers — patrz cloudflare/worker.js.
+# Jumbo jety z całego świata (adsb.lol po typie: migawka nad Europą i lista
+# do przylotów) zbiera cron na Cloudflare Workers — patrz cloudflare/worker.js.
 
 [dev]
   command = "npm run dev"

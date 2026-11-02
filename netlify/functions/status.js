@@ -1,11 +1,7 @@
 import { getStore, connectLambda } from '@netlify/blobs'
-import crypto from 'crypto'
 import { corsHeaders, isValidPushEndpoint, rateLimit } from './lib/security.js'
-import { pushProvider } from './lib/push.js'
-
-const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY
-const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY
-const VAPID_SUBJECT = process.env.VAPID_SUBJECT || process.env.VAPID_EMAIL || null
+import { pushProvider, endpointKey, vapidConfig } from './lib/push.js'
+import { HEALTH_STORE, HEALTH_KEY } from './lib/health.js'
 
 export const handler = async (event) => {
   connectLambda(event)
@@ -16,9 +12,10 @@ export const handler = async (event) => {
     return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) }
   }
 
+  const vapid = vapidConfig()
   const server = {
-    vapidConfigured: !!(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY),
-    vapidSubject: VAPID_SUBJECT || '(default mailto:admin@example.com)',
+    vapidConfigured: vapid.configured,
+    vapidSubject: vapid.subject || '(default mailto:admin@example.com)',
   }
 
   let endpoint
@@ -33,12 +30,7 @@ export const handler = async (event) => {
     return { statusCode: 400, headers, body: JSON.stringify({ error: 'invalid-endpoint', server }) }
   }
 
-  let key
-  try {
-    key = crypto.createHash('sha256').update(endpoint).digest('hex').slice(0, 32)
-  } catch (err) {
-    return { statusCode: 500, headers, body: JSON.stringify({ error: 'hash-failed', detail: err.message, server }) }
-  }
+  const key = endpointKey(endpoint)
 
   // The client polls status once a minute; a 5 s window stops anyone with a
   // stolen endpoint URL from hammering it without affecting normal use.
@@ -77,6 +69,15 @@ export const handler = async (event) => {
     storeErrors.push(`runs-store-init: ${err.message}`)
   }
 
+  // Stan systemu z alarmów o awariach — co teraz nie działa i od kiedy.
+  let health = null
+  try {
+    const h = await getStore(HEALTH_STORE).get(HEALTH_KEY, { type: 'json' })
+    health = Object.entries(h?.problems || {}).map(([id, p]) => ({ id, since: p.since, detail: p.detail }))
+  } catch (err) {
+    storeErrors.push(`health-read: ${err.message}`)
+  }
+
   if (!sub) {
     return {
       statusCode: 200,
@@ -88,6 +89,7 @@ export const handler = async (event) => {
         key,
         server,
         latestRun: latestRunSummary(latestRun),
+        health,
         storeErrors: storeErrors.length ? storeErrors : undefined,
       }),
     }
@@ -112,8 +114,10 @@ export const handler = async (event) => {
       radius: sub.radius,
       gpsAgeMs: ageMs,
       createdAt: sub.createdAt,
+      healthAlerts: sub.health === true,
       server,
       latestRun: latestRunSummary(latestRun),
+      health,
       storeErrors: storeErrors.length ? storeErrors : undefined,
     }),
   }

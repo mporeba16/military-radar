@@ -1,7 +1,7 @@
 import { getStore, connectLambda } from '@netlify/blobs'
-import crypto from 'crypto'
 import { corsHeaders, isValidPushEndpoint, rateLimit, validatePosition, cleanDeviceId } from './lib/security.js'
 import { normalizeKinds } from './lib/military.js'
+import { endpointKey, removeSubscription } from './lib/push.js'
 
 // Preferencje przylotów: obiekt { EPRZ: bool, EPKK: bool }. Brak klucza
 // oznacza włączone — tak samo jak przy kategoriach maszyn.
@@ -34,7 +34,7 @@ export const handler = async (event) => {
     const ep = body.endpoint || body.subscription?.endpoint
     if (!ep) return { statusCode: 400, headers, body: JSON.stringify({ error: 'missing-endpoint' }) }
     try {
-      const delKey = crypto.createHash('sha256').update(ep).digest('hex').slice(0, 32)
+      const delKey = endpointKey(ep)
       await getStore('push-subscriptions').delete(delKey)
       // Mapa cooldownu jest kluczowana tym samym hashem endpointu, więc bez tego
       // zostawał osierocony blob w push-alerted, którego nikt już nie odczyta.
@@ -64,16 +64,7 @@ export const handler = async (event) => {
     return { statusCode: 400, headers, body: JSON.stringify({ error: 'invalid-endpoint-host' }) }
   }
 
-  let key
-  try {
-    key = crypto.createHash('sha256')
-      .update(subscription.endpoint)
-      .digest('hex')
-      .slice(0, 32)
-  } catch (err) {
-    console.error('[subscribe] Hash failed:', err.message)
-    return { statusCode: 500, headers, body: JSON.stringify({ error: 'hash-failed', detail: err.message }) }
-  }
+  const key = endpointKey(subscription.endpoint)
 
   // Throttle per-endpoint to 1 subscribe call per 10 s.
   const rl = await rateLimit({ key: `sub-${key}`, windowMs: 10_000 })
@@ -124,6 +115,8 @@ export const handler = async (event) => {
     // Lotniska, o których przylotach wielkich transportowców to urządzenie
     // chce wiedzieć. Brak pola = zostaje poprzednie, a domyślnie oba włączone.
     arrivals: normalizeArrivals(arrivals ?? existing?.arrivals),
+    // Alarmy o awariach serwera (lib/health.js) — włączane w diagnostyce.
+    health: typeof body.health === 'boolean' ? body.health : existing?.health === true,
   }
 
   let serialized
@@ -160,8 +153,7 @@ export const handler = async (event) => {
         if (b.key === key) return
         const other = await store.get(b.key, { type: 'json' }).catch(() => null)
         if (other?.deviceId && other.deviceId === deviceId) {
-          await store.delete(b.key).catch(() => {})
-          await getStore('push-alerted').delete(b.key).catch(() => {})
+          await removeSubscription(b.key)
           console.log(`[subscribe] pruned stale endpoint key=${b.key} device=${deviceId}`)
         }
       }))

@@ -15,8 +15,9 @@
 import { getStore, connectLambda } from '@netlify/blobs'
 import { POLITE_HEADERS, fetchAdsbfiGeo } from './lib/sources.js'
 import { corsHeaders } from './lib/security.js'
+import { BlobBook } from './lib/blobBook.js'
 import {
-  WATCHED_TYPES, ARRIVAL_AIRPORTS, etaMinutes, distanceKm, isWatchedType, approachGuess,
+  ARRIVAL_AIRPORTS, etaMinutes, distanceKm, isWatchedType, approachGuess,
   airportByIcao, verticalRate, leavingAirport, headingDiff, bearingTo,
 } from '../../src/lib/inbound.js'
 
@@ -27,27 +28,9 @@ const ROUTE_TTL_MS = 24 * 60 * 60 * 1000
 const DEST = new Set(ARRIVAL_AIRPORTS.map(a => a.icao))
 
 let cache = null // { at, body }
-const routeMem = new Map() // callsign → { at, route|null }
-
-const sleep = ms => new Promise(r => setTimeout(r, ms))
-
-// adsb.lol odpowiada 429 na serię zapytań pod rząd — stąd odstęp między
-// typami i jedno ponowienie po dłuższej przerwie.
-async function fetchType(type) {
-  let res = await fetch(`https://api.adsb.lol/v2/type/${type}`, {
-    signal: AbortSignal.timeout(8000), headers: UA,
-  })
-  if (res.status === 429) {
-    await sleep(2500)
-    res = await fetch(`https://api.adsb.lol/v2/type/${type}`, {
-      signal: AbortSignal.timeout(8000), headers: UA,
-    })
-  }
-  if (!res.ok) return []
-  const data = await res.json()
-  return (data.ac || []).filter(a =>
-    typeof a.lat === 'number' && typeof a.lon === 'number' && (a.flight || '').trim())
-}
+// Trasy z adsbdb: znak wywoławczy → { at, route|null }. Jeden blob na całość
+// (szczegóły w lib/blobBook.js), przeterminowane wypadają przy zapisie.
+const routes = new BlobBook('book-routes', ROUTE_TTL_MS)
 
 // Drugie źródło: ruch nad Polską z adsb.fi. Nie zabiera limitu adsb.lol
 // (a ten potrafi odpowiedzieć 429 w środku przebiegu) i łapie maszynę, która
@@ -65,18 +48,11 @@ async function fetchNearPoland(records = null) {
 
 // Trasa bywa nieznana (loty bez planu w bazie) — zapamiętujemy też ten brak,
 // żeby nie pytać o ten sam znak wywoławczy co trzy minuty.
-async function fetchRoute(callsign, store) {
-  const mem = routeMem.get(callsign)
-  if (mem && Date.now() - mem.at < ROUTE_TTL_MS) return mem.route
-
-  const key = `route-${callsign}`
-  try {
-    const saved = await store?.get(key, { type: 'json' })
-    if (saved && Date.now() - saved.at < ROUTE_TTL_MS) {
-      routeMem.set(callsign, saved)
-      return saved.route
-    }
-  } catch { /* brak cache → pytamy */ }
+// Wołający ładuje słownik (`routes.load`) przed i zapisuje (`routes.save`)
+// po przebiegu — tu same odczyty z pamięci i zapytania do adsbdb.
+async function fetchRoute(callsign) {
+  const known = routes.get(callsign)
+  if (known) return known.route
 
   let route = null
   try {
@@ -96,9 +72,7 @@ async function fetchRoute(callsign, store) {
     }
   } catch { /* brak trasy traktujemy jak nieznaną */ }
 
-  const rec = { at: Date.now(), route }
-  routeMem.set(callsign, rec)
-  await store?.set(key, JSON.stringify(rec)).catch(() => {})
+  routes.set(callsign, { at: Date.now(), route })
   return route
 }
 
@@ -124,14 +98,19 @@ const LEARN_MAX_FT = 2500
 // wywoławczy lotu POWROTNEGO lądował w pamięci jako „ten siada w Rzeszowie”.
 const LEARN_DESCENT_FPM = -200
 
-const learnedMem = new Map() // callsign → { at, to } | null
-
-const learnedKey = callsign => `landed-${callsign}`
+// Wpisy sprzed poprawki z 02.11.2026 (przeniesione ze starych blobów
+// `landed-…`) mają `unverified: true` — część z nich to odloty, a nie da się
+// już stwierdzić które. Żyją krócej: prawdziwy rejs w tym czasie i tak
+// znowu wyląduje i zapisze się jako pewny, a błędny wpis sam wygaśnie.
+const UNVERIFIED_TTL_MS = 30 * 24 * 60 * 60 * 1000
+const landings = new BlobBook('book-landings', rec => rec.unverified ? UNVERIFIED_TTL_MS : LEARNED_TTL_MS)
+const RELEARN_MS = 24 * 60 * 60 * 1000
 
 // Zapamiętuje lądowanie: maszyna obserwowanego typu tuż przy lotnisku, nisko
 // i schodząca — to podejście końcowe, nie przelot ani start.
 export async function learnLandings(records, store, now = Date.now()) {
   if (!store) return []
+  await landings.load(store, now)
   const learned = []
   for (const a of records) {
     const callsign = (a.flight || '').trim()
@@ -143,26 +122,20 @@ export async function learnLandings(records, store, now = Date.now()) {
     if (vr == null || vr > LEARN_DESCENT_FPM) continue
     const airport = ARRIVAL_AIRPORTS.find(ap => distanceKm(a, ap) <= LEARN_MAX_KM)
     if (!airport) continue
-    const rec = { at: now, to: airport.icao }
-    const prev = learnedMem.get(callsign)
-    learnedMem.set(callsign, rec)
     learned.push(`${callsign}→${airport.icao}`)
-    // Zapis tylko przy zmianie albo raz na dobę — inaczej co dwie minuty
-    // pisalibyśmy to samo przez cały postój maszyny na płycie.
-    if (prev?.to === airport.icao && now - prev.at < 24 * 60 * 60 * 1000) continue
-    await store.set(learnedKey(callsign), JSON.stringify(rec)).catch(() => {})
+    // Podejście trwa kilka przebiegów — ten sam wpis odnawiamy najwyżej raz
+    // na dobę, chyba że zmienił się cel albo wpis był niepewny.
+    const prev = landings.get(callsign, now)
+    if (prev?.to === airport.icao && !prev.unverified && now - prev.at < RELEARN_MS) continue
+    landings.set(callsign, { at: now, to: airport.icao })
   }
+  await landings.save(store, now).catch(err => console.error('[inbound] zapis lądowań:', err.message))
   return learned
 }
 
-async function learnedRoute(callsign, store, now = Date.now()) {
-  let rec = learnedMem.get(callsign)
-  if (rec === undefined) {
-    rec = (await store?.get(learnedKey(callsign), { type: 'json' }).catch(() => null)) || null
-    learnedMem.set(callsign, rec)
-  }
-  if (!rec || now - rec.at > LEARNED_TTL_MS) return null
-  const airport = airportByIcao(rec.to)
+function learnedRoute(callsign, now = Date.now()) {
+  const rec = landings.get(callsign, now)
+  const airport = rec && airportByIcao(rec.to)
   if (!airport) return null
   return { from: null, fromCity: null, to: airport.icao, toCity: airport.name, learned: true }
 }
@@ -172,7 +145,7 @@ async function learnedRoute(callsign, store, now = Date.now()) {
 export const SNAPSHOT_STORE = 'inbound-snapshot'
 export const SNAPSHOT_KEY = 'latest'
 // Surowa lista obserwowanych typów z całego świata (zapytania do adsb.lol)
-// — pisze ją cron na Cloudflare (cloudflare/inbound-deep.js), bo przerwy
+// — pisze ją cron na Cloudflare (cloudflare/types-collect.js), bo przerwy
 // między zapytaniami kosztowały na Netlify jak praca funkcji. Trasy do niej
 // rozwiązuje już `tick`: Worker na darmowym planie ma limit 50 zapytań
 // wychodzących na uruchomienie, a każda maszyna to odczyt trasy z Blobs,
@@ -182,22 +155,16 @@ export const DEEP_RAW_KEY = 'deep-raw'
 // same przyloty widziane nad Polską niż pozycje sprzed godziny.
 const DEEP_MAX_AGE_MS = 30 * 60 * 1000
 
-// Typy pobieramy po kolei, z odstępem — adsb.lol to serwis społecznościowy
-// i po kilku zapytaniach pod rząd zaczyna odpowiadać 429.
-export async function fetchWatchedTypes() {
-  const byHex = new Map()
-  for (const type of WATCHED_TYPES) {
-    for (const a of await fetchType(type)) {
-      if (!byHex.has(a.hex)) byHex.set(a.hex, a)
-    }
-    await sleep(1200)
-  }
-  return [...byHex.values()]
+// Rekordy obserwowanych typów, z których da się ustalić przylot: z pozycją
+// i ze znakiem wywoławczym (bez niego nie ma po czym szukać trasy).
+export function watchedRecords(records) {
+  return records.filter(a =>
+    typeof a.lat === 'number' && typeof a.lon === 'number' && (a.flight || '').trim())
 }
 
-// Trasy rozwiązujemy po kilka naraz — po kolei 70 odczytów z Blobs to
-// sekundy czekania, a za nie Netlify liczy kredyty. Nie więcej, bo przy
-// pustej pamięci każde to także zapytanie do adsbdb.
+// Trasy rozwiązujemy po kilka naraz — przy nowych znakach wywoławczych to
+// zapytania do adsbdb, a po kolei byłyby to sekundy czekania, za które
+// Netlify liczy kredyty. Nie więcej, żeby nie zasypać serwisu.
 const RESOLVE_CONCURRENCY = 8
 
 async function mapLimit(items, limit, fn) {
@@ -216,16 +183,14 @@ async function mapLimit(items, limit, fn) {
 // Dwa tempa. Podejście do lądowania widać dopiero kilkadziesiąt kilometrów
 // przed lotniskiem, czyli przez jakieś dziesięć minut lotu — przy zbieraniu
 // co 10 minut maszyna potrafiłaby przemknąć między przebiegami. Dlatego lekki
-// przebieg (jedno zapytanie do adsb.fi o ruch nad Polską) chodzi co dwie
-// minuty, a ciężki (zapytania o typy do adsb.lol, które limituje ruch)
-// dokłada się do niego tylko co dziesięć.
+// przebieg (ruch nad Polską z adsb.fi) chodzi co dwie minuty, a lista typów
+// z całego świata (`typeRecords`, z Cloudflare) dochodzi tylko co dziesięć.
 // `observed` (opcjonalny Set) dostaje hexy WSZYSTKICH maszyn widzianych
 // w tym przebiegu, także odrzuconych — carryForward nie może wskrzesić
 // maszyny, którą właśnie odsialiśmy jako startującą. `nearRecords` to ruch
-// nad Polską już pobrany przez `tick` (bez nich pytamy adsb.fi sami),
-// `typeRecords` — lista typów z Cloudflare zamiast własnych zapytań.
+// nad Polską już pobrany przez `tick` (bez nich pytamy adsb.fi sami).
 export async function collect({
-  deep = true, store: injected = null, observed = null, nearRecords = null, typeRecords = null,
+  store: injected = null, observed = null, nearRecords = null, typeRecords = [],
 } = {}) {
   let store = injected
   if (!store) {
@@ -233,11 +198,11 @@ export async function collect({
   }
 
   const seen = new Map()
-  const types = typeRecords ?? (deep ? await fetchWatchedTypes() : [])
-  for (const a of types) {
+  for (const a of typeRecords) {
     if (!seen.has(a.hex)) seen.set(a.hex, a)
   }
 
+  await Promise.all([routes.load(store), landings.load(store)])
   const nearPoland = await fetchNearPoland(nearRecords)
   // Zanim cokolwiek policzymy: zapamiętaj, kto właśnie siada w Rzeszowie
   // albo Krakowie. To wiedza na następny raz.
@@ -248,7 +213,8 @@ export async function collect({
   }
   if (observed) for (const hex of seen.keys()) observed.add(hex)
 
-  const resolved = await mapLimit([...seen.values()], RESOLVE_CONCURRENCY, a => resolveArrival(a, store))
+  const resolved = await mapLimit([...seen.values()], RESOLVE_CONCURRENCY, resolveArrival)
+  await routes.save(store).catch(err => console.error('[inbound] zapis tras:', err.message))
   const out = resolved.filter(Boolean)
   // Najbliżej lądowania na górze.
   out.sort((x, y) => (x.etaMin ?? 1e9) - (y.etaMin ?? 1e9))
@@ -256,7 +222,7 @@ export async function collect({
 }
 
 // Rekord z ADS-B → wpis przylotu albo null (nie leci do Rzeszowa/Krakowa).
-async function resolveArrival(a, store) {
+async function resolveArrival(a) {
   const callsign = (a.flight || '').trim()
   const ac = {
     hex: a.hex,
@@ -275,7 +241,7 @@ async function resolveArrival(a, store) {
   // Trasa z bazy ma pierwszeństwo: mówi wprost, dokąd lot jest zgłoszony,
   // i działa już nad Atlantykiem. Dopiero gdy jej nie ma, patrzymy, czy
   // maszyna nie podchodzi właśnie do lądowania.
-  const known = await fetchRoute(callsign, store)
+  const known = await fetchRoute(callsign)
   let route = null
   let airport = null
   if (known) {
@@ -291,7 +257,7 @@ async function resolveArrival(a, store) {
       airport = guess.airport
       route = { from: null, fromCity: null, to: airport.icao, toCity: airport.name, guess: true }
     } else {
-      const remembered = await learnedRoute(callsign, store)
+      const remembered = learnedRoute(callsign)
       if (!remembered) return null
       airport = airportByIcao(remembered.to)
       // Pamięć to tylko przesłanka (a przed poprawką z 02.11.2026 zapisywała
@@ -340,12 +306,10 @@ export async function collectInbound(geoRecords) {
   const observed = new Set()
   let inbound, deepInbound
   if (full) {
-    inbound = deepInbound = await collect({
-      deep: false, observed, nearRecords: geoRecords, typeRecords: raw.aircraft,
-    })
+    inbound = deepInbound = await collect({ observed, nearRecords: geoRecords, typeRecords: raw.aircraft })
   } else {
     deepInbound = rawFresh ? prev?.deepInbound || [] : []
-    const found = await collect({ deep: false, observed, nearRecords: geoRecords })
+    const found = await collect({ observed, nearRecords: geoRecords })
     inbound = carryForward(found, deepInbound, observed)
   }
   await store.set(SNAPSHOT_KEY, JSON.stringify({
@@ -373,6 +337,8 @@ export const handler = async (event) => {
         const snap = await getStore(SNAPSHOT_STORE).get(SNAPSHOT_KEY, { type: 'json' })
         if (snap && now - snap.at < 15 * 60 * 1000) inbound = snap.inbound
       } catch { /* brak migawki → pobierzemy sami */ }
+      // Zapas, gdy tick nie działa: sam ruch nad Polską. Bez zapytań o typy —
+      // z przerwami między nimi trwają kilka sekund, a tu czeka użytkownik.
       if (!inbound) inbound = await collect()
       cache = { at: now, body: JSON.stringify({ updated: new Date(now).toISOString(), inbound }) }
     } catch (err) {

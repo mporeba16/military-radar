@@ -2,7 +2,8 @@
 // i zapytanie geograficzne nad Polską) pobiera tick raz dla wszystkich
 // zadań; tu tylko je filtrujemy i zapisujemy.
 import { getStore } from '@netlify/blobs'
-import { saveTrails } from '../aircraft.js'
+import { saveTrails, TRAILS_STORE, TRAIL_INDEX_STORE, TRAIL_INDEX_KEY } from '../aircraft.js'
+import { BlobBook } from './blobBook.js'
 import { classifyADSBfi, isPlausibleRecord, isTrainingAircraft } from './military.js'
 
 // Szeroki bounding box pokrywający Europę + zachodnia Rosja + bliski wschód
@@ -34,12 +35,49 @@ function mapRecord(a) {
   }
 }
 
+// ── Sprzątanie śladów ───────────────────────────────────────────────────
+// Raz na godzinę (w pół godziny, żeby nie trafiać razem ze sprzątaniem
+// powiadomień) kasujemy ślady, których nie ma w indeksie — czyli takie, do
+// których od 4 godzin nie dopisał się żaden punkt. Najwyżej PURGE_MAX naraz
+// i z limitem czasu: zaległość z czasów bez indeksu (ponad 5 tys. blobów)
+// zejdzie w kilkanaście godzin, a żaden przebieg nie stanie się przez to długi.
+const PURGE_MAX = 300
+const PURGE_CONCURRENCY = 10
+const PURGE_BUDGET_MS = 4000
+
+export function isPurgeRun(at) {
+  return (at + 1_800_000) % 3_600_000 < 120_000
+}
+
+export async function purgeStaleTrails(now = Date.now()) {
+  // Świeży odczyt indeksu, nie pamięć instancji — inna mogła dopisać ślady.
+  const index = new BlobBook(TRAIL_INDEX_KEY, 4 * 60 * 60 * 1000)
+  await index.load(getStore(TRAIL_INDEX_STORE), now)
+  // Pusty indeks to brak danych (np. pierwszy przebieg po wdrożeniu), nie
+  // „wszystko jest stare" — wtedy nie kasujemy niczego.
+  if (!index.entries.size) return 0
+  const trails = getStore(TRAILS_STORE)
+  const { blobs } = await trails.list()
+  const stale = (blobs || []).map(b => b.key).filter(k => !index.get(k, now)).slice(0, PURGE_MAX)
+  let removed = 0
+  let next = 0
+  const deadline = now + PURGE_BUDGET_MS
+  const worker = async () => {
+    while (next < stale.length && Date.now() < deadline) {
+      await trails.delete(stale[next++]).then(() => { removed++ }, () => {})
+    }
+  }
+  await Promise.all(Array.from({ length: PURGE_CONCURRENCY }, worker))
+  return removed
+}
+
 // `milRes` i `geoRes` to wyniki Promise.allSettled z fetchMilMerged()
 // i fetchAdsbfiGeo().
 export async function collectTrails({ milRes, geoRes }) {
   const startedAt = Date.now()
   let fetched = 0
   let saved = 0
+  let purged = null
   let error = null
 
   try {
@@ -77,6 +115,7 @@ export async function collectTrails({ milRes, geoRes }) {
     fetched = aircraft.length
     await saveTrails(aircraft)
     saved = aircraft.length
+    if (isPurgeRun(startedAt)) purged = await purgeStaleTrails().catch(() => 0)
   } catch (err) {
     error = err.message || 'exception'
   }
@@ -89,9 +128,11 @@ export async function collectTrails({ milRes, geoRes }) {
       durationMs: Date.now() - startedAt,
       fetched,
       saved,
+      purged,
       error,
     }))
   } catch {}
 
-  return `collect ${error ? `ERROR ${error}` : `OK saved=${saved}`} in ${Date.now() - startedAt}ms`
+  const purgeNote = purged != null ? ` purged=${purged}` : ''
+  return `collect ${error ? `ERROR ${error}` : `OK saved=${saved}${purgeNote}`} in ${Date.now() - startedAt}ms`
 }

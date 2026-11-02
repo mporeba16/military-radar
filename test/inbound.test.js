@@ -130,7 +130,7 @@ describe('start z Rzeszowa to nie lądowanie', () => {
     vi.resetModules()
     const { collect, carryForward } = await import('../netlify/functions/inbound.js')
     const observed = new Set()
-    const out = await collect({ deep: false, store: null, observed })
+    const out = await collect({ store: null, observed })
     expect(out).toEqual([])
     // Poprzednia migawka miała go jeszcze jako lecącego do Rzeszowa — nie wraca.
     expect(carryForward(out, [{ hex: 'c1', route: { to: 'EPRZ' } }], observed)).toEqual([])
@@ -180,20 +180,33 @@ describe('funkcja inbound', () => {
       CLX999: { origin: { icao_code: 'ELLX' }, destination: { icao_code: 'EDDF' } },
     }
     vi.stubGlobal('fetch', async (url) => {
-      const u = String(url)
-      const type = u.match(/v2\/type\/(\w+)/)?.[1]
-      if (type) return { ok: true, status: 200, json: async () => ({ ac: planes[type] || [] }) }
-      const cs = u.match(/callsign\/(\w+)/)?.[1]
+      const cs = String(url).match(/callsign\/(\w+)/)?.[1]
       return { ok: true, status: 200, json: async () => ({ response: { flightroute: routes[cs] || null } }) }
     })
 
+    vi.resetModules()
+    const { collect } = await import('../netlify/functions/inbound.js')
+    const out = await collect({ store: null, nearRecords: [], typeRecords: planes.B744 })
+    expect(out).toHaveLength(1)
+    expect(out[0]).toMatchObject({ hex: 'a1', flight: 'GTI123', route: { to: 'EPRZ', fromCity: 'Chicago' } })
+    expect(out[0].etaMin).toBeGreaterThan(20)
+  }, 30000)
+
+  it('bez migawki z ticka odpowiada samym ruchem nad Polską — bez zapytań o typy', async () => {
+    // Zapytania o typy idą z przerwami (kilka sekund) — nie w odpowiedzi,
+    // na którą czeka użytkownik.
+    const urls = []
+    vi.stubGlobal('fetch', async (url) => {
+      urls.push(String(url))
+      if (/adsb\.fi/.test(String(url))) return { ok: true, status: 200, json: async () => ({ ac: [] }) }
+      return { ok: true, status: 200, json: async () => ({ response: { flightroute: null } }) }
+    })
+    vi.resetModules()
     const { handler } = await import('../netlify/functions/inbound.js')
     const res = await handler({ httpMethod: 'GET', headers: {} })
-    const body = JSON.parse(res.body)
     expect(res.statusCode).toBe(200)
-    expect(body.inbound).toHaveLength(1)
-    expect(body.inbound[0]).toMatchObject({ hex: 'a1', flight: 'GTI123', route: { to: 'EPRZ', fromCity: 'Chicago' } })
-    expect(body.inbound[0].etaMin).toBeGreaterThan(20)
+    expect(JSON.parse(res.body).inbound).toEqual([])
+    expect(urls.some(u => /v2\/type\//.test(u))).toBe(false)
   }, 30000)
 
   it('łapie czarter bez wpisu w bazie tras, gdy podchodzi do lądowania', async () => {
@@ -302,9 +315,20 @@ describe('pamięć lądowań', () => {
     ], store)
 
     expect(zapis).toEqual(['CMB336→EPRZ'])
-    expect(store.data.get('landed-CMB336')).toMatchObject({ to: 'EPRZ' })
-    expect(store.data.has('landed-CAO1189')).toBe(false)
-    expect(store.data.has('landed-GTI999')).toBe(false)
+    // Jeden blob na wszystkie lądowania, nie osobny na każdy znak.
+    const book = store.data.get('book-landings').entries
+    expect(book.CMB336).toMatchObject({ to: 'EPRZ' })
+    expect(Object.keys(book)).toEqual(['CMB336'])
+  })
+
+  it('wpis niepewny (sprzed poprawki) potwierdza prawdziwe lądowanie', async () => {
+    vi.resetModules()
+    const { learnLandings } = await import('../netlify/functions/inbound.js')
+    const store = fakeStore()
+    const now = Date.now()
+    store.data.set('book-landings', { entries: { CMB358: { at: now - 3600_000, to: 'EPRZ', unverified: true } } })
+    await learnLandings([{ flight: 'CMB358', t: 'B744', lat: 50.11, lon: 22.02, alt_baro: 800, baro_rate: -700 }], store, now)
+    expect(store.data.get('book-landings').entries.CMB358).toEqual({ at: now, to: 'EPRZ' })
   })
 
   it('nie zapamiętuje odlotu: kołowanie, rozbieg ani wznoszenie', async () => {
@@ -346,7 +370,7 @@ describe('pamięć lądowań', () => {
 
     vi.resetModules()
     const mod = await import('../netlify/functions/inbound.js')
-    const out = await mod.collect({ deep: true, store })
+    const out = await mod.collect({ store, typeRecords: mod.watchedRecords(daleko) })
     expect(out).toHaveLength(1)
     expect(out[0]).toMatchObject({ flight: 'CMB336', route: { to: 'EPRZ', learned: true } })
   }, 30000)

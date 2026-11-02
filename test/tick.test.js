@@ -18,6 +18,9 @@ vi.mock('../netlify/functions/inbound.js', () => ({
     return 'inbound n=0'
   }),
 }))
+vi.mock('../netlify/functions/lib/health.js', () => ({
+  checkHealth: vi.fn(async ({ parts }) => { calls.push('health'); return `health ${parts.length}` }),
+}))
 vi.mock('../netlify/functions/lib/notifyJob.js', () => ({
   runNotify: vi.fn(async () => { calls.push('notify'); return 'notify OK' }),
 }))
@@ -32,5 +35,8 @@ describe('tick', () => {
     expect(body).toMatch(/ERROR blobs/)
     expect(body).toMatch(/inbound n=0/)
     expect(body).toMatch(/notify OK/)
+    // Alarmy oceniają wyniki trzech zadań, więc idą na końcu.
+    expect(calls.at(-1)).toBe('health')
+    expect(body).toMatch(/health 3/)
   })
 })

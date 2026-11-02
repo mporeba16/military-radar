@@ -19,6 +19,7 @@ import {
   isPlausibleRecord,
 } from './lib/military.js'
 import { fetchMilMerged, fetchAdsbfiGeo, fetchOpenSkyMilitary } from './lib/sources.js'
+import { BlobBook } from './lib/blobBook.js'
 
 // Redukcja szumu: poza Polską pokazujemy tylko maszyny ze znanym kodem typu.
 // Rekordy bez `t` to zwykle Mode-S / MLAT bez danych — masa kropek bez wartości.
@@ -30,6 +31,7 @@ function passesTypeNoise(a) {
 
 // Wspólny cache live-snapshotu (redukuje zapytania do adsb.fi → mniej 429)
 const SNAPSHOT_TTL_MS = 9000
+const MAX_RADIUS_KM = 3000
 // Jak stara może być migawka oddana, gdy źródła nie odpowiadają. Dziesięć
 // minut to granica, po której pozycje przestają mieć sens (maszyna zdąży
 // przelecieć ~130 km).
@@ -104,6 +106,15 @@ export function filterImplausibleJumps(sortedPoints) {
 
 // In-memory cache — survives across warm function invocations (eliminates per-aircraft blob reads)
 const trailCache = new Map() // hex → { points, flight, t }
+
+// Indeks śladów: hex → { at } ostatniego zapisanego punktu. Bez niego nie dało
+// się sprzątać — ślad przydaje się 4 godziny, a blob zostawał na zawsze
+// (5324 bloby 02.11.2026). Żeby poznać wiek śladu, trzeba by czytać każdy
+// z osobna; z indeksem wystarczy lista kluczy.
+export const TRAILS_STORE = 'aircraft-trails'
+export const TRAIL_INDEX_STORE = 'aircraft-trails-index'
+export const TRAIL_INDEX_KEY = 'book'
+export const trailIndex = new BlobBook(TRAIL_INDEX_KEY, TRAIL_MAX_AGE_MS)
 
 // OpenSky — zapas, gdy adsb.fi i adsb.lol zawiodą (szczegóły w sources.js).
 async function tryOpenSky(lamin, lomin, lamax, lomax) {
@@ -211,7 +222,7 @@ export const handler = async (event) => {
     let blobError = null
     let allPoints = []
     try {
-      const data = await getStore('aircraft-trails').get(lowerHex, { type: 'json' })
+      const data = await getStore(TRAILS_STORE).get(lowerHex, { type: 'json' })
       allPoints = data?.points || []
     } catch (err) {
       blobError = err.message
@@ -227,7 +238,9 @@ export const handler = async (event) => {
 
     return {
       statusCode: 200,
-      headers,
+      // Trasa rośnie najczęściej co 15 s (przy oglądaniu) i co 2 min (cron) —
+      // pół minuty w CDN zbiera zapytania kilku osób patrzących na tę samą maszynę.
+      headers: { ...headers, 'Cache-Control': 'public, max-age=0, s-maxage=30' },
       body: JSON.stringify({
         trail: currentFlight,
         // Początek lotu liczony PRZED przycięciem do 500 punktów — inaczej
@@ -246,9 +259,13 @@ export const handler = async (event) => {
 
   const latN = Number(lat)
   const lonN = Number(lon)
-  const radiusKm = Number(radius) || 100
+  // Zasięg z adresu trafia do klucza migawki w Blobs i omija CDN — bez
+  // granicy każda wymyślona wartość to nowy blob i nowe zapytanie do adsb.fi.
+  // Klient pyta zawsze o ten sam obszar (2800 km od środka Europy).
+  const radiusKm = Math.min(MAX_RADIUS_KM, Math.max(1, Math.round(Number(radius)) || 100))
 
-  if (!lat || !lon || isNaN(latN) || isNaN(lonN)) {
+  if (!lat || !lon || !Number.isFinite(latN) || !Number.isFinite(lonN) ||
+    Math.abs(latN) > 90 || Math.abs(lonN) > 180) {
     return { statusCode: 400, headers, body: JSON.stringify({ error: 'Brak parametrów lat/lon' }) }
   }
 
@@ -291,7 +308,7 @@ export const handler = async (event) => {
   }
 
   // Jumbo jety do 100 km od granic: zapytanie geo adsb.fi sięga tylko 250 nm od
-  // środka Polski, więc brzegi bierzemy z migawki crona heavy-collect (adsb.lol po typie).
+  // środka Polski, więc brzegi bierzemy z migawki crona types-collect na Cloudflare (adsb.lol po typie).
   if (Array.isArray(result.aircraft)) {
     try {
       const heavy = await getStore(HEAVY_STORE).get(HEAVY_KEY, { type: 'json' })
@@ -335,7 +352,7 @@ let lastLiveTrailSave = 0
 
 export async function saveTrails(aircraft) {
   if (!aircraft?.length) return
-  const store = getStore('aircraft-trails')
+  const store = getStore(TRAILS_STORE)
   const now = Date.now()
 
   // Load from blob only for aircraft not yet in the in-memory cache (cold start / new aircraft)
@@ -377,6 +394,16 @@ export async function saveTrails(aircraft) {
   await Promise.allSettled(toWrite.map(hex =>
     store.set(hex, JSON.stringify(trailCache.get(hex)))
   ))
+  if (toWrite.length) {
+    try {
+      const idx = getStore(TRAIL_INDEX_STORE)
+      await trailIndex.load(idx, now)
+      for (const hex of toWrite) trailIndex.set(hex, { at: now })
+      await trailIndex.save(idx, now)
+    } catch (err) {
+      console.error('[trails] indeks:', err.message)
+    }
+  }
 
   // Evict stale entries so the in-memory cache doesn't grow unbounded across
   // the lifetime of a warm lambda — an aircraft that vanished from the feed

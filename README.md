@@ -84,8 +84,9 @@ flowchart LR
 | `tick` | one cron every 2 minutes: fetches the military lists and traffic over Poland once, then records trails, refreshes arrivals over Poland and sends push alerts |
 | `airspace` | proxies and trims the PANSA airspace use plan (no CORS upstream), cached 10 min |
 | `inbound` | serves 747s and An-124s bound for Rzeszów or Kraków |
-| Cloudflare `inbound-deep` | worldwide 747/An-124 lookup every 10 minutes (adsb.lol + adsbdb), so page traffic never reaches those services |
+| Cloudflare `types-collect` | worldwide 747/An-124 lookup by type on adsb.lol every 5 minutes: the snapshot near Poland for the map, and every ~10 minutes the raw list whose routes `tick` resolves (adsbdb), so page traffic never reaches those services |
 | `subscribe` / `status` / `test-push` | subscription storage, diagnostics, test push |
+| `usage` | anonymous user count: each device sends a salted-hash ID once a day; returns daily / weekly / monthly totals (shown in the hidden diagnostics) |
 
 ## Running locally
 

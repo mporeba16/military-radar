@@ -126,3 +126,43 @@ describe('wspólna migawka ticka', () => {
     expect((await fetchMilGlobal()).map(a => a.hex)).toEqual(['ae1234'])
   })
 })
+
+describe('fetchAdsbLolTypes', () => {
+  const fast = { gapMs: 0, retryMs: 0 }
+
+  it('typ, który padł, nie zabiera pozostałych; po 429 jedno ponowienie', async () => {
+    let b748 = 0
+    vi.stubGlobal('fetch', vi.fn(async (url) => {
+      const u = String(url)
+      if (u.endsWith('/A124')) throw new Error('timeout')
+      if (u.endsWith('/B748')) return ++b748 === 1 ? json({}, 429) : json({ ac: [{ hex: 'b1', t: 'B748' }] })
+      return json({ ac: [{ hex: 'c1', t: 'B744' }, { hex: 'b1', t: 'B744' }] })
+    }))
+    const { fetchAdsbLolTypes } = await load()
+    const out = await fetchAdsbLolTypes(['A124', 'B748', 'B744'], fast)
+    expect(out.records.map(a => a.hex)).toEqual(['b1', 'c1'])
+    expect(out.fetched).toEqual(['B748', 'B744'])
+    expect(out.failed).toEqual([expect.stringContaining('A124')])
+    expect(b748).toBe(2)
+  })
+})
+
+describe('nieudany ruch nad Polską w ticku', () => {
+  it('powiadomienia nie pytają adsb.fi drugi raz — fetchAdsbfiGeo już ponawiał', async () => {
+    routeFetch({})
+    const { shareSnapshot, fetchMilitaryNear, sharedGeo } = await load()
+    shareSnapshot({
+      milRes: { status: 'fulfilled', value: { records: [reach], errors: [] } },
+      geoRes: { status: 'rejected', reason: new Error('timeout') },
+    })
+    expect(sharedGeo()).toEqual([])
+    const out = await fetchMilitaryNear(50.06, 19.94, 100)
+    expect(out.map(a => a.hex)).toEqual(['ae1234'])
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('bez migawki ticka (wywołanie spoza crona) — brak wspólnych danych', async () => {
+    const { sharedGeo } = await load()
+    expect(sharedGeo()).toBeUndefined()
+  })
+})
