@@ -171,14 +171,47 @@ async function learnedRoute(callsign, store, now = Date.now()) {
 // przebieg powiadomień musiałby sam pytać adsb.lol.
 export const SNAPSHOT_STORE = 'inbound-snapshot'
 export const SNAPSHOT_KEY = 'latest'
-// Wynik pełnego przebiegu (zapytania o typy do adsb.lol) — pisze go cron na
-// Cloudflare (cloudflare/inbound-deep.js), bo przerwy między zapytaniami
-// kosztowały na Netlify jak praca funkcji. Lekki przebieg w `tick` dokłada
-// do niego świeży ruch nad Polską i zapisuje `latest`.
-export const DEEP_KEY = 'deep'
-// Starsza migawka pełna znaczy, że cron na Cloudflare nie działa — lepiej
-// pokazać same przyloty widziane nad Polską niż pozycje sprzed godziny.
+// Surowa lista obserwowanych typów z całego świata (zapytania do adsb.lol)
+// — pisze ją cron na Cloudflare (cloudflare/inbound-deep.js), bo przerwy
+// między zapytaniami kosztowały na Netlify jak praca funkcji. Trasy do niej
+// rozwiązuje już `tick`: Worker na darmowym planie ma limit 50 zapytań
+// wychodzących na uruchomienie, a każda maszyna to odczyt trasy z Blobs,
+// często adsbdb i zapis — przy ~70 jumbo jetach limit pękał.
+export const DEEP_RAW_KEY = 'deep-raw'
+// Starsza lista znaczy, że cron na Cloudflare nie działa — lepiej pokazać
+// same przyloty widziane nad Polską niż pozycje sprzed godziny.
 const DEEP_MAX_AGE_MS = 30 * 60 * 1000
+
+// Typy pobieramy po kolei, z odstępem — adsb.lol to serwis społecznościowy
+// i po kilku zapytaniach pod rząd zaczyna odpowiadać 429.
+export async function fetchWatchedTypes() {
+  const byHex = new Map()
+  for (const type of WATCHED_TYPES) {
+    for (const a of await fetchType(type)) {
+      if (!byHex.has(a.hex)) byHex.set(a.hex, a)
+    }
+    await sleep(1200)
+  }
+  return [...byHex.values()]
+}
+
+// Trasy rozwiązujemy po kilka naraz — po kolei 70 odczytów z Blobs to
+// sekundy czekania, a za nie Netlify liczy kredyty. Nie więcej, bo przy
+// pustej pamięci każde to także zapytanie do adsbdb.
+const RESOLVE_CONCURRENCY = 8
+
+async function mapLimit(items, limit, fn) {
+  const out = new Array(items.length)
+  let next = 0
+  const worker = async () => {
+    while (next < items.length) {
+      const i = next++
+      out[i] = await fn(items[i])
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
+  return out
+}
 
 // Dwa tempa. Podejście do lądowania widać dopiero kilkadziesiąt kilometrów
 // przed lotniskiem, czyli przez jakieś dziesięć minut lotu — przy zbieraniu
@@ -189,23 +222,20 @@ const DEEP_MAX_AGE_MS = 30 * 60 * 1000
 // `observed` (opcjonalny Set) dostaje hexy WSZYSTKICH maszyn widzianych
 // w tym przebiegu, także odrzuconych — carryForward nie może wskrzesić
 // maszyny, którą właśnie odsialiśmy jako startującą. `nearRecords` to ruch
-// nad Polską już pobrany przez `tick` (bez nich pytamy adsb.fi sami).
-export async function collect({ deep = true, store: injected = null, observed = null, nearRecords = null } = {}) {
+// nad Polską już pobrany przez `tick` (bez nich pytamy adsb.fi sami),
+// `typeRecords` — lista typów z Cloudflare zamiast własnych zapytań.
+export async function collect({
+  deep = true, store: injected = null, observed = null, nearRecords = null, typeRecords = null,
+} = {}) {
   let store = injected
   if (!store) {
     try { store = getStore('flight-routes') } catch { /* bez cache też zadziała */ }
   }
 
   const seen = new Map()
-  if (deep) {
-    // Typy pobieramy po kolei, z odstępem — adsb.lol to serwis społecznościowy
-    // i po kilku zapytaniach pod rząd zaczyna odpowiadać 429.
-    for (const type of WATCHED_TYPES) {
-      for (const a of await fetchType(type)) {
-        if (!seen.has(a.hex)) seen.set(a.hex, a)
-      }
-      await sleep(1200)
-    }
+  const types = typeRecords ?? (deep ? await fetchWatchedTypes() : [])
+  for (const a of types) {
+    if (!seen.has(a.hex)) seen.set(a.hex, a)
   }
 
   const nearPoland = await fetchNearPoland(nearRecords)
@@ -218,65 +248,68 @@ export async function collect({ deep = true, store: injected = null, observed = 
   }
   if (observed) for (const hex of seen.keys()) observed.add(hex)
 
-  const out = []
-  for (const a of seen.values()) {
-    const callsign = (a.flight || '').trim()
-    const ac = {
-      hex: a.hex,
-      flight: callsign,
-      t: a.t || '',
-      reg: a.r || null,
-      lat: a.lat,
-      lon: a.lon,
-      alt_baro: typeof a.alt_baro === 'number' ? a.alt_baro : null,
-      gs: a.gs != null ? Math.round(a.gs) : null,
-      track: a.track != null ? Math.round(a.track) : null,
-      vr: verticalRate(a) != null ? Math.round(verticalRate(a)) : null,
-      on_ground: a.alt_baro === 'ground',
-    }
-
-    // Trasa z bazy ma pierwszeństwo: mówi wprost, dokąd lot jest zgłoszony,
-    // i działa już nad Atlantykiem. Dopiero gdy jej nie ma, patrzymy, czy
-    // maszyna nie podchodzi właśnie do lądowania.
-    const known = await fetchRoute(callsign, store)
-    let route = null
-    let airport = null
-    if (known) {
-      if (!DEST.has(known.to)) continue
-      route = known
-      airport = ARRIVAL_AIRPORTS.find(x => x.icao === known.to)
-    } else {
-      // Bez trasy z bazy: najpierw geometria (pewna, ale tylko z bliska),
-      // potem pamięć wcześniejszych lądowań (niepewna, za to działa już
-      // po starcie po drugiej stronie oceanu).
-      const guess = approachGuess(ac)
-      if (guess) {
-        airport = guess.airport
-        route = { from: null, fromCity: null, to: airport.icao, toCity: airport.name, guess: true }
-      } else {
-        const remembered = await learnedRoute(callsign, store)
-        if (!remembered) continue
-        airport = airportByIcao(remembered.to)
-        // Pamięć to tylko przesłanka (a przed poprawką z 02.11.2026 zapisywała
-        // też odloty) — lot, który z daleka leci w przeciwną stronę, tam nie leci.
-        if (ac.track != null && headingDiff(ac.track, bearingTo(ac, airport)) > 90) continue
-        route = remembered
-      }
-    }
-
-    // Cel znany, ale maszyna właśnie z niego startuje albo od niego odlatuje.
-    if (leavingAirport(ac, airport)) continue
-
-    out.push({
-      ...ac,
-      route,
-      distKm: distanceKm(ac, airport),
-      etaMin: etaMinutes(ac, airport),
-    })
-  }
+  const resolved = await mapLimit([...seen.values()], RESOLVE_CONCURRENCY, a => resolveArrival(a, store))
+  const out = resolved.filter(Boolean)
   // Najbliżej lądowania na górze.
   out.sort((x, y) => (x.etaMin ?? 1e9) - (y.etaMin ?? 1e9))
   return out
+}
+
+// Rekord z ADS-B → wpis przylotu albo null (nie leci do Rzeszowa/Krakowa).
+async function resolveArrival(a, store) {
+  const callsign = (a.flight || '').trim()
+  const ac = {
+    hex: a.hex,
+    flight: callsign,
+    t: a.t || '',
+    reg: a.r || null,
+    lat: a.lat,
+    lon: a.lon,
+    alt_baro: typeof a.alt_baro === 'number' ? a.alt_baro : null,
+    gs: a.gs != null ? Math.round(a.gs) : null,
+    track: a.track != null ? Math.round(a.track) : null,
+    vr: verticalRate(a) != null ? Math.round(verticalRate(a)) : null,
+    on_ground: a.alt_baro === 'ground',
+  }
+
+  // Trasa z bazy ma pierwszeństwo: mówi wprost, dokąd lot jest zgłoszony,
+  // i działa już nad Atlantykiem. Dopiero gdy jej nie ma, patrzymy, czy
+  // maszyna nie podchodzi właśnie do lądowania.
+  const known = await fetchRoute(callsign, store)
+  let route = null
+  let airport = null
+  if (known) {
+    if (!DEST.has(known.to)) return null
+    route = known
+    airport = ARRIVAL_AIRPORTS.find(x => x.icao === known.to)
+  } else {
+    // Bez trasy z bazy: najpierw geometria (pewna, ale tylko z bliska),
+    // potem pamięć wcześniejszych lądowań (niepewna, za to działa już
+    // po starcie po drugiej stronie oceanu).
+    const guess = approachGuess(ac)
+    if (guess) {
+      airport = guess.airport
+      route = { from: null, fromCity: null, to: airport.icao, toCity: airport.name, guess: true }
+    } else {
+      const remembered = await learnedRoute(callsign, store)
+      if (!remembered) return null
+      airport = airportByIcao(remembered.to)
+      // Pamięć to tylko przesłanka (a przed poprawką z 02.11.2026 zapisywała
+      // też odloty) — lot, który z daleka leci w przeciwną stronę, tam nie leci.
+      if (ac.track != null && headingDiff(ac.track, bearingTo(ac, airport)) > 90) return null
+      route = remembered
+    }
+  }
+
+  // Cel znany, ale maszyna właśnie z niego startuje albo od niego odlatuje.
+  if (leavingAirport(ac, airport)) return null
+
+  return {
+    ...ac,
+    route,
+    distKm: distanceKm(ac, airport),
+    etaMin: etaMinutes(ac, airport),
+  }
 }
 
 // Lekki przebieg nie pyta adsb.lol, więc nie widzi maszyn spoza okolic
@@ -290,18 +323,36 @@ export function carryForward(fresh, prev = [], observed = new Set()) {
   return [...fresh, ...carried].sort((x, y) => (x.etaMin ?? 1e9) - (y.etaMin ?? 1e9))
 }
 
-// Lekki przebieg — część crona `tick` (co 2 min). `geoRecords` to ruch nad
-// Polską pobrany raz dla wszystkich zadań ticka.
+// Przyloty — część crona `tick` (co 2 min). `geoRecords` to ruch nad Polską
+// pobrany raz dla wszystkich zadań ticka. Gdy z Cloudflare przyszła nowa
+// lista typów (co 10 min), to jest przebieg pełny: rozwiązujemy jej trasy
+// i wynik zapamiętujemy jako `deepInbound`. Między nimi tylko ruch nad
+// Polską plus przeniesienie maszyn z ostatniego przebiegu pełnego.
 export async function collectInbound(geoRecords) {
   const startedAt = Date.now()
   const store = getStore(SNAPSHOT_STORE)
-  const deepSnap = await store.get(DEEP_KEY, { type: 'json' }).catch(() => null)
-  const deepFresh = deepSnap && startedAt - deepSnap.at < DEEP_MAX_AGE_MS
+  const [prev, raw] = await Promise.all([
+    store.get(SNAPSHOT_KEY, { type: 'json' }).catch(() => null),
+    store.get(DEEP_RAW_KEY, { type: 'json' }).catch(() => null),
+  ])
+  const rawFresh = !!raw && startedAt - raw.at < DEEP_MAX_AGE_MS
+  const full = rawFresh && raw.at !== prev?.deepAt
   const observed = new Set()
-  const found = await collect({ deep: false, observed, nearRecords: geoRecords })
-  const inbound = carryForward(found, deepFresh ? deepSnap.inbound : [], observed)
-  await store.set(SNAPSHOT_KEY, JSON.stringify({ at: Date.now(), deepAt: deepSnap?.at, inbound }))
-  return `inbound n=${inbound.length}${deepFresh ? '' : ' (brak świeżej migawki pełnej)'} in ${Date.now() - startedAt}ms`
+  let inbound, deepInbound
+  if (full) {
+    inbound = deepInbound = await collect({
+      deep: false, observed, nearRecords: geoRecords, typeRecords: raw.aircraft,
+    })
+  } else {
+    deepInbound = rawFresh ? prev?.deepInbound || [] : []
+    const found = await collect({ deep: false, observed, nearRecords: geoRecords })
+    inbound = carryForward(found, deepInbound, observed)
+  }
+  await store.set(SNAPSHOT_KEY, JSON.stringify({
+    at: Date.now(), deepAt: rawFresh ? raw.at : null, deepInbound, inbound,
+  }))
+  const note = full ? ' pełny' : rawFresh ? '' : ' (brak świeżej listy z Cloudflare)'
+  return `inbound n=${inbound.length}${note} in ${Date.now() - startedAt}ms`
 }
 
 export const handler = async (event) => {
