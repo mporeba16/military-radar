@@ -22,6 +22,20 @@ describe('typePhoto', () => {
     expect(isSameAirframe(typePhoto('MI8'), '48da45')).toBe(false)
   })
 
+  it('ma irlandzkiego Falcona 6X „290" — planespotters nie ma go wcale', () => {
+    const p = typePhoto('FA6X')
+    expect(p).toMatchObject({ author: 'André Gerwing', license: 'CC BY-SA 4.0' })
+    expect(isSameAirframe(p, '4ca448')).toBe(true)
+    // Inny Falcon 6X dostaje to samo zdjęcie, ale jako poglądowe.
+    expect(isSameAirframe(p, '3b7a01')).toBe(false)
+  })
+
+  it('ma tajskiego A340-500 HS-TYV — planespotters nie ma go wcale', () => {
+    const p = typePhoto('A345')
+    expect(p).toMatchObject({ author: 'Colin Cooke Photo', license: 'CC BY-SA 4.0' })
+    expect(isSameAirframe(p, '885336')).toBe(true)
+  })
+
   it('ma polskiego Herculesa dla C130, ale nie dla C-130J', () => {
     // PLF252 nadaje bez typu i bez rejestracji — żadna baza zdjęć go nie zna.
     expect(typePhoto('C130')?.author).toBe('Gerard van der Schaaf')

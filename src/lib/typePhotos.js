@@ -19,6 +19,28 @@ const PHOTOS = [
     source: 'https://commons.wikimedia.org/wiki/File:Lithuanian_Air_Force,_02,_Let_L-410UVP_Turbolet.jpg',
   },
   {
+    // Irlandzki Falcon 6X „290" (IRL290, 4ca448) — nowa maszyna Air Corps;
+    // planespotters nie ma jej zdjęcia ani pod hexem, ani pod rejestracją.
+    // To zdjęcie tego samego egzemplarza (c/n 27), Berlin, 16.04.2026.
+    match: /^FA6X$/,
+    hex: '4ca448',
+    src: '/photos/fa6x-ie.jpg',
+    author: 'André Gerwing',
+    license: 'CC BY-SA 4.0',
+    source: 'https://commons.wikimedia.org/wiki/File:Dassault_Falcon_6X_(c-n_27,_290)_2026-04-16_Andre_Gerwing_Collection_ID_028471.jpg',
+  },
+  {
+    // Tajski rządowy A340-500 HS-TYV „60204" (RTAF202, 885336) — planespotters
+    // nie ma go ani pod hexem, ani pod rejestracją. Zdjęcie tego egzemplarza,
+    // Stansted, 25.09.2026.
+    match: /^A345$/,
+    hex: '885336',
+    src: '/photos/a345-th.jpg',
+    author: 'Colin Cooke Photo',
+    license: 'CC BY-SA 4.0',
+    source: 'https://commons.wikimedia.org/wiki/File:HS-TYV_60204_Airbus_A340-500_Royal_Thai_Air_Force_Stansted_25.9.26.jpg',
+  },
+  {
     // Polski C-130E „1502". PLF252 nadaje bez typu i bez rejestracji, więc
     // ani planespotters, ani adsbdb nie mają jak zwrócić jego zdjęcia.
     // Świadomie tylko C130: C-130J (kod C30J) ma sześciołopatowe śmigła

@@ -153,7 +153,8 @@ export const TYPE_SLUG_ALIASES = {
   H47: ['ch-47', 'chinook'],
   // Dassault Falcon / business jets (ICAO code != planespotters slug)
   F900: ['falcon-900', 'falcon'], F2TH: ['falcon-2000', 'falcon'],
-  FA7X: ['falcon-7x', 'falcon'], FA8X: ['falcon-8x', 'falcon'], F50: ['falcon-50', 'falcon'],
+  FA7X: ['falcon-7x', 'falcon'], FA8X: ['falcon-8x', 'falcon'],
+  FA6X: ['falcon-6x', 'falcon'], F50: ['falcon-50', 'falcon'],
   // Beechcraft King Air / C-12 Huron (USAF „SPAR"). Slug: „beechcraft-c-12c-b200-super-king-air".
   BE20: ['b200', 'king-air', 'c-12'], BE9L: ['king-air', 'c90'], BE9T: ['king-air', 'f90'],
   BE30: ['b300', 'king-air-350', 'king-air'], B350: ['b300', 'king-air-350', 'king-air'],
