@@ -10,8 +10,8 @@ const dayFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Warsaw', yea
 const SENT_KEY = 'radar.usageDay'
 // Podbijane, gdy sygnał niesie coś nowego, co warto uzupełnić jeszcze tego
 // samego dnia: urządzenie, które dziś już się zgłosiło, zgłosi się raz
-// jeszcze (serwer zachowa godzinę pierwszego otwarcia). v2 — miasto.
-const PING_VERSION = 'v2'
+// jeszcze (serwer zachowa godzinę pierwszego otwarcia). v2 — miasto, v3 — województwo.
+const PING_VERSION = 'v3'
 
 export function detectPlatform(ua = navigator.userAgent, touch = navigator.maxTouchPoints || 0) {
   if (/iphone|ipad|ipod/i.test(ua) || (/Macintosh/.test(ua) && touch > 1)) return 'ios'

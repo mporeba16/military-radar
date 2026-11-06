@@ -33,8 +33,8 @@ describe('licznik użytkowników — liczenie', () => {
       ],
     }, NOW)
     expect(out.daily[0].devices).toEqual([
-      { platform: 'android', city: null, country: 'PL', at: NOW - 3600_000 },
-      { platform: 'ios', city: 'Rzeszów', country: 'PL', at: NOW },
+      { platform: 'android', city: null, region: null, country: 'PL', at: NOW - 3600_000 },
+      { platform: 'ios', city: 'Rzeszów', region: null, country: 'PL', at: NOW },
     ])
   })
 
@@ -53,7 +53,7 @@ describe('licznik użytkowników — prywatność i dane wejściowe', () => {
 
   it('z ciała zapytania bierze tylko znane pola i wartości', () => {
     expect(usageRecord({ standalone: 'tak', push: true, platform: 'tv', extra: 'x', city: 'Fałsz' }, null, NOW))
-      .toEqual({ standalone: false, push: true, platform: 'other', city: null, country: null, at: NOW })
+      .toEqual({ standalone: false, push: true, platform: 'other', city: null, region: null, country: null, at: NOW })
   })
 
   it('miasto i kraj z geolokalizacji Netlify (x-nf-geo), bez adresu IP', () => {
@@ -61,7 +61,7 @@ describe('licznik użytkowników — prywatność i dane wejściowe', () => {
       city: 'Rzeszów', country: { code: 'PL', name: 'Poland' }, subdivision: { code: '18' }, latitude: 50.04, longitude: 22.0,
     })).toString('base64')
     expect(geoFromHeaders({ 'x-nf-geo': header, 'x-nf-client-connection-ip': '1.2.3.4' }))
-      .toEqual({ city: 'Rzeszów', country: 'PL' })
+      .toEqual({ city: 'Rzeszów', region: null, country: 'PL' })
     expect(geoFromHeaders({ 'x-nf-geo': 'śmieci' })).toBeNull()
     expect(geoFromHeaders({})).toBeNull()
   })
@@ -111,6 +111,12 @@ describe('funkcja usage', () => {
     await call('POST', { id: 'dev-3', platform: 'android' }, { city: 'Rzeszów', country: { code: 'PL' } })
     const stats = await (await call('GET')).json()
     expect(stats.daily[0].devices[0]).toMatchObject({ platform: 'android', city: 'Rzeszów', country: 'PL' })
+  })
+
+  it('bez miasta (adres operatora komórkowego) — zapisuje województwo', async () => {
+    await call('POST', { id: 'dev-5', platform: 'ios' }, { country: { code: 'PL' }, subdivision: { code: '18', name: 'Podkarpackie' } })
+    const stats = await (await call('GET')).json()
+    expect(stats.daily[0].devices[0]).toMatchObject({ city: null, region: 'Podkarpackie', country: 'PL' })
   })
 
   it('ponowny sygnał tego dnia uzupełnia miasto, ale zostawia godzinę pierwszego otwarcia', async () => {

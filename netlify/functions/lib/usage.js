@@ -9,7 +9,7 @@
 // ciasteczek i zewnętrznych usług.
 //
 // Układ w Blobs: `usage/<dzień>/<skrót>` →
-//   { standalone, push, platform, city, country, at }.
+//   { standalone, push, platform, city, region, country, at }.
 // Jeden wpis na urządzenie na dzień, ponowny sygnał tylko go nadpisuje.
 
 import crypto from 'crypto'
@@ -34,12 +34,17 @@ const PLATFORMS = new Set(['ios', 'android', 'desktop', 'other'])
 
 // Przybliżone położenie z `context.geo` funkcji w nowym formacie Netlify
 // (miasto, kraj ustalone po adresie IP). To jest główne źródło.
+// Dla adresów operatorów komórkowych baza często zna tylko kraj i region
+// (województwo) — wtedy region zamiast miasta, żeby lista nie pokazywała
+// „lokalizacja nieznana" przy połowie telefonów.
 export function geoFromContext(context) {
   const geo = context?.geo
-  const city = typeof geo?.city === 'string' && geo.city ? geo.city.slice(0, 60) : null
+  const text = v => (typeof v === 'string' && v.trim() ? v.trim().slice(0, 60) : null)
+  const city = text(geo?.city)
+  const region = text(geo?.subdivision?.name)
   const code = geo?.country?.code
   const country = typeof code === 'string' && /^[A-Z]{2}$/.test(code) ? code : null
-  return city || country ? { city, country } : null
+  return city || region || country ? { city, region, country } : null
 }
 
 // Zapas: położenie z nagłówka `x-nf-geo`, który Netlify dokleja do
@@ -49,10 +54,11 @@ export function geoFromHeaders(headers = {}) {
   const raw = headers['x-nf-geo'] || headers['X-Nf-Geo']
   let geo = null
   try { geo = raw ? JSON.parse(Buffer.from(raw, 'base64').toString('utf8')) : null } catch { /* brak */ }
-  const city = typeof geo?.city === 'string' ? geo.city.slice(0, 60) : null
+  const city = typeof geo?.city === 'string' && geo.city ? geo.city.slice(0, 60) : null
+  const region = typeof geo?.subdivision?.name === 'string' && geo.subdivision.name ? geo.subdivision.name.slice(0, 60) : null
   const code = geo?.country?.code || headers['x-country'] || null
   const country = typeof code === 'string' && /^[A-Z]{2}$/.test(code) ? code : null
-  return city || country ? { city, country } : null
+  return city || region || country ? { city, region, country } : null
 }
 
 // Rekord z ciała zapytania — tylko znane pola i wartości — plus położenie
@@ -63,6 +69,7 @@ export function usageRecord(body, geo = null, now = Date.now()) {
     push: body?.push === true,
     platform: PLATFORMS.has(body?.platform) ? body.platform : 'other',
     city: geo?.city ?? null,
+    region: geo?.region ?? null,
     country: geo?.country ?? null,
     at: now,
   }
@@ -97,7 +104,7 @@ export function summarize(keysByDay, recordsByDay = {}, now = Date.now()) {
         const pl = PLATFORMS.has(r?.platform) ? r.platform : 'other'
         platform[pl]++
         // Lista urządzeń dnia — bez skrótu identyfikatora, tylko to, co widać.
-        devices.push({ platform: pl, city: r?.city ?? null, country: r?.country ?? null, at: r?.at ?? null })
+        devices.push({ platform: pl, city: r?.city ?? null, region: r?.region ?? null, country: r?.country ?? null, at: r?.at ?? null })
       }
       devices.sort((a, b) => (a.at ?? 0) - (b.at ?? 0))
       return { day: d, n: (keysByDay[d] || []).length, platform, devices }

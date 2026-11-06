@@ -102,7 +102,9 @@ function DailyBars({ daily }) {
                   <span className="stat-chart__swatch" style={{ background: pl.color }} />
                   <span className="stat-devices__platform">{pl.label}</span>
                   <span className="stat-devices__place">
-                    {[dev.city, dev.country].filter(Boolean).join(', ') || t('USAGE_NO_PLACE')}
+                    {/* Miasto, a gdy baza położeń go nie zna (częste u operatorów
+                        komórkowych) — województwo. */}
+                    {[dev.city || dev.region, dev.country].filter(Boolean).join(', ') || t('USAGE_NO_PLACE')}
                   </span>
                   {dev.at && <span className="stat-devices__time">{timeFmt.format(dev.at)}</span>}
                 </li>
