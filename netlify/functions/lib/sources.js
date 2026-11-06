@@ -92,28 +92,49 @@ export async function fetchAdsbLolTypes(types, { gapMs = 1500, retryMs = 3000, t
   return { records: [...byHex.values()], fetched, failed }
 }
 
+// Gdy jedno źródło już odpowiedziało, na drugie czekamy najwyżej tyle.
+// Pomiar z 06.11.2026: 12 razy na dobę jedno z nich nie odpowiadało w 6 s,
+// a tick czekał na nie do końca (~7 s zamiast ~2,5 s), choć miał już listę
+// z drugiego. Kilka maszyn widocznych tylko w jednym źródle wróci za 2 minuty.
+export const MIL_SECOND_SOURCE_GRACE_MS = 2000
+
 /**
  * Globalne listy wojskowe z adsb.fi i adsb.lol, scalone po hexie (pierwsze
  * wystąpienie wygrywa, adsb.fi pierwsze). Każde źródło opiera się na własnej
  * sieci odbiorników i ma inne dziury: na 147 maszyn w adsb.fi i 143 w adsb.lol
- * wspólnych było 121. Rzuca dopiero, gdy padną OBA.
+ * wspólnych było 121. Rzuca dopiero, gdy padną OBA. `errors` opisuje źródło,
+ * które padło albo nie zdążyło — to nie awaria, dopóki drugie działa.
  */
-export async function fetchMilMerged() {
-  const [fi, lol] = await Promise.allSettled([
-    fetchRecords(ADSBFI_MIL_URL, { timeoutMs: 6000 }),
-    fetchRecords(ADSBLOL_MIL_URL, { timeoutMs: 6000, headers: POLITE_HEADERS }),
-  ])
-  if (fi.status === 'rejected' && lol.status === 'rejected') {
-    throw new Error(`/mil: ${fi.reason?.message}; ${lol.reason?.message}`)
+export async function fetchMilMerged({ graceMs = MIL_SECOND_SOURCE_GRACE_MS } = {}) {
+  const sources = [
+    ['adsb.fi', fetchRecords(ADSBFI_MIL_URL, { timeoutMs: 6000 })],
+    ['adsb.lol', fetchRecords(ADSBLOL_MIL_URL, { timeoutMs: 6000, headers: POLITE_HEADERS })],
+  ]
+  const results = await new Promise(resolve => {
+    const out = sources.map(() => null)
+    let timer = null
+    const finish = () => { clearTimeout(timer); resolve(out) }
+    sources.forEach(([, p], i) => p.then(
+      value => ({ status: 'fulfilled', value }),
+      reason => ({ status: 'rejected', reason }),
+    ).then(r => {
+      out[i] = r
+      if (out.every(Boolean)) return finish()
+      if (r.status === 'fulfilled' && !timer) timer = setTimeout(finish, graceMs)
+    }))
+  })
+  const settled = results.map(r => r ?? { status: 'rejected', reason: new Error(`brak odpowiedzi w ${graceMs} ms po drugim źródle`) })
+  if (settled.every(r => r.status === 'rejected')) {
+    throw new Error(`/mil: ${settled.map((r, i) => `${sources[i][0]}: ${r.reason?.message}`).join('; ')}`)
   }
   const byHex = new Map()
-  for (const r of [fi, lol]) {
+  for (const r of settled) {
     if (r.status !== 'fulfilled') continue
     for (const a of r.value) if (a?.hex && !byHex.has(a.hex)) byHex.set(a.hex, a)
   }
   return {
     records: [...byHex.values()],
-    errors: [fi, lol].filter(r => r.status === 'rejected').map(r => r.reason?.message),
+    errors: settled.flatMap((r, i) => r.status === 'rejected' ? [`${sources[i][0]}: ${r.reason?.message}`] : []),
   }
 }
 
@@ -259,7 +280,13 @@ export async function fetchMilitaryNear(lat, lon, radiusKm) {
     let extra = []
     try {
       const radiusNm = Math.round(radiusKm * 0.54)
-      const fromTick = insideSharedGeo(lat, lon, radiusKm) ? sharedGeo() : undefined
+      // W ticku nie pytamy adsb.fi drugi raz: koło poza wspólnym zapytaniem
+      // (subskrypcja za granicą, np. Jersey) dostaje tylko wojsko z globalnych
+      // list /mil — bez lokalnych śmigłowców służbowych i jumbo jetów, które
+      // przyszłyby wyłącznie z zapytania geograficznego (decyzja użytkownika
+      // 06.11.2026: dodatkowe zapytanie co 2 min kosztowało kredyty Netlify).
+      const fromTick = sharedGeo() === undefined ? undefined
+        : insideSharedGeo(lat, lon, radiusKm) ? sharedGeo() : []
       const geo = fromTick ?? await fetchAdsbfiGeo(lat, lon, radiusNm, { timeoutMs: 4000 })
       extra = geo.flatMap(a => {
         if (!isAirborne(a) || !inBox(a) || milHexes.has(a.hex)) return []

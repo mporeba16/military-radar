@@ -104,16 +104,17 @@ describe('wspólna migawka ticka', () => {
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 
-  it('koło wychodzące poza wspólne zapytanie geograficzne — pyta samo', async () => {
-    routeFetch({ 'opendata.adsb.fi/api/v2/lat/': json({ ac: [] }) })
+  it('koło poza wspólnym zapytaniem (np. Jersey) — samo wojsko z list /mil, bez zapytania geo', async () => {
+    routeFetch({})
     const { shareSnapshot, fetchMilitaryNear } = await load()
+    const overJersey = { ...reach, hex: 'ae9999', lat: 49.25, lon: -2.1 }
     shareSnapshot({
-      milRes: { status: 'fulfilled', value: { records: [], errors: [] } },
+      milRes: { status: 'fulfilled', value: { records: [overJersey], errors: [] } },
       geoRes: { status: 'fulfilled', value: [] },
     })
-    // Lizbona — daleko poza kołem 250 nm wokół środka Polski.
-    await fetchMilitaryNear(38.7, -9.1, 100)
-    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/lat/38.7000/lon/-9.1000/'), expect.anything())
+    const out = await fetchMilitaryNear(49.2, -2.1, 95)
+    expect(out.map(a => a.hex)).toEqual(['ae9999'])
+    expect(fetch).not.toHaveBeenCalled()
   })
 
   it('nieudane pobranie w ticku — powiadomienia próbują same', async () => {
@@ -164,5 +165,19 @@ describe('nieudany ruch nad Polską w ticku', () => {
   it('bez migawki ticka (wywołanie spoza crona) — brak wspólnych danych', async () => {
     const { sharedGeo } = await load()
     expect(sharedGeo()).toBeUndefined()
+  })
+})
+
+describe('fetchMilMerged — wolne drugie źródło', () => {
+  it('gdy jedno odpowiedziało, na drugie czeka tylko chwilę; brak drugiego to uwaga, nie błąd', async () => {
+    vi.stubGlobal('fetch', vi.fn((url) => String(url).includes('adsb.fi')
+      ? Promise.resolve(json({ ac: [reach] }))
+      : new Promise(() => {})))  // adsb.lol nie odpowiada wcale
+    const { fetchMilMerged } = await load()
+    const t0 = Date.now()
+    const out = await fetchMilMerged({ graceMs: 50 })
+    expect(Date.now() - t0).toBeLessThan(1000)
+    expect(out.records.map(a => a.hex)).toEqual(['ae1234'])
+    expect(out.errors).toEqual([expect.stringMatching(/^adsb\.lol: brak odpowiedzi/)])
   })
 })

@@ -24,7 +24,6 @@ const MAX_POSITION_AGE_MS = 7 * 24 * 60 * 60 * 1000  // 7 days
 // więc cooldown liczy się od WYLOTU — chwilowy zanik sygnału nie alarmuje ponownie.
 const ALERT_COOLDOWN_MS = 45 * 60 * 1000
 const NEAR_GROUP_THRESHOLD = 3    // above this many close planes, group them too
-const MAX_COVERAGE_KM = 1500      // clamp for the shared fetch bounding circle
 // Rzadka maszyna (tankowiec, AWACS…) nad Polską alarmuje raz na pół doby —
 // tankowiec potrafi krążyć nad krajem kilka godzin, a jeden alert wystarczy.
 const RARE_COOLDOWN_MS = 12 * 60 * 60 * 1000
@@ -234,9 +233,8 @@ async function run() {
     return { statusCode: 200, body: JSON.stringify(stats) }
   }
 
-  // Pass 1 — load every subscription and classify. We need locations up front
-  // so we can fetch the military snapshot ONCE for all of them instead of
-  // hitting the API per subscription (the /mil query is identical for everyone).
+  // Pass 1 — wczytaj wszystkie subskrypcje i odsiej te bez pozycji albo ze
+  // starą pozycją.
   const loaded = await Promise.all(blobs.map(async ({ key }) => ({
     key,
     raw: await subsStore.get(key, { type: 'json' }).catch(() => null),
@@ -269,44 +267,19 @@ async function run() {
     console.log(`[notify] deduped ${stats.dedupedDuplicates} duplicate device record(s)`)
   }
 
-  // Shared fetch: one bounding circle (centroid + reach) covering all subs.
-  // adsb.fi /mil is global so tagged military is always covered; the geographic
-  // supplement is capped at ~250nm from the centroid, so subs far from the
-  // centroid may miss callsign-only matches — fine for a Poland-focused app.
-  let snapshot = []
-  let cLat = 0, cLon = 0, coverage = 0
-  if (deduped.length) {
-    cLat = deduped.reduce((s, v) => s + v.raw.lat, 0) / deduped.length
-    cLon = deduped.reduce((s, v) => s + v.raw.lon, 0) / deduped.length
-    for (const v of deduped) {
-      coverage = Math.max(coverage, haversine(cLat, cLon, v.raw.lat, v.raw.lon) + (v.raw.radius ?? 100))
-    }
-    coverage = Math.min(Math.ceil(coverage), MAX_COVERAGE_KM)
-    snapshot = await fetchMilitaryNear(cLat, cLon, coverage)
-    stats.snapshotCount = snapshot.length
-    stats.coverageKm = coverage
-  }
-
-  // A sub is fully covered by the shared snapshot only if its whole bubble fits
-  // inside the fetched circle. If the coverage clamp kicked in (subs spread very
-  // far apart), the outliers fall outside it — fetch those individually so they
-  // don't silently miss alerts. The common case (everyone clustered) hits zero
-  // extra fetches.
-  const covered = (v) =>
-    haversine(cLat, cLon, v.raw.lat, v.raw.lon) + (v.raw.radius ?? 100) <= coverage + 0.5
-
   // Migawka przylotów (zapisana chwilę wcześniej w tym samym ticku) — raz na przebieg. Jumbo jet
   // lecący do Rzeszowa/Krakowa niesie cel do powiadomienia „w zasięgu".
   const inboundSnap = await getStore(SNAPSHOT_STORE).get(SNAPSHOT_KEY, { type: 'json' }).catch(() => null)
   const arrivalByHex = new Map((inboundSnap?.inbound || []).map(x => [x.hex, x.route]))
   const withArrival = list => list.map(a => arrivalByHex.has(a.hex) ? { ...a, arrival: arrivalByHex.get(a.hex) } : a)
 
-  // Pass 2 — resolve each sub's aircraft (shared snapshot, or own fetch) and process.
+  // Pass 2 — maszyny w zasięgu każdej subskrypcji, z danych pobranych już
+  // przez tick (sources.shareSnapshot), bez własnych zapytań. Wcześniej
+  // liczyliśmy wspólny środek wszystkich subskrypcji — jedna z Jersey
+  // przesuwała go do Niemiec i rozdmuchiwała zasięg do 1500 km, więc co drugi
+  // przebieg pytał adsb.fi drugi raz o ruch, który tick już miał.
   const results = await Promise.allSettled(deduped.map(async (v) => {
-    const radius = v.raw.radius ?? 100
-    const aircraft = covered(v)
-      ? snapshot.filter(a => haversine(v.raw.lat, v.raw.lon, a.lat, a.lon) <= radius)
-      : await fetchMilitaryNear(v.raw.lat, v.raw.lon, radius)
+    const aircraft = await fetchMilitaryNear(v.raw.lat, v.raw.lon, v.raw.radius ?? 100)
     return processSubscription(v, withArrival(aircraft), alertedStore, stats)
   }))
 
@@ -345,7 +318,6 @@ async function run() {
   console.log(`[notify] Run complete: ${JSON.stringify({
     totalSubs: stats.totalSubs,
     processed: stats.processed,
-    snapshotCount: stats.snapshotCount,
     skippedNoGps: stats.skippedNoGps,
     skippedStaleGps: stats.skippedStaleGps,
     skippedInvalid: stats.skippedInvalid,

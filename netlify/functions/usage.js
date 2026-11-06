@@ -1,12 +1,13 @@
 // Licznik użytkowników — szczegóły w lib/usage.js.
 //   POST { id, standalone, push, platform } — sygnał „to urządzenie otworzyło
 //        dziś aplikację" (klient wysyła go raz na dobę),
-//   GET  — zbiorcze liczby (dziennie / tygodniowo / miesięcznie), bez żadnych
-//        danych o pojedynczych urządzeniach; pokazuje je diagnostyka.
+//   GET  — liczby dzienne / tygodniowe / miesięczne i lista urządzeń z 14 dni
+//        (platforma, przybliżone miasto, godzina) — bez identyfikatorów;
+//        pokazują je Statystyki.
 
 import { getStore, connectLambda } from '@netlify/blobs'
 import { corsHeaders, cleanDeviceId } from './lib/security.js'
-import { USAGE_STORE, warsawDay, deviceHash, usageRecord, lastDays, summarize } from './lib/usage.js'
+import { USAGE_STORE, warsawDay, deviceHash, usageRecord, geoFromHeaders, lastDays, summarize } from './lib/usage.js'
 
 // Liczenie to 30 list kluczy w Blobs — wynik trzymamy w instancji i w CDN.
 const STATS_TTL_MS = 10 * 60 * 1000
@@ -19,14 +20,14 @@ async function computeStats(store, now) {
     const { blobs } = await store.list({ prefix: `${d}/` })
     keysByDay[d] = (blobs || []).map(b => b.key.slice(d.length + 1))
   }))
-  // Podział z ostatnich 7 dni: najnowszy wpis każdego urządzenia.
-  const latest = new Map()
-  for (const d of days.slice(0, 7).reverse()) {
-    for (const h of keysByDay[d]) latest.set(h, `${d}/${h}`)
-  }
-  const recent7 = (await Promise.all([...latest.values()].map(k =>
-    store.get(k, { type: 'json' }).catch(() => null)))).filter(Boolean)
-  return summarize(keysByDay, recent7, now)
+  // Rekordy z 14 dni wykresu — z nich podział każdego dnia na platformy.
+  // Kilkadziesiąt odczytów, a liczymy tylko przy otwarciu Statystyk.
+  const recordsByDay = {}
+  await Promise.all(days.slice(0, 14).map(async d => {
+    recordsByDay[d] = (await Promise.all(keysByDay[d].map(h =>
+      store.get(`${d}/${h}`, { type: 'json' }).catch(() => null)))).filter(Boolean)
+  }))
+  return summarize(keysByDay, recordsByDay, now)
 }
 
 export const handler = async (event) => {
@@ -60,7 +61,8 @@ export const handler = async (event) => {
   if (!id) return { statusCode: 400, headers, body: JSON.stringify({ error: 'invalid-id' }) }
 
   try {
-    await store.set(`${warsawDay(now)}/${deviceHash(id)}`, JSON.stringify(usageRecord(body)))
+    await store.set(`${warsawDay(now)}/${deviceHash(id)}`,
+      JSON.stringify(usageRecord(body, geoFromHeaders(event.headers), now)))
   } catch (err) {
     console.error('[usage] zapis:', err.message)
     return { statusCode: 502, headers, body: JSON.stringify({ error: 'store-failed' }) }

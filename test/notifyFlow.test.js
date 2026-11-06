@@ -26,7 +26,12 @@ vi.mock('web-push', () => ({
 let sky = []
 vi.mock('../netlify/functions/lib/sources.js', async importOriginal => ({
   ...(await importOriginal()),
-  fetchMilitaryNear: async () => sky,
+  // Jak prawdziwa funkcja: tylko maszyny w promieniu od punktu — notify woła
+  // ją osobno dla każdej subskrypcji.
+  fetchMilitaryNear: async (lat, lon, radiusKm) => {
+    const { haversine } = await import('../netlify/functions/lib/military.js')
+    return sky.filter(a => haversine(lat, lon, a.lat, a.lon) <= radiusKm)
+  },
   fetchMilGlobal: async () => sky,
 }))
 vi.mock('../netlify/functions/lib/quietHours.js', () => ({ isQuietHours: () => false }))

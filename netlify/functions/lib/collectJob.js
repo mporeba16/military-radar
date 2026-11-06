@@ -79,6 +79,7 @@ export async function collectTrails({ milRes, geoRes }) {
   let saved = 0
   let purged = null
   let error = null
+  let note = null
 
   try {
     // Listy /mil (adsb.fi + adsb.lol, jak na mapie) i zapytanie geograficzne
@@ -93,7 +94,10 @@ export async function collectTrails({ milRes, geoRes }) {
         const m = mapRecord(a)
         if (m.hex) byHex.set(m.hex, m)
       }
-      if (milRes.value.errors.length) error = milRes.value.errors.join('; ')
+      // Jedno z dwóch źródeł padło albo nie zdążyło — ślady i tak się zapisują
+      // z drugiego, więc to uwaga, nie błąd. Wcześniej szło jako ERROR i alarm
+      // o awariach liczył to jako problem ticka (12 razy na dobę).
+      if (milRes.value.errors.length) note = `bez ${milRes.value.errors.join('; ')}`
     } else {
       error = milRes.reason?.message
     }
@@ -130,9 +134,11 @@ export async function collectTrails({ milRes, geoRes }) {
       saved,
       purged,
       error,
+      note,
     }))
   } catch {}
 
   const purgeNote = purged != null ? ` purged=${purged}` : ''
-  return `collect ${error ? `ERROR ${error}` : `OK saved=${saved}${purgeNote}`} in ${Date.now() - startedAt}ms`
+  const sourceNote = note ? ` (${note})` : ''
+  return `collect ${error ? `ERROR ${error}` : `OK saved=${saved}${purgeNote}${sourceNote}`} in ${Date.now() - startedAt}ms`
 }
