@@ -1,6 +1,6 @@
 import { t } from '../i18n'
 import UsageStats from './UsageStats'
-import Toggle from './Toggle'
+import Toggle, { onOff } from './Toggle'
 import { IconPulse, IconChart } from './UiIcons'
 
 // Nazwy problemów z lib/health.js (serwer).
@@ -27,7 +27,7 @@ export default function PanelFooter({
   location,
   radius, isSubscribed,
   error,
-  debugUnlocked, debugOpen, setDebugOpen, fetchData, handleTestPush, testPushStatus, syncError, serverStatus,
+  debugUnlocked, debugOpen, setDebugOpen, handleTestPush, testPushStatus, syncError, serverStatus,
   healthAlerts, setHealthAlerts,
   version, bumpVersionTap,
 }) {
@@ -36,25 +36,17 @@ export default function PanelFooter({
     <>
       {error && <p className="err small">✗ {error}</p>}
 
-      {/* Stopka: wersja, a diagnostyka jako zwijany wiersz obok niej — nie
-          wciśnięta pomiędzy ustawienia, jak było wcześniej. */}
-      <div className="panel-footer">
-        <button className="panel-footer__ver" onClick={bumpVersionTap} title={debugUnlocked ? 'Debug aktywny' : ''}>
-          v{version} · {__BUILD_STAMP__}
+      {/* Statystyki — zwijana sekcja na dole panelu (odblokowana trzema
+          stuknięciami w wersję). */}
+      {debugUnlocked && (
+        <button className="stats-toggle" onClick={() => setDebugOpen(o => !o)} aria-expanded={debugOpen}>
+          <span className="stats-toggle__label"><IconChart size={16} /> {t('DEBUG_TOGGLE')}</span>
+          <span className="stats-toggle__chev" aria-hidden="true">{debugOpen ? '▴' : '▾'}</span>
         </button>
-        {debugUnlocked && (
-          <button className="panel-footer__dbg" onClick={() => setDebugOpen(o => !o)} aria-expanded={debugOpen}>
-            <IconChart /> {t('DEBUG_TOGGLE')} {debugOpen ? '⌃' : '⌄'}
-          </button>
-        )}
-      </div>
+      )}
 
       {debugUnlocked && debugOpen && (
         <div className="debug-body">
-          <section className="cp-section">
-            <button className="btn-refresh" onClick={fetchData}>{t('REFRESH_BTN')}</button>
-          </section>
-
           <UsageStats />
 
           {isSubscribed && (
@@ -81,8 +73,7 @@ export default function PanelFooter({
                   label={t('HEALTH_TOGGLE')}
                   title={t('HEALTH_HINT')}
                   marker={<span className="toggle-ico"><IconPulse /></span>}
-                  state={healthAlerts ? t('SOUND_ON') : t('SOUND_OFF')}
-                  stateColor={healthAlerts ? '#00ff88' : 'rgba(255,255,255,0.4)'}
+                  {...onOff(healthAlerts)}
                 />
               </div>
               {Array.isArray(serverStatus?.health) && (
@@ -174,6 +165,14 @@ export default function PanelFooter({
           )}
         </div>
       )}
+
+      {/* Wersja zawsze na samym dole panelu — także przy krótkiej treści
+          (panel-body--footer to kolumna, a ta stopka ma margin-top: auto). */}
+      <div className="panel-version">
+        <button className="panel-version__btn" onClick={bumpVersionTap} title={debugUnlocked ? 'Statystyki odblokowane' : ''}>
+          v{version} · {__BUILD_STAMP__}
+        </button>
+      </div>
     </>
   )
 }

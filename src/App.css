@@ -301,20 +301,7 @@
 /* Wszystkie znaczniki z lewej zajmują kolumnę 18 px — inaczej nazwy warstw
    (kwadracik 12 px) zaczynały się 6 px na lewo od nazw kategorii (ikona). */
 .toggle-dot { width: 12px; height: 12px; margin: 0 3px; border-radius: 50%; flex-shrink: 0; box-sizing: border-box; }
-/* Obwódka próbki bierze kolor z wiersza (`color` ustawiane inline razem z tłem),
-   zamiast mieć zaszyty bursztyn. Wcześniej każda warstwa miała ten sam żółty
-   kwadracik, niezależnie od tego, czym była na mapie. */
-.toggle-swatch { width: 12px; height: 12px; margin: 0 3px; flex-shrink: 0; box-sizing: border-box; border: 1.5px solid currentColor; }
 .toggle-ico { width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: rgba(255, 255, 255, 0.85); }
-/* Miniatura ikony samolotu z mapy (kategorie w panelu Mapy). SVG ma w sobie
-   zapas na pole dotyku, stąd ramka większa od samej sylwetki. */
-.toggle-kind-ico { width: 28px; height: 28px; margin: -6px -4px -6px -6px; flex-shrink: 0; display: flex; }
-.toggle-kind-ico svg { width: 100%; height: 100%; }
-/* Sylwetki mają na mapie celowo różne rozmiary (myśliwiec mały, jumbo duży);
-   w liście wyrównujemy je, żeby wiersze wyglądały równo. */
-.toggle-kind-ico--mil svg { transform: scale(1.45); }
-.toggle-kind-ico--heli svg { transform: scale(1.15); }
-.toggle-kind-ico--heavy svg { transform: scale(0.85); }
 
 .map-layer-list {
   display: flex;
@@ -401,7 +388,9 @@
   border-radius: 4px;
   backdrop-filter: blur(6px);
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
-  cursor: default;
+  /* Przycisk: dotknięcie wraca do widoku startowego. */
+  padding: 0;
+  cursor: pointer;
   user-select: none;
 }
 
@@ -610,23 +599,34 @@
 }
 
 /* ══ Pasek gotowości w Ustawieniach ═══════════════════════════════════════ */
-.ready-card {
+.ready-bar {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 12px 13px;
-  margin-bottom: 20px;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  margin-bottom: 18px;
+  padding: 4px 6px 4px 12px;
   border-radius: 8px;
   border: 1px solid transparent;
 }
-.ready-ok { background: rgba(var(--mil-rgb), 0.07); border-color: rgba(var(--mil-rgb), 0.3); }
-.ready-warn { background: rgba(var(--watch-rgb), 0.08); border-color: rgba(var(--watch-rgb), 0.38); }
-.ready-off { background: rgba(var(--alert-rgb), 0.09); border-color: rgba(var(--alert-rgb), 0.5); }
-.ready-title { font-size: 12.5px; font-weight: bold; letter-spacing: 1.4px; }
-.ready-ok .ready-title { color: var(--kind-mil); }
-.ready-warn .ready-title { color: var(--watch); }
-.ready-off .ready-title { color: var(--alert); }
-.ready-reason { font-size: var(--t-small); line-height: 1.4; color: rgba(255, 255, 255, 0.78); }
+.ready-ok { background: rgba(var(--mil-rgb), 0.07); border-color: rgba(var(--mil-rgb), 0.3); --ready: var(--kind-mil); }
+.ready-warn { background: rgba(var(--watch-rgb), 0.08); border-color: rgba(var(--watch-rgb), 0.38); --ready: var(--watch); }
+.ready-off { background: rgba(var(--alert-rgb), 0.09); border-color: rgba(var(--alert-rgb), 0.5); --ready: var(--alert); }
+.ready-bar__dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; background: var(--ready); box-shadow: 0 0 8px var(--ready); }
+.ready-bar__text { display: flex; flex-direction: column; min-width: 0; flex: 1; line-height: 1.25; }
+.ready-bar__title { font-size: 13px; font-weight: 600; color: var(--ready); }
+.ready-bar__reason { font-size: var(--t-small); color: rgba(255, 255, 255, 0.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ready-bar__action {
+  flex-shrink: 0;
+  min-height: 34px;
+  padding: 0 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 6px;
+  color: #ffffff;
+  font: 600 12px var(--font);
+  cursor: pointer;
+}
 
 /* ══ Suwak zasięgu ════════════════════════════════════════════════════════ */
 .range-block { display: flex; flex-direction: column; }
@@ -649,29 +649,43 @@
 .count-note { color: rgba(255, 255, 255, 0.5); }
 
 /* ══ Stopka panelu i diagnostyka ══════════════════════════════════════════ */
-.panel-footer {
+/* Panel Alerty: kolumna, żeby wersja mogła stać na samym dole (margin-top: auto). */
+.panel-body--footer { display: flex; flex-direction: column; }
+
+.stats-toggle {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-top: 8px;
-  padding-top: 4px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-}
-.panel-footer__ver,
-.panel-footer__dbg {
-  display: flex;
-  align-items: center;
+  justify-content: space-between;
+  width: 100%;
   min-height: 44px;
-  padding: 0;
+  margin-top: 4px;
+  padding: 0 12px;
+  background: rgba(255, 183, 77, 0.06);
+  border: 1px solid rgba(255, 183, 77, 0.35);
+  border-radius: 7px;
+  color: #ffb74d;
+  font: 600 13px var(--font);
+  cursor: pointer;
+}
+.stats-toggle__label { display: inline-flex; align-items: center; gap: 8px; }
+.stats-toggle__chev { font-size: 13px; opacity: 0.8; }
+
+.panel-version {
+  margin-top: auto;
+  padding-top: 16px;
+  display: flex;
+  justify-content: center;
+}
+.panel-version__btn {
+  min-height: 44px;
+  padding: 0 12px;
   background: none;
   border: none;
-  color: var(--text-dim);
-  font: inherit;
-  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.35);
+  font: 11px var(--font);
+  letter-spacing: 0.3px;
   cursor: pointer;
-  user-select: none;
 }
-.panel-footer__dbg { margin-left: auto; gap: 5px; color: #ffb74d; }
 .debug-body {
   display: flex;
   flex-direction: column;
@@ -684,47 +698,6 @@
 .diag__v { color: #ffffff; }
 .diag__ts { color: rgba(255, 255, 255, 0.7); font-size: 10px; }
 .diag__run { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.1); }
-
-/* ══ Wybór podkładu z podglądem ═══════════════════════════════════════════ */
-.tile-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.tile-card {
-  display: flex;
-  flex-direction: column;
-  padding: 0;
-  overflow: hidden;
-  border-radius: 7px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: var(--bg-card);
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-  text-align: left;
-  transition: border-color 0.15s;
-}
-.tile-card:hover { border-color: rgba(0, 255, 136, 0.45); }
-.tile-card:focus-visible { outline: 2px solid rgba(0, 255, 136, 0.7); outline-offset: 2px; }
-.tile-card.active { border-color: #00ff88; box-shadow: inset 0 0 0 1px #00ff88; }
-/* Podkłady Esri mają opisy w OSOBNEJ warstwie, więc miniatura składa się z
-   dwóch obrazków jeden na drugim — tak samo jak sama mapa. */
-.tile-card__thumb {
-  position: relative;
-  display: block;
-  height: 60px;
-  overflow: hidden;
-  background: #0b1726;
-}
-.tile-card__thumb img {
-  position: absolute;
-  inset: 0;
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.tile-card__meta { display: flex; flex-direction: column; gap: 1px; padding: 6px 8px 7px; }
-.tile-card__name { font-size: 11.5px; color: #ffffff; }
-.tile-card.active .tile-card__name { color: #00ff88; }
-.tile-card__src { font-size: 9px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ══ Drobiazgi wspólne ════════════════════════════════════════════════════ */
 .small { font-size: 11px; }
@@ -745,52 +718,8 @@
 }
 
 
-/* ── Zwinięty wybór podkładu ──────────────────────────────────────────────
-   Wiersz z aktualnym podkładem; siatka podglądów rozwija się dopiero po
-   dotknięciu. Pokazuje stan i chowa szczegóły. */
-.tile-current {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 7px 10px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 6px;
-  cursor: pointer;
-  text-align: left;
-  color: inherit;
-}
-
-.tile-current.open { border-color: rgba(255, 255, 255, 0.25); }
-
-.tile-current__thumb {
-  width: 68px;
-  height: 46px;
-  flex: none;
-  border-radius: 4px;
-  overflow: hidden;
-  background: #0a1524;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-}
-
-.tile-current__thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-
-.tile-current__meta { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-.tile-current__name { font-size: var(--t-base); color: rgba(255, 255, 255, 0.9); }
-.tile-current__src {
-  font-size: var(--t-micro);
-  color: var(--text-dim);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.tile-current__chev { margin-left: auto; color: var(--text-dim); font-size: var(--t-base); }
-
-.tile-current + .tile-grid { margin-top: 8px; }
 
 /* Próbka warstwy stref AUP — przerywana jak jej obrys na mapie. */
-.toggle-swatch--dashed { border-style: dashed; }
 
 /* Stan warstwy pod przełącznikiem — tylko gdy jest coś nie tak (np. PAŻP nie
    odpowiada). Wyjaśnienia zwykłe siedzą w podpowiedzi przełącznika. */
@@ -988,48 +917,126 @@
 .leaflet-tooltip-top.ac-tooltip::before { border-top-color: rgba(255, 255, 255, 0.18); }
 
 /* ══ Statystyki — licznik użytkowników ═══════════════════════════════════ */
-.stats { display: flex; flex-direction: column; gap: 14px; }
-.stats__sub { font-size: var(--t-micro); color: rgba(255, 255, 255, 0.55); letter-spacing: 0.3px; margin-bottom: -6px; }
-.stats__note { font-size: var(--t-micro); color: rgba(255, 255, 255, 0.45); line-height: 1.4; margin: 0; }
-
-.stat-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.stat-tile {
-  display: flex; flex-direction: column; gap: 4px;
-  padding: 10px 12px;
-  background: rgba(255, 255, 255, 0.04);
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+}
+
+/* Trzy liczby w jednym rzędzie, rozdzielone cienką kreską. */
+.stat-kpis { display: grid; grid-template-columns: repeat(3, 1fr); }
+.stat-kpi { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 2px 0; }
+.stat-kpi + .stat-kpi { border-left: 1px solid rgba(255, 255, 255, 0.1); }
+.stat-kpi__value { font-size: 28px; font-weight: 600; line-height: 1; color: #ffffff; }
+.stat-kpi__label { font-size: var(--t-small); color: rgba(255, 255, 255, 0.55); }
+
+.stat-chart { margin: 0; }
+.stat-chart__head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 12px; margin-bottom: 12px; }
+.stat-chart__title { font-size: var(--t-small); font-weight: 600; color: rgba(255, 255, 255, 0.8); }
+.stat-chart__legend { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: var(--t-micro); color: rgba(255, 255, 255, 0.75); }
+.stat-chart__legend-item { display: inline-flex; align-items: center; gap: 4px; }
+.stat-chart__swatch { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+
+.stat-chart__area { position: relative; }
+/* Przerywana linia na wysokości maksimum z jego wartością. */
+.stat-chart__grid {
+  position: absolute; left: 0; right: 0; top: 0;
+  border-top: 1px dashed rgba(255, 255, 255, 0.14);
+  pointer-events: none;
+}
+.stat-chart__grid span {
+  position: absolute; right: 0; top: -14px;
+  font-size: var(--t-micro); color: rgba(255, 255, 255, 0.45);
+}
+.stat-chart__plot {
+  display: flex; align-items: flex-end; gap: 4px;
+  height: 96px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.22);
+}
+.stat-chart__col {
+  flex: 1; height: 100%; min-width: 0;
+  /* column-reverse: pierwszy odcinek na dole, kolejne nad nim. */
+  display: flex; flex-direction: column-reverse; justify-content: flex-start;
+  padding: 0; background: none; border: none; cursor: pointer;
+}
+.stat-chart__col--picked { background: rgba(255, 255, 255, 0.07); }
+/* Przerwa między odcinkami to przezroczysta ramka W ŚRODKU odcinka
+   (border-box + background-clip) — nie dokłada wysokości, więc proporcje
+   zostają dokładne. Granica widoczna także bez rozróżniania kolorów. */
+/* Przerwa między odcinkami to przezroczysta górna ramka w środku odcinka
+   (border-box + background-clip) — nie dokłada wysokości, więc proporcje są
+   dokładne. Kolor odcinka MUSI iść jako background-color: skrót `background`
+   w stylu inline kasował background-clip, przerwa wypełniała się kolorem na
+   całą szerokość i odcinki wyglądały na różnej szerokości. Bez zaokrągleń
+   (decyzja użytkownika) — każdy odcinek to prosty prostokąt. */
+.stat-chart__seg { flex: none; box-sizing: border-box; background-clip: padding-box; }
+.stat-chart__seg:not(:last-child) { border-top: 2px solid transparent; }
+
+/* Dzień bez użytkowników — kreska przy osi: zero, a nie brak danych. */
+.stat-chart__zero { height: 2px; background: rgba(255, 255, 255, 0.18); border-radius: 1px; }
+
+.stat-chart__axis { display: flex; gap: 4px; margin-top: 5px; }
+.stat-chart__axis span { flex: 1; min-width: 0; font-size: var(--t-micro); color: rgba(255, 255, 255, 0.5); text-align: center; white-space: nowrap; overflow: visible; }
+.stat-chart__axis span:first-child { text-align: left; }
+.stat-chart__axis span:last-child { text-align: right; }
+
+.stat-chart__picked {
+  display: flex; flex-direction: column; gap: 8px;
+  margin-top: 12px; padding: 9px 11px;
+  background: rgba(255, 255, 255, 0.04);
   border-radius: 6px;
+  font-size: var(--t-small); color: rgba(255, 255, 255, 0.85);
 }
-.stat-tile__value { font-size: 26px; font-weight: 600; line-height: 1; color: #ffffff; }
-.stat-tile__label { font-size: var(--t-small); color: rgba(255, 255, 255, 0.6); }
+.stat-chart__picked-head { display: flex; align-items: baseline; gap: 10px; }
+.stat-chart__picked-day { font-weight: 600; color: #ffffff; text-transform: capitalize; }
+.stat-chart__picked-n { color: rgba(255, 255, 255, 0.6); }
 
-.stat-bars { margin: 0; }
-.stat-bars__title { display: flex; justify-content: space-between; font-size: var(--t-small); color: rgba(255, 255, 255, 0.75); margin-bottom: 8px; }
-.stat-bars__max { color: rgba(255, 255, 255, 0.45); font-size: var(--t-micro); }
-.stat-bars__plot {
-  display: flex; align-items: flex-end; gap: 2px;
-  height: 64px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+/* Urządzenia wybranego dnia: platforma, przybliżone miasto, godzina. */
+.stat-devices { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.stat-devices__row {
+  display: grid;
+  grid-template-columns: 8px 64px 1fr auto;
+  align-items: center;
+  column-gap: 8px;
+  min-height: 30px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
-.stat-bars__col { flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
-.stat-bars__bar { width: 100%; border-radius: 3px 3px 0 0; background: rgba(0, 255, 136, 0.38); }
-.stat-bars__bar--today { background: #00ff88; }
-/* Dzień bez użytkowników — kreska przy osi, żeby było widać, że to zero, a nie brak danych. */
-.stat-bars__bar--zero { height: 2px; background: rgba(255, 255, 255, 0.18); border-radius: 1px; }
-.stat-bars__val { font-size: var(--t-micro); color: #ffffff; margin-bottom: 2px; }
-.stat-bars__axis { display: flex; justify-content: space-between; margin-top: 4px; font-size: var(--t-micro); color: rgba(255, 255, 255, 0.5); }
+.stat-devices__platform { color: #ffffff; }
+.stat-devices__place { color: rgba(255, 255, 255, 0.7); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stat-devices__time { color: rgba(255, 255, 255, 0.45); font-variant-numeric: tabular-nums; }
 
-.stat-meter__head { display: flex; justify-content: space-between; gap: 8px; font-size: var(--t-small); color: rgba(255, 255, 255, 0.8); margin-bottom: 6px; }
-.stat-meter__num { color: #ffffff; white-space: nowrap; }
-.stat-meter__track { height: 6px; border-radius: 3px; background: rgba(0, 255, 136, 0.14); overflow: hidden; }
-.stat-meter__fill { display: block; height: 100%; border-radius: 3px; background: #00ff88; }
-
-.stat-split__label { font-size: var(--t-small); color: rgba(255, 255, 255, 0.8); margin-bottom: 6px; }
-/* Odstęp 2 px między odcinkami — granica widoczna także bez rozróżniania kolorów. */
-.stat-split__bar { display: flex; gap: 2px; height: 10px; border-radius: 3px; overflow: hidden; }
-.stat-split__bar > span { flex-basis: 0; }
-.stat-split__legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; font-size: var(--t-small); color: rgba(255, 255, 255, 0.8); }
-.stat-split__item { display: inline-flex; align-items: center; gap: 5px; }
-.stat-split__item strong { color: #ffffff; font-weight: 600; }
-.stat-split__pct { color: rgba(255, 255, 255, 0.45); }
-.stat-split__swatch { width: 9px; height: 9px; border-radius: 2px; }
+/* ══ Przyloty ═════════════════════════════════════════════════════════════ */
+.arr-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.arr-row {
+  display: grid;
+  grid-template-columns: 18px 1fr auto;
+  align-items: center;
+  column-gap: 10px;
+  width: 100%;
+  min-height: 52px;
+  padding: 8px 11px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 7px;
+  color: #ffffff;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.arr-row:hover { background: rgba(255, 255, 255, 0.07); }
+.arr-row__ico { display: flex; color: var(--kind-heavy, #ffb300); }
+.arr-row__main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.arr-row__head { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.arr-row__flight { font-weight: 600; letter-spacing: 0.6px; }
+.arr-row__type { font-size: var(--t-small); color: rgba(255, 255, 255, 0.6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.arr-row__note { font-size: var(--t-small); color: rgba(255, 255, 255, 0.55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.arr-row__eta { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.arr-row__clock { font-size: 16px; font-weight: 600; color: #ffffff; font-variant-numeric: tabular-nums; }
+.arr-row__in { font-size: var(--t-micro); color: rgba(255, 255, 255, 0.55); white-space: nowrap; }
+.arr-empty { margin: 0; font-size: 13px; color: rgba(255, 255, 255, 0.6); }
+.arr-off { margin: 0 0 8px; font-size: var(--t-small); color: #ffb74d; }
+.arr-foot { margin: 4px 0 0; font-size: var(--t-micro); line-height: 1.45; color: rgba(255, 255, 255, 0.45); }

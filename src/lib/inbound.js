@@ -220,10 +220,13 @@ export function landingClock(min, now = Date.now()) {
  * są już w naszym obszarze, dostają tylko informację o celu (pozycja z radaru
  * jest świeższa), pozostałe trafiają jako osobne znaczniki — to sedno funkcji,
  * bo 747 z Chicago jest poza obszarem przez większość lotu. `arrivals` to
- * przełączniki lotnisk ({ EPRZ: false } wyłącza Rzeszów).
+ * przełączniki lotnisk ({ EPRZ: false } wyłącza Rzeszów), `keepHex` — maszyna,
+ * która zostaje mimo wyłączonego lotniska.
  */
-export function mergeArrivals(aircraft, inbound, arrivals) {
-  const wanted = inbound.filter(x => arrivals[x.route?.to] !== false)
+export function mergeArrivals(aircraft, inbound, arrivals, keepHex = null) {
+  // `keepHex` — maszyna wybrana z listy Przylotów zostaje na mapie, nawet gdy
+  // jej lotnisko jest wyłączone (inaczej kliknięcie nie otwierało karty).
+  const wanted = inbound.filter(x => arrivals[x.route?.to] !== false || x.hex === keepHex)
   if (!wanted.length) return aircraft
   const byHex = new Map(wanted.map(x => [x.hex, x]))
   const merged = aircraft.map(ac => {

@@ -1,4 +1,5 @@
 import { t } from '../i18n'
+import { IconLanding } from './UiIcons'
 
 // Chrome nad mapą: znacznik aplikacji w lewym górnym rogu i dwa wejścia do
 // paneli w prawym. Zastąpił pasek na całą szerokość — ten zjadał pas ekranu na
@@ -39,17 +40,21 @@ function IconLayers() {
   )
 }
 
-export function MapMark({ isLoading, error, lastUpdated }) {
+// Znacznik aplikacji: stan (kolor, puls, podpowiedź z czasem odświeżenia)
+// i zarazem powrót do widoku startowego — dotknięcie przenosi mapę nad
+// Polskę. Zastąpił osobny przycisk GPS (decyzja użytkownika 06.11.2026).
+export function MapMark({ isLoading, error, lastUpdated, onHome }) {
   const state = error ? 'err' : isLoading ? 'busy' : 'ok'
-  const title = error
+  const status = error
     ? error
     : lastUpdated
       ? `${t('REFRESHED_AT')} ${lastUpdated}`
       : t('APP_TITLE')
+  const label = `${t('NAV_HOME_A11Y')} · ${status}`
   return (
-    <div className={`map-mark map-mark--${state}`} title={title} role="status" aria-label={title}>
+    <button type="button" className={`map-mark map-mark--${state}`} title={label} aria-label={label} onClick={onHome}>
       <IconAppMark />
-    </div>
+    </button>
   )
 }
 
@@ -69,23 +74,8 @@ function IconAppMark() {
   )
 }
 
-// Celownik — powrót do widoku startowego. Bez niego odjechanie mapą było
-// jednokierunkowe: zoomControl jest wyłączony, więc jedynym sposobem na powrót
-// nad Polskę było przeładowanie aplikacji.
-function IconCrosshair() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
-      <circle cx="12" cy="12" r="6.5" />
-      <path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3" />
-      <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" />
-    </svg>
-  )
-}
-
-// Kolejność od góry: Mapa, Plan dnia, Alerty, GPS. Najczęściej używany
-// (GPS) najniżej — najbliżej kciuka na telefonie.
-export function MapPanelButtons({ activePanel, onTogglePanel, onRecenter, hasGps, alertsLevel }) {
+// Kolejność od góry: Powiadomienia, Mapy, Plan dnia, Przyloty.
+export function MapPanelButtons({ activePanel, onTogglePanel, alertsLevel }) {
   const panelBtn = (id, label, icon, extra = null) => (
     <button
       className={`icon-btn ${activePanel === id ? 'active' : ''}`}
@@ -100,17 +90,11 @@ export function MapPanelButtons({ activePanel, onTogglePanel, onRecenter, hasGps
 
   return (
     <div className="map-ctrl-btns">
-      {panelBtn('mapy', t('NAV_MAPS_A11Y'), <IconLayers />)}
-      {panelBtn('plan', t('NAV_PLAN_A11Y'), <IconCalendar />)}
       {panelBtn('alerty', t('NAV_ALERTS_A11Y'), <IconBell />,
         <span className={`icon-btn__dot icon-btn__dot--${alertsLevel}`} aria-hidden="true" />)}
-      <button
-        className={`icon-btn ${hasGps ? 'has-gps' : 'no-gps'}`}
-        aria-label={hasGps ? t('NAV_RECENTER_GPS_A11Y') : t('NAV_RECENTER_PL_A11Y')}
-        title={hasGps ? t('NAV_RECENTER_GPS_A11Y') : t('NAV_RECENTER_PL_A11Y')}
-        onClick={onRecenter}>
-        <IconCrosshair />
-      </button>
+      {panelBtn('mapy', t('NAV_MAPS_A11Y'), <IconLayers />)}
+      {panelBtn('plan', t('NAV_PLAN_A11Y'), <IconCalendar />)}
+      {panelBtn('przyloty', t('NAV_ARRIVALS_A11Y'), <IconLanding size={20} />)}
     </div>
   )
 }

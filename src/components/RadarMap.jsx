@@ -12,7 +12,7 @@ import { MIL_AIRFIELD_AREAS } from '../data/milAirfieldAreas'
 import { t } from '../i18n'
 import { buildTrailSegments } from '../lib/trailSegments'
 import AircraftLayer, { iconScaleForZoom } from './AircraftLayer'
-import { TILE_LAYERS, tileThumbUrl, resolveTileId } from '../lib/tiles'
+import { BASE_TILE } from '../lib/tiles'
 
 function MapClickHandler({ onSelect }) {
   useMapEvents({ click: () => onSelect(null) })
@@ -23,9 +23,6 @@ function MapClickHandler({ onSelect }) {
 // samolotami (zIndexOffset ujemny). Nazwa pokazuje się od tego samego
 // przybliżenia co nazwy poligonów (AREA_LABEL_ZOOM).
 
-// Przybliżenie po wyśrodkowaniu na GPS — region, nie ulica: chodzi o „co lata
-// koło mnie", a nie o to, nad którym budynkiem.
-const RECENTER_GPS_ZOOM = 9
 // Jedna warstwa, dwa zbiory: polskie bazy i bazy NATO. `variant` decyduje
 // tylko o kolorze etykiety — reszta zachowania jest wspólna, żeby obie warstwy
 // nie zaczęły żyć własnym życiem. Bazę na mapie znaczy kreskowany teren
@@ -125,6 +122,70 @@ function SelectionFocus({ aircraft, selectedHex }) {
       map.flyTo([ac.lat, ac.lon], Math.max(map.getZoom(), 7), { duration: 0.8 })
     }
   }, [aircraft, selectedHex, map])
+
+  return null
+}
+
+// Twoja pozycja jak w Google Maps: kropka (w kolorze okręgu zasięgu alertów,
+// żeby było jasne, że to środek tego okręgu), a gdy telefon ma
+// kompas — stożek w kierunku, w który patrzysz, obracany razem z telefonem.
+// Stożek mówi, w którą stronę się obrócić, żeby zobaczyć samolot.
+// Marker powstaje raz; pozycja i obrót zmieniają się bez przebudowy ikony
+// (kompas potrafi podawać kilkanaście odczytów na sekundę). Klikalna jest
+// tylko kropka — stożek nie zasłania samolotów pod spodem. Na iOS kompas
+// wymaga zgody, o którą wolno poprosić dopiero po dotknięciu: kropka ma
+// wtedy plakietkę, a dotknięcie prosi o zgodę.
+const ME_HTML = `
+  <div class="me">
+    <svg class="me__cone" viewBox="-60 -60 120 120" aria-hidden="true">
+      <defs>
+        <radialGradient id="meConeGrad" cx="0" cy="0" r="58" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#00ff88" stop-opacity="0.6"/>
+          <stop offset="1" stop-color="#00ff88" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <path d="M0 0 L-29 -50.2 A58 58 0 0 1 29 -50.2 Z" fill="url(#meConeGrad)"/>
+    </svg>
+    <span class="me__pulse"></span>
+    <span class="me__dot"></span>
+    <span class="me__hint" title="Dotknij, aby włączyć kompas">N</span>
+  </div>`
+
+function UserLocation({ position, heading, compassState, onCompassRequest }) {
+  const map = useMap()
+  const markerRef = useRef(null)
+  const requestRef = useRef(onCompassRequest)
+  requestRef.current = onCompassRequest
+
+  useEffect(() => {
+    if (!position) return
+    const marker = L.marker(position, {
+      icon: L.divIcon({ html: ME_HTML, className: 'me-marker', iconSize: [120, 120], iconAnchor: [60, 60] }),
+      zIndexOffset: -500,
+      keyboard: false,
+    })
+    marker.on('click', e => {
+      if (e.originalEvent) e.originalEvent.stopPropagation()
+      requestRef.current?.()
+    })
+    marker.addTo(map)
+    markerRef.current = marker
+    return () => { map.removeLayer(marker); markerRef.current = null }
+    // Pozycja aktualizowana niżej, bez przebudowy markera.
+  }, [map, !!position]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (position) markerRef.current?.setLatLng(position)
+  }, [position])
+
+  useEffect(() => {
+    const el = markerRef.current?.getElement()
+    if (!el) return
+    const cone = el.querySelector('.me__cone')
+    cone.style.display = heading == null ? 'none' : ''
+    if (heading != null) cone.style.transform = `rotate(${heading}deg)`
+    el.querySelector('.me__hint').style.display = compassState === 'needs-permission' ? '' : 'none'
+  }, [heading, compassState, position])
 
   return null
 }
@@ -248,19 +309,17 @@ function ZoomTracker({ onZoomChange }) {
   return null
 }
 
-// Lista podkładów mieszka w lib/tiles.js — tu tylko re-eksport, bo panel Mapy
-// importuje ją historycznie z tego modułu.
-export { TILE_LAYERS, tileThumbUrl, resolveTileId }
 
 export default function RadarMap({
   aircraft, hasFetched, trails, serverTrails, center, gpsCenter, radius,
-  selectedHex, focusHex, onSelect, activeTileId, showBases, showNatoBases, showRanges,
+  selectedHex, focusHex, onSelect, showBases, showNatoBases, showRanges,
   airspace, showAirspace, recenterRef, planFocus, followHex,
+  heading, compassState, onCompassRequest,
 }) {
   const initialZoom = 6  // S4: was 5, but icons were too small at default view
   const [zoom, setZoom] = useState(initialZoom)
   const [viewTick, setViewTick] = useState(0)
-  const tileLayer = TILE_LAYERS.find(l => l.id === resolveTileId(activeTileId)) || TILE_LAYERS[0]
+  const tileLayer = BASE_TILE
   const zoomScale = useMemo(() => iconScaleForZoom(zoom), [zoom])
   const mapRef = useRef(null)
   // Dane dla dymków baz — aktualizowane po renderze, czytane przy otwarciu.
@@ -269,23 +328,15 @@ export default function RadarMap({
     baseInfoRef.current = { zones: airspace?.zones ?? null, zonesError: !!airspace?.error }
   }, [airspace?.zones, airspace?.error])
 
-  // Akcja „wróć do widoku" wystawiona przez ref, bo przycisk mieszka w chrome
-  // nad mapą (MapChrome), a instancja Leafletu tylko tutaj. Osobny stos
-  // przycisków wewnątrz RadarMap rozjeżdżałby się z tamtym przy każdej zmianie
-  // odstępów, więc wolę jeden stos i jedną referencję.
-  //
-  // Z GPS-em lecimy na pozycję użytkownika, bez niego na widok startowy —
-  // „wyśrodkuj" ma zawsze coś znaczyć, także zanim GPS zdąży złapać fixa.
+  // Powrót do widoku startowego, wystawiony przez ref — wywołuje go
+  // dotknięcie znacznika aplikacji w lewym górnym rogu (MapChrome), a
+  // instancja Leafletu mieszka tylko tutaj. Wcześniej osobny przycisk GPS
+  // centrował na pozycji użytkownika — usunięty jako zbędny (06.11.2026).
   useEffect(() => {
     if (!recenterRef) return
-    recenterRef.current = () => {
-      const map = mapRef.current
-      if (!map) return
-      if (gpsCenter) map.flyTo(gpsCenter, RECENTER_GPS_ZOOM, { duration: 0.6 })
-      else map.flyTo(center, initialZoom, { duration: 0.6 })
-    }
+    recenterRef.current = () => mapRef.current?.flyTo(center, initialZoom, { duration: 0.6 })
     return () => { recenterRef.current = null }
-  }, [recenterRef, gpsCenter, center, initialZoom])
+  }, [recenterRef, center, initialZoom])
 
   // Trasa zaznaczonej maszyny (szczegóły w lib/trailSegments.js).
   const { trailSegments, trailStart } = useMemo(() => {
@@ -327,10 +378,7 @@ export default function RadarMap({
         style={{ width: '100%', height: '100%' }}
         zoomControl={false}
       >
-        <TileLayer key={tileLayer.id} url={tileLayer.url} attribution={tileLayer.attribution} maxZoom={tileLayer.maxZoom} />
-        {tileLayer.overlay && (
-          <TileLayer key={`${tileLayer.id}-ref`} url={tileLayer.overlay} maxZoom={tileLayer.maxZoom} />
-        )}
+        <TileLayer url={tileLayer.url} attribution={tileLayer.attribution} maxZoom={tileLayer.maxZoom} />
         <MapClickHandler onSelect={onSelect} />
         <TileFilter filter={tileLayer.filter} />
         <ZoomTracker onZoomChange={setZoom} />
@@ -360,6 +408,9 @@ export default function RadarMap({
             color: '#00ff88', fillOpacity: 0, weight: 1.5, dashArray: '6 4',
           }} />
         )}
+
+        <UserLocation position={gpsCenter} heading={heading}
+          compassState={compassState} onCompassRequest={onCompassRequest} />
 
         {trailSegments && trailSegments.map(seg => (
           <Polyline key={seg.key} positions={seg.positions}

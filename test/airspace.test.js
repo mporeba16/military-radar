@@ -134,17 +134,6 @@ describe('helpers', () => {
   })
 })
 
-describe('podkłady wycofane', () => {
-  it('stary wybór podkładu dostaje następcę, nie pierwszą pozycję listy', async () => {
-    const { resolveTileId } = await import('../src/lib/tiles.js')
-    expect(resolveTileId('esri-light')).toBe('esri-hybrid')
-    expect(resolveTileId('opentopo')).toBe('esri-topo')
-    expect(resolveTileId('esri-satellite')).toBe('esri-satellite')
-    // nieznane id nadal wraca do pierwszego podkładu
-    expect(resolveTileId('cokolwiek')).toBe('osm-adsbx')
-  })
-})
-
 describe('warstwa polskich baz', () => {
   it('ma wszystkie lotniska wojskowe z OSM, także Łęczycę, Darłowo, Oksywie i Nadarzyce', () => {
     const icao = MIL_BASES_PL.map(b => b.icao)

@@ -1,9 +1,8 @@
-import Toggle from './Toggle'
+import Toggle, { onOff } from './Toggle'
 import { IconSound, IconVibrate, IconLanding, IconRadar } from './UiIcons'
 import RangeSlider from './RangeSlider'
 import { t } from '../i18n'
 import { planeWord } from '../lib/plural'
-import { KIND_COLORS } from '../lib/palette'
 import { ARRIVAL_AIRPORTS } from '../lib/inbound'
 import { alertsLevel, kindsOnCount } from '../lib/alertsState'
 
@@ -17,12 +16,28 @@ function isStandalonePWA() {
     window.navigator.standalone === true
 }
 
+function ReadyBar({ level, reason, onRetryGps }) {
+  return (
+    <div className={`ready-bar ready-${level}`} title={reason ? t(`READY_REASON_${reason}`) : undefined} role="status">
+      <span className="ready-bar__dot" aria-hidden="true" />
+      <span className="ready-bar__text">
+        <span className="ready-bar__title">{level === 'ok' ? t('READY_OK') : t('READY_NO_GPS')}</span>
+        {reason && <span className="ready-bar__reason">{t(`READY_SHORT_${reason}`)}</span>}
+      </span>
+      {/* Ponowienie GPS — wcześniej robił to przycisk celownika na mapie. */}
+      {reason === 'GPS' && onRetryGps && (
+        <button type="button" className="ready-bar__action" onClick={onRetryGps}>{t('READY_RETRY_GPS')}</button>
+      )}
+    </div>
+  )
+}
+
 // Panel Alerty — wszystko, co decyduje o TYM, KIEDY dostaniesz sygnał:
 // gotowość, zasięg, push, przyloty wielkich transportowców, dźwięk i wibracja.
 // Wydzielony z dawnego panelu Ustawienia, który zebrał osiem niepowiązanych
 // sekcji: od zasięgu alertów po diagnostykę serwera.
 export default function AlertsPanel({
-  location,
+  location, onRetryGps,
   radius, setRadius, inRangeCount, alertsCount,
   kinds, setKinds,
   permissionState, isSubscribed, isSubscribing, subscribe, unsubscribe, subscribeError,
@@ -35,23 +50,14 @@ export default function AlertsPanel({
   const pushUsable = permissionState !== 'unsupported' && permissionState !== 'denied'
 
   return (
-    <div className="panel-body">
+    <div className="panel-body panel-body--footer">
 
-      {/* 1. Czy to w ogóle zadziała — sam stan: aktywne albo nieaktywne. */}
-      <div className={`ready-card ready-${level}`}>
-        <span className="ready-title">
-          {level === 'ok' ? `◉ ${t('READY_OK')}` : `⚠ ${t('READY_NO_GPS')}`}
-        </span>
-        {/* Dlaczego i co zrobić — sam napis „nieaktywne" nie mówił, czego
-            brakuje. Pierwszy brakujący warunek, w kolejności z alertsLevel. */}
-        {level !== 'ok' && (
-          <span className="ready-reason">
-            {!location ? t('READY_REASON_GPS')
-              : kindsOn === 0 ? t('READY_REASON_KINDS')
-                : t('READY_REASON_PUSH')}
-          </span>
-        )}
-      </div>
+      {/* 1. Czy to w ogóle zadziała — jeden niski pasek: stan i krótki powód
+          (pierwszy brakujący warunek, w kolejności z alertsLevel), pełne
+          wyjaśnienie w podpowiedzi. Wcześniej karta na trzy linie z dużym
+          przyciskiem zajmowała ćwierć panelu. */}
+      <ReadyBar level={level} reason={level === 'ok' ? null : !location ? 'GPS' : kindsOn === 0 ? 'KINDS' : 'PUSH'}
+        onRetryGps={onRetryGps} />
 
       {/* 2. Zasięg — jedyna kontrolka ruszana regularnie, więc idzie na wierzch. */}
       <section className="cp-section">
@@ -84,8 +90,7 @@ export default function AlertsPanel({
                   label={t('PUSH_ROW_LABEL')}
                   title={t('PUSH_DESCRIPTION')}
                   marker={<span className="toggle-dot" style={{ background: '#00ff88' }} />}
-                  state={t('SOUND_ON')}
-                  stateColor="#00ff88"
+                  {...onOff(true)}
                 />
                 {/* Niezależne od GPS i zasięgu: tankowce, AWACS, rozpoznanie
                     nad całą Polską. Jedzie w tym samym obiekcie `kinds`. */}
@@ -95,8 +100,7 @@ export default function AlertsPanel({
                   label={t('RARE_LABEL')}
                   title={t('RARE_HINT')}
                   marker={<span className="toggle-ico"><IconRadar /></span>}
-                  state={kinds.rare !== false ? t('SOUND_ON') : t('SOUND_OFF')}
-                  stateColor={kinds.rare !== false ? '#00ff88' : 'rgba(255,255,255,0.4)'}
+                  {...onOff(kinds.rare !== false)}
                 />
               </div>
             : <>
@@ -117,8 +121,7 @@ export default function AlertsPanel({
             onToggle={() => setSoundOn(s => !s)}
             label={t('SOUND_LABEL')}
             marker={<span className="toggle-ico"><IconSound on={soundOn} /></span>}
-            state={soundOn ? t('SOUND_ON') : t('SOUND_OFF')}
-            stateColor={soundOn ? '#00ff88' : 'rgba(255,255,255,0.4)'}
+            {...onOff(soundOn)}
           />
           {'vibrate' in navigator && (
             <Toggle
@@ -126,8 +129,7 @@ export default function AlertsPanel({
               onToggle={() => setVibrateOn(v => !v)}
               label={t('VIBRATION_LABEL')}
               marker={<span className="toggle-ico"><IconVibrate /></span>}
-              state={vibrateOn ? t('SOUND_ON') : t('SOUND_OFF')}
-              stateColor={vibrateOn ? '#00ff88' : 'rgba(255,255,255,0.4)'}
+              {...onOff(vibrateOn)}
             />
           )}
         </div>
@@ -148,8 +150,7 @@ export default function AlertsPanel({
                 label={`${ap.name} (${ap.icao})`}
                 title={t('ARRIVALS_HINT')}
                 marker={<span className="toggle-ico"><IconLanding /></span>}
-                state={on ? t('SOUND_ON') : t('SOUND_OFF')}
-                stateColor={on ? KIND_COLORS.heavy : 'rgba(255,255,255,0.4)'}
+                {...onOff(on)}
               />
             )
           })}

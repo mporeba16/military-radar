@@ -395,4 +395,9 @@ describe('mergeArrivals', async () => {
     const inbound = [{ hex: 'bbb002', lat: 55, lon: -20, route: route('EPKK') }]
     expect(mergeArrivals(live, inbound, { EPKK: false })).toBe(live)
   })
+
+  it('maszyna wybrana z listy Przylotów zostaje mimo wyłączonego lotniska', () => {
+    const inbound = [{ hex: 'bbb002', lat: 55, lon: -20, route: route('EPKK') }]
+    expect(mergeArrivals(live, inbound, { EPKK: false }, 'bbb002').map(a => a.hex)).toEqual(['aaa001', 'bbb002'])
+  })
 })

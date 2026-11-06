@@ -64,22 +64,6 @@ export default defineConfig({
             }
           },
           {
-            urlPattern: /^https:\/\/[a-z]\.basemaps\.cartocdn\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'carto-tiles',
-              expiration: { maxEntries: 400, maxAgeSeconds: 86400 * 7 }
-            }
-          },
-          {
-            urlPattern: /^https:\/\/server\.arcgisonline\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'esri-tiles',
-              expiration: { maxEntries: 400, maxAgeSeconds: 86400 * 7 }
-            }
-          },
-          {
             // planespotters photo thumbnails — cache for a day, network-first
             // so we still get fresh photos when planespotters updates them.
             urlPattern: /^https:\/\/api\.planespotters\.net\/.*/i,

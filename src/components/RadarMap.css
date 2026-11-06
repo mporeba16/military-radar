@@ -273,3 +273,50 @@
   color: rgba(255, 255, 255, 0.5);
   font-variant-numeric: tabular-nums;
 }
+
+/* ── Twoja pozycja (UserLocation) ────────────────────────────────────────
+   Klikalna tylko kropka — reszta (stożek, puls) przepuszcza kliknięcia
+   do samolotów pod spodem. */
+.leaflet-marker-icon.me-marker { pointer-events: none !important; background: none; border: none; }
+.me { position: relative; width: 120px; height: 120px; }
+.me__cone {
+  position: absolute; inset: 0; width: 120px; height: 120px;
+  transform-origin: 50% 50%;
+  transition: transform 0.15s linear;
+  pointer-events: none;
+}
+.me__dot {
+  position: absolute; left: 50%; top: 50%;
+  width: 16px; height: 16px; margin: -8px 0 0 -8px;
+  border-radius: 50%;
+  /* Bez białej obwódki i półprzezroczysta — ma zaznaczać, gdzie jesteś,
+     a nie przyciągać wzrok bardziej niż samoloty. */
+  background: rgba(0, 255, 136, 0.55);
+  border: 1.5px solid rgba(0, 255, 136, 0.85);
+  box-sizing: border-box;
+  pointer-events: auto;
+  cursor: pointer;
+}
+.me__pulse {
+  position: absolute; left: 50%; top: 50%;
+  width: 16px; height: 16px; margin: -8px 0 0 -8px;
+  border-radius: 50%;
+  background: rgba(0, 255, 136, 0.22);
+  animation: me-pulse 2.2s ease-out infinite;
+  pointer-events: none;
+}
+@keyframes me-pulse {
+  from { transform: scale(1); opacity: 0.9; }
+  to { transform: scale(3.4); opacity: 0; }
+}
+/* iOS: kompas czeka na zgodę — plakietka „N" przy kropce, dotknięcie prosi o zgodę. */
+.me__hint {
+  position: absolute; left: calc(50% + 7px); top: calc(50% - 20px);
+  min-width: 15px; height: 15px; padding: 0 3px;
+  border-radius: 8px;
+  background: #ffffff; color: #00663a;
+  font: 700 9px/15px var(--font); text-align: center;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  pointer-events: auto; cursor: pointer;
+}
+@media (prefers-reduced-motion: reduce) { .me__pulse { animation: none; } .me__cone { transition: none; } }

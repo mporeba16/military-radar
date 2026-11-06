@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { summarize, deviceHash, usageRecord, warsawDay, lastDays } from '../netlify/functions/lib/usage.js'
+import { summarize, deviceHash, usageRecord, geoFromHeaders, warsawDay, lastDays } from '../netlify/functions/lib/usage.js'
 import { detectPlatform } from '../src/hooks/useUsagePing.js'
 
 const NOW = Date.UTC(2026, 10, 2, 12)
@@ -7,18 +7,35 @@ const NOW = Date.UTC(2026, 10, 2, 12)
 describe('licznik użytkowników — liczenie', () => {
   it('dziennie, tygodniowo, miesięcznie: unikalne urządzenia', () => {
     const [d0, d1, , , , , , d7] = lastDays(30, NOW)
-    const out = summarize({ [d0]: ['a', 'b'], [d1]: ['a', 'c'], [d7]: ['d'] }, [], NOW)
+    const out = summarize({ [d0]: ['a', 'b'], [d1]: ['a', 'c'], [d7]: ['d'] }, {}, NOW)
     expect(out).toMatchObject({ day: '2026-11-02', dau: 2, wau: 3, mau: 4 })
-    expect(out.daily[0]).toEqual({ day: '2026-11-02', n: 2 })
+    expect(out.daily[0]).toMatchObject({ day: '2026-11-02', n: 2 })
     expect(out.daily).toHaveLength(14)
   })
 
-  it('podział z ostatnich 7 dni: instalacja, push, platforma', () => {
-    const out = summarize({}, [
-      { standalone: true, push: true, platform: 'ios' },
-      { standalone: false, push: false, platform: 'desktop' },
-    ], NOW)
-    expect(out.week).toEqual({ devices: 2, standalone: 1, push: 1, platform: { ios: 1, android: 0, desktop: 1, other: 0 } })
+  it('każdy dzień wykresu ma podział na platformy', () => {
+    const [d0, d1] = lastDays(2, NOW)
+    const out = summarize({ [d0]: ['a', 'b', 'c'], [d1]: ['a'] }, {
+      [d0]: [{ platform: 'ios' }, { platform: 'android' }, { platform: 'ios' }],
+      [d1]: [{ platform: 'desktop' }],
+    }, NOW)
+    expect(out.daily[0]).toMatchObject({ day: d0, n: 3, platform: { ios: 2, android: 1, desktop: 0, other: 0 } })
+    expect(out.daily[1].platform).toEqual({ ios: 0, android: 0, desktop: 1, other: 0 })
+    expect(out.daily[2].platform).toEqual({ ios: 0, android: 0, desktop: 0, other: 0 })
+  })
+
+  it('lista urządzeń dnia: platforma, miasto, godzina — od najwcześniejszego, bez identyfikatorów', () => {
+    const [d0] = lastDays(1, NOW)
+    const out = summarize({ [d0]: ['h1', 'h2'] }, {
+      [d0]: [
+        { platform: 'ios', city: 'Rzeszów', country: 'PL', at: NOW, push: true },
+        { platform: 'android', city: null, country: 'PL', at: NOW - 3600_000 },
+      ],
+    }, NOW)
+    expect(out.daily[0].devices).toEqual([
+      { platform: 'android', city: null, country: 'PL', at: NOW - 3600_000 },
+      { platform: 'ios', city: 'Rzeszów', country: 'PL', at: NOW },
+    ])
   })
 
   it('dzień liczony w czasie polskim (23:30 UTC to już następny dzień)', () => {
@@ -35,8 +52,18 @@ describe('licznik użytkowników — prywatność i dane wejściowe', () => {
   })
 
   it('z ciała zapytania bierze tylko znane pola i wartości', () => {
-    expect(usageRecord({ standalone: 'tak', push: true, platform: 'tv', extra: 'x' }))
-      .toEqual({ standalone: false, push: true, platform: 'other' })
+    expect(usageRecord({ standalone: 'tak', push: true, platform: 'tv', extra: 'x', city: 'Fałsz' }, null, NOW))
+      .toEqual({ standalone: false, push: true, platform: 'other', city: null, country: null, at: NOW })
+  })
+
+  it('miasto i kraj z geolokalizacji Netlify (x-nf-geo), bez adresu IP', () => {
+    const header = Buffer.from(JSON.stringify({
+      city: 'Rzeszów', country: { code: 'PL', name: 'Poland' }, subdivision: { code: '18' }, latitude: 50.04, longitude: 22.0,
+    })).toString('base64')
+    expect(geoFromHeaders({ 'x-nf-geo': header, 'x-nf-client-connection-ip': '1.2.3.4' }))
+      .toEqual({ city: 'Rzeszów', country: 'PL' })
+    expect(geoFromHeaders({ 'x-nf-geo': 'śmieci' })).toBeNull()
+    expect(geoFromHeaders({})).toBeNull()
   })
 
   it('rozpoznaje platformę', () => {
@@ -68,7 +95,10 @@ describe('funkcja usage', () => {
     await post({ id: 'dev-1', standalone: true, push: true, platform: 'ios' })
     await post({ id: 'dev-2', platform: 'desktop' })
     const stats = JSON.parse((await handler({ httpMethod: 'GET', headers: {} })).body)
-    expect(stats).toMatchObject({ dau: 2, wau: 2, mau: 2, week: { devices: 2, standalone: 1, push: 1 } })
+    expect(stats).toMatchObject({ dau: 2, wau: 2, mau: 2 })
+    expect(stats.daily[0].platform).toEqual({ ios: 1, android: 0, desktop: 1, other: 0 })
+    expect(stats.daily[0].devices).toHaveLength(2)
+    expect(JSON.stringify(stats)).not.toMatch(/dev-|[0-9a-f]{20}/)
     // W magazynie nie ma identyfikatorów, tylko skróty.
     expect([...data.keys()].join()).not.toMatch(/dev-/)
   })

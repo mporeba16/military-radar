@@ -10,6 +10,7 @@ import PanelFooter from './components/PanelFooter'
 import AlertStack from './components/AlertStack'
 import { IconClose } from './components/UiIcons'
 const MapsPanel = lazy(() => import('./components/MapsPanel'))
+const ArrivalsPanel = lazy(() => import('./components/ArrivalsPanel'))
 import { useGeolocation } from './hooks/useGeolocation'
 import { usePushNotifications } from './hooks/usePushNotifications'
 import { useLocalStorage } from './hooks/useLocalStorage'
@@ -19,6 +20,7 @@ import { useInbound } from './hooks/useInbound'
 import { usePolling } from './hooks/usePolling'
 import { useHexDeepLink } from './hooks/useHexDeepLink'
 import { useUsagePing } from './hooks/useUsagePing'
+import { useCompass } from './hooks/useCompass'
 import { fetchMilitaryAircraft } from './api'
 import { haversine, bearing } from './lib/geo'
 import { alertsLevel, kindsOnCount } from './lib/alertsState'
@@ -63,7 +65,6 @@ export default function App() {
   const [serverTrails, setServerTrails] = useState(new Map())
   const [activePanel, setActivePanel] = useState(null)
   const [planFocus, setPlanFocus] = useState(null)
-  const [activeTileId, setActiveTileId] = useLocalStorage('radar.tile', 'osm-adsbx')
   const [showBases, setShowBases] = useLocalStorage('radar.bases', true)
   const [showNatoBases, setShowNatoBases] = useLocalStorage('radar.natoBases', true)
   const [showRanges, setShowRanges] = useLocalStorage('radar.ranges', true)
@@ -75,7 +76,13 @@ export default function App() {
   // Jumbo jety i An-124 z celem w Rzeszowie albo Krakowie — osobno dla każdego
   // lotniska, bo maszyna bywa widoczna na godziny przed wejściem w nasz obszar.
   const [arrivals, setArrivals] = useLocalStorage('radar.arrivals', { EPRZ: true, EPKK: true })
-  const inboundRaw = useInbound(ARRIVAL_AIRPORTS.some(a => arrivals[a.icao] !== false))
+  // Panel Przyloty pokazuje oba lotniska także przy wyłączonych przełącznikach
+  // (te sterują powiadomieniami i znacznikami na mapie). Maszyna wybrana
+  // z tej listy musi zostać w danych po zamknięciu panelu — inaczej przy
+  // wyłączonych lotniskach lista się czyściła i karta się nie otwierała.
+  const arrivalPickRef = useRef(null)
+  const inboundRaw = useInbound(ARRIVAL_AIRPORTS.some(a => arrivals[a.icao] !== false) ||
+    activePanel === 'przyloty' || (selectedHex != null && arrivalPickRef.current === selectedHex))
   const inboundHexesRef = useRef(new Set())
   useEffect(() => {
     inboundHexesRef.current = new Set(inboundRaw.map(x => x.hex))
@@ -89,8 +96,8 @@ export default function App() {
   })
   const [debugOpen, setDebugOpen] = useState(false)
   const versionTapsRef = useRef({ count: 0, timer: null })
-  // Akcję centrowania mapy wystawia RadarMap (tam mieszka instancja Leafletu),
-  // a wywołuje ją przycisk w chrome nad mapą.
+  // Powrót do widoku startowego wystawia RadarMap (tam mieszka instancja
+  // Leafletu), a wywołuje go dotknięcie znacznika aplikacji (MapChrome).
   const recenterRef = useRef(null)
 
   // Ref tak, aby fetchData (zależne tylko od location) widziało aktualne
@@ -106,6 +113,8 @@ export default function App() {
   const fetchAbortRef = useRef(null)
   const testPushTimerRef = useRef(null)
   const { location, requestLocation } = useGeolocation()
+  // Kierunek telefonu do stożka przy Twojej pozycji na mapie.
+  const compass = useCompass()
   const {
     isSubscribed, subResolved, isSubscribing, subscribe, unsubscribe, sendTestPush,
     permissionState, subscribeError, syncError, serverStatus,
@@ -347,8 +356,8 @@ export default function App() {
 
   // Maszyny z celem w Rzeszowie/Krakowie (szczegóły w mergeArrivals).
   const aircraftWithArrivals = useMemo(
-    () => mergeArrivals(aircraft, inboundRaw, arrivals),
-    [aircraft, inboundRaw, arrivals]
+    () => mergeArrivals(aircraft, inboundRaw, arrivals, selectedHex),
+    [aircraft, inboundRaw, arrivals, selectedHex]
   )
 
   // Stan alertów pokazywany kropką na dzwonku — ta sama reguła, co karta
@@ -487,7 +496,6 @@ export default function App() {
         selectedHex={selectedHex}
         focusHex={focusHex}
         onSelect={handleSelect}
-        activeTileId={activeTileId}
         showBases={showBases}
         showNatoBases={showNatoBases}
         showRanges={showRanges}
@@ -496,19 +504,16 @@ export default function App() {
         recenterRef={recenterRef}
         planFocus={planFocus}
         followHex={followHex}
+        heading={compass.heading}
+        compassState={compass.state}
+        onCompassRequest={compass.request}
       />
 
-      <MapMark isLoading={isLoading} error={error} lastUpdated={lastUpdated} />
+      <MapMark isLoading={isLoading} error={error} lastUpdated={lastUpdated}
+        onHome={() => recenterRef.current?.()} />
       <MapPanelButtons
         activePanel={activePanel}
         onTogglePanel={togglePanel}
-        onRecenter={() => {
-          // Bez pozycji przycisk przy okazji ponawia GPS — to jedyne miejsce
-          // w aplikacji, z którego da się to zrobić bez przeładowania.
-          if (!location) requestLocation()
-          recenterRef.current?.()
-        }}
-        hasGps={!!location}
         alertsLevel={alertsDot}
       />
 
@@ -541,6 +546,7 @@ export default function App() {
               {activePanel === 'alerty' && t('PANEL_ALERTS')}
               {activePanel === 'mapy' && t('PANEL_MAPS')}
               {activePanel === 'plan' && t('PANEL_PLAN')}
+              {activePanel === 'przyloty' && t('PANEL_ARRIVALS')}
             </span>
             <button className="side-panel-close" onClick={() => setActivePanel(null)} aria-label={t('CLOSE_PANEL')}><IconClose size={18} /></button>
           </div>
@@ -549,6 +555,7 @@ export default function App() {
           {activePanel === 'alerty' && (
             <AlertsPanel
               location={location}
+              onRetryGps={requestLocation}
               radius={radius}
               setRadius={setRadius}
               inRangeCount={inRangeCount}
@@ -576,7 +583,6 @@ export default function App() {
                 debugUnlocked={debugUnlocked}
                 debugOpen={debugOpen}
                 setDebugOpen={setDebugOpen}
-                fetchData={fetchData}
                 handleTestPush={handleTestPush}
                 testPushStatus={testPushStatus}
                 syncError={syncError}
@@ -611,10 +617,13 @@ export default function App() {
             />
           )}
 
+          {activePanel === 'przyloty' && (
+            <ArrivalsPanel inbound={inboundRaw} arrivals={arrivals}
+              onOpen={hex => { arrivalPickRef.current = hex; openHex(hex) }} />
+          )}
+
           {activePanel === 'mapy' && (
             <MapsPanel
-              activeTileId={activeTileId}
-              setActiveTileId={setActiveTileId}
               showBases={showBases}
               setShowBases={setShowBases}
               showNatoBases={showNatoBases}

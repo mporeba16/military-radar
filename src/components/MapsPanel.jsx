@@ -1,91 +1,33 @@
-import { TILE_LAYERS, tileThumbUrl, resolveTileId } from './RadarMap'
-import { useState } from 'react'
-import Toggle from './Toggle'
+import Toggle, { onOff } from './Toggle'
 import { t } from '../i18n'
 import { BASE_PL, BASE_NATO, RANGE, AIRSPACE } from '../lib/palette'
 import { KIND_ROWS } from '../lib/alertsState'
-import { buildIconSvg } from './aircraftIcon'
+import { IconHangar, IconNatoStar, IconTarget, IconZone, IconFighter, IconHelicopter, IconJumbo } from './UiIcons'
 
-// Miniatura ikony z mapy zamiast kolorowej kropki. Kropki (zielona, turkusowa,
-// bursztynowa) wyglądały jak legenda kolorów, a na mapie kolor ikony znaczy
-// WYSOKOŚĆ — kategorię niesie sylwetka i obwódka (śmigłowce i duże samoloty).
-// Miniatura pokazuje dokładnie to, czego szukać na mapie.
-const KIND_SAMPLE = {
-  mil: { t: 'F16', kind: 'mil' },
-  heli: { t: 'H60', kind: 'heli' },
-  heavy: { t: 'B744', kind: 'heavy' },
+// Ikona warstwy albo kategorii w jej kolorze z mapy; wyłączona — szara.
+// Kategorie dostały rysowane sylwetki zamiast miniatur ikon z mapy — te
+// miały różne proporcje i szczegóły, a w liście wyglądały nierówno.
+const KIND_ICONS = { mil: IconFighter, heli: IconHelicopter, heavy: IconJumbo }
+function KindGlyph({ kind }) {
+  const Glyph = KIND_ICONS[kind]
+  return <Glyph />
 }
-const kindIconHtml = Object.fromEntries(Object.entries(KIND_SAMPLE).map(([k, ac]) =>
-  [k, buildIconSvg({ ...ac, hex: k, track: 0, alt_baro: null }, false, 1)]))
-
-function KindIcon({ kind }) {
-  return <span className={`toggle-kind-ico toggle-kind-ico--${kind}`} aria-hidden="true" dangerouslySetInnerHTML={{ __html: kindIconHtml[kind] }} />
+function LayerIcon({ on, color, children }) {
+  return <span className="toggle-ico" style={{ color: on ? color : 'rgba(255,255,255,0.35)' }}>{children}</span>
 }
 
-// Panel „Mapy": podkład, nakładki i kategorie maszyn.
-//
-// Podkład wybiera się z podglądów, nie z listy technicznych nazw — „OSM ADSBx"
-// i „OpenStreetMap" to ten sam serwis różniący się filtrem przyciemniającym,
-// czego z samej nazwy nie dało się odgadnąć. Miniatura to prawdziwy kafelek z
-// tego samego szablonu URL, z nałożonym tym samym filtrem CSS co na mapie.
+// Panel „Mapy": nakładki i kategorie maszyn. Podkład jest jeden (ciemny
+// OpenStreetMap, lib/tiles.js) — wybór podkładu zniknął 06.11.2026.
 export default function MapsPanel({
-  activeTileId, setActiveTileId, showBases, setShowBases,
+  showBases, setShowBases,
   showNatoBases, setShowNatoBases,
   showRanges, setShowRanges,
   showAirspace, setShowAirspace, airspaceError,
   kinds, setKinds,
 }) {
-  const [baseOpen, setBaseOpen] = useState(false)
-  const active = TILE_LAYERS.find(l => l.id === resolveTileId(activeTileId)) || TILE_LAYERS[0]
 
   return (
     <div className="panel-body">
-
-      {/* Podkład zmienia się raz na jakiś czas, a siatka sześciu podglądów
-          zajmowała pół panelu i spychała warstwy poniżej krawędzi ekranu.
-          Domyślnie zwinięty wiersz pokazuje, co jest wybrane; siatka
-          rozwija się dopiero, gdy naprawdę chcesz zmienić. */}
-      <section className="cp-section">
-        <div className="cp-label">{t('MAP_BASE_LABEL')}</div>
-
-        <button className={`tile-current ${baseOpen ? 'open' : ''}`}
-          aria-expanded={baseOpen}
-          onClick={() => setBaseOpen(o => !o)}>
-          <span className="tile-current__thumb"
-            style={active.filter ? { filter: active.filter } : undefined}>
-            <img src={tileThumbUrl(active)} alt="" loading="lazy" />
-          </span>
-          <span className="tile-current__meta">
-            <span className="tile-current__name">{active.label || active.name}</span>
-            <span className="tile-current__src">{active.sub || active.name}</span>
-          </span>
-          <span className="tile-current__chev">{baseOpen ? '⌃' : '⌄'}</span>
-        </button>
-
-        {baseOpen && <div className="tile-grid">
-          {TILE_LAYERS.map(layer => {
-            const active = activeTileId === layer.id
-            return (
-              <button key={layer.id}
-                className={`tile-card ${active ? 'active' : ''}`}
-                aria-pressed={active}
-                onClick={() => { setActiveTileId(layer.id); setBaseOpen(false) }}>
-                <span className="tile-card__thumb"
-                  style={layer.filter ? { filter: layer.filter } : undefined}>
-                  <img src={tileThumbUrl(layer)} alt="" loading="lazy" />
-                  {layer.overlay && (
-                    <img src={tileThumbUrl(layer, 'overlay')} alt="" loading="lazy" />
-                  )}
-                </span>
-                <span className="tile-card__meta">
-                  <span className="tile-card__name">{layer.label || layer.name}</span>
-                  <span className="tile-card__src">{layer.sub || layer.name}</span>
-                </span>
-              </button>
-            )
-          })}
-        </div>}
-      </section>
 
       <section className="cp-section">
         <div className="cp-label">{t('OVERLAYS_LABEL')}</div>
@@ -94,46 +36,30 @@ export default function MapsPanel({
             on={showBases}
             onToggle={() => setShowBases(b => !b)}
             label={t('BASES_LABEL')}
-            marker={<span className="toggle-swatch" style={{
-              background: showBases ? 'rgba(220, 47, 61, 0.25)' : 'transparent',
-              color: showBases ? BASE_PL : 'rgba(255,255,255,0.3)',
-            }} />}
-            state={showBases ? t('SOUND_ON') : t('SOUND_OFF')}
-            stateColor={showBases ? BASE_PL : 'rgba(255,255,255,0.4)'}
+            marker={<LayerIcon on={showBases} color={BASE_PL}><IconHangar /></LayerIcon>}
+            {...onOff(showBases)}
           />
           <Toggle
             on={showNatoBases}
             onToggle={() => setShowNatoBases(b => !b)}
             label={t('NATO_BASES_LABEL')}
-            marker={<span className="toggle-swatch" style={{
-              background: showNatoBases ? 'rgba(124, 58, 237, 0.3)' : 'transparent',
-              color: showNatoBases ? BASE_NATO : 'rgba(255,255,255,0.3)',
-            }} />}
-            state={showNatoBases ? t('SOUND_ON') : t('SOUND_OFF')}
-            stateColor={showNatoBases ? BASE_NATO : 'rgba(255,255,255,0.4)'}
+            marker={<LayerIcon on={showNatoBases} color={BASE_NATO}><IconNatoStar /></LayerIcon>}
+            {...onOff(showNatoBases)}
           />
           <Toggle
             on={showRanges}
             onToggle={() => setShowRanges(b => !b)}
             label={t('RANGES_LABEL')}
-            marker={<span className="toggle-swatch" style={{
-              background: showRanges ? 'rgba(232, 116, 28,0.28)' : 'transparent',
-              color: showRanges ? RANGE : 'rgba(255,255,255,0.3)',
-            }} />}
-            state={showRanges ? t('SOUND_ON') : t('SOUND_OFF')}
-            stateColor={showRanges ? RANGE : 'rgba(255,255,255,0.4)'}
+            marker={<LayerIcon on={showRanges} color={RANGE}><IconTarget /></LayerIcon>}
+            {...onOff(showRanges)}
           />
           <Toggle
             on={showAirspace}
             onToggle={() => setShowAirspace(b => !b)}
             label={t('AIRSPACE_LABEL')}
             title={t('AIRSPACE_HINT')}
-            marker={<span className="toggle-swatch toggle-swatch--dashed" style={{
-              background: showAirspace ? 'rgba(227, 220, 85, 0.12)' : 'transparent',
-              color: showAirspace ? AIRSPACE : 'rgba(255,255,255,0.3)',
-            }} />}
-            state={showAirspace ? t('SOUND_ON') : t('SOUND_OFF')}
-            stateColor={showAirspace ? AIRSPACE : 'rgba(255,255,255,0.4)'}
+            marker={<LayerIcon on={showAirspace} color={AIRSPACE}><IconZone /></LayerIcon>}
+            {...onOff(showAirspace)}
           />
         </div>
         {showAirspace && airspaceError && (
@@ -153,10 +79,8 @@ export default function MapsPanel({
               onToggle={() => setKinds(prev => ({ ...prev, [key]: !prev[key] }))}
               label={t(labelKey)}
               title={t('FILTER_HINT')}
-              style={{ opacity: kinds[key] ? 1 : 0.55 }}
-              marker={<KindIcon kind={key} />}
-              state={kinds[key] ? t('SOUND_ON') : t('SOUND_OFF')}
-              stateColor={kinds[key] ? color : 'rgba(255,255,255,0.4)'}
+              marker={<LayerIcon on={kinds[key]} color={color}><KindGlyph kind={key} /></LayerIcon>}
+              {...onOff(kinds[key])}
             />
           ))}
         </div>
