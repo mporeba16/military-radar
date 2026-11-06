@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { summarize, deviceHash, usageRecord, geoFromHeaders, warsawDay, lastDays } from '../netlify/functions/lib/usage.js'
+import { summarize, deviceHash, usageRecord, warsawDay, lastDays } from '../netlify/functions/lib/usage.js'
 import { detectPlatform } from '../src/hooks/useUsagePing.js'
 
 const NOW = Date.UTC(2026, 10, 2, 12)
@@ -24,20 +24,6 @@ describe('licznik użytkowników — liczenie', () => {
     expect(out.daily[2].platform).toEqual({ ios: 0, android: 0, desktop: 0, other: 0 })
   })
 
-  it('lista urządzeń dnia: platforma, miasto, godzina — od najwcześniejszego, bez identyfikatorów', () => {
-    const [d0] = lastDays(1, NOW)
-    const out = summarize({ [d0]: ['h1', 'h2'] }, {
-      [d0]: [
-        { platform: 'ios', city: 'Rzeszów', country: 'PL', at: NOW, push: true },
-        { platform: 'android', city: null, country: 'PL', at: NOW - 3600_000 },
-      ],
-    }, NOW)
-    expect(out.daily[0].devices).toEqual([
-      { platform: 'android', city: null, region: null, country: 'PL', at: NOW - 3600_000 },
-      { platform: 'ios', city: 'Rzeszów', region: null, country: 'PL', at: NOW },
-    ])
-  })
-
   it('dzień liczony w czasie polskim (23:30 UTC to już następny dzień)', () => {
     expect(warsawDay(Date.UTC(2026, 10, 2, 23, 30))).toBe('2026-11-03')
   })
@@ -52,18 +38,8 @@ describe('licznik użytkowników — prywatność i dane wejściowe', () => {
   })
 
   it('z ciała zapytania bierze tylko znane pola i wartości', () => {
-    expect(usageRecord({ standalone: 'tak', push: true, platform: 'tv', extra: 'x', city: 'Fałsz' }, null, NOW))
-      .toEqual({ standalone: false, push: true, platform: 'other', city: null, region: null, country: null, at: NOW })
-  })
-
-  it('miasto i kraj z geolokalizacji Netlify (x-nf-geo), bez adresu IP', () => {
-    const header = Buffer.from(JSON.stringify({
-      city: 'Rzeszów', country: { code: 'PL', name: 'Poland' }, subdivision: { code: '18' }, latitude: 50.04, longitude: 22.0,
-    })).toString('base64')
-    expect(geoFromHeaders({ 'x-nf-geo': header, 'x-nf-client-connection-ip': '1.2.3.4' }))
-      .toEqual({ city: 'Rzeszów', region: null, country: 'PL' })
-    expect(geoFromHeaders({ 'x-nf-geo': 'śmieci' })).toBeNull()
-    expect(geoFromHeaders({})).toBeNull()
+    expect(usageRecord({ standalone: 'tak', push: true, platform: 'tv', extra: 'x', city: 'Fałsz' }))
+      .toEqual({ standalone: false, push: true, platform: 'other' })
   })
 
   it('rozpoznaje platformę', () => {
@@ -85,12 +61,12 @@ vi.mock('@netlify/blobs', () => ({
   }),
 }))
 
-const call = async (method, body, geo) => {
+const call = async (method, body) => {
   const { default: usage } = await import('../netlify/functions/usage.js')
   const req = new Request('https://radar.test/.netlify/functions/usage', {
     method, body: body ? JSON.stringify(body) : undefined, headers: { 'content-type': 'application/json' },
   })
-  return usage(req, { geo })
+  return usage(req)
 }
 
 describe('funkcja usage', () => {
@@ -103,30 +79,7 @@ describe('funkcja usage', () => {
     const stats = await (await call('GET')).json()
     expect(stats).toMatchObject({ dau: 2, wau: 2, mau: 2 })
     expect(stats.daily[0].platform).toEqual({ ios: 1, android: 0, desktop: 1, other: 0 })
-    expect(stats.daily[0].devices).toHaveLength(2)
     expect(JSON.stringify(stats)).not.toMatch(/dev-|[0-9a-f]{20}/)
-  })
-
-  it('miasto z context.geo (na produkcji stary format funkcji dostawał tylko kraj)', async () => {
-    await call('POST', { id: 'dev-3', platform: 'android' }, { city: 'Rzeszów', country: { code: 'PL' } })
-    const stats = await (await call('GET')).json()
-    expect(stats.daily[0].devices[0]).toMatchObject({ platform: 'android', city: 'Rzeszów', country: 'PL' })
-  })
-
-  it('bez miasta (adres operatora komórkowego) — zapisuje województwo', async () => {
-    await call('POST', { id: 'dev-5', platform: 'ios' }, { country: { code: 'PL' }, subdivision: { code: '18', name: 'Podkarpackie' } })
-    const stats = await (await call('GET')).json()
-    expect(stats.daily[0].devices[0]).toMatchObject({ city: null, region: 'Podkarpackie', country: 'PL' })
-  })
-
-  it('ponowny sygnał tego dnia uzupełnia miasto, ale zostawia godzinę pierwszego otwarcia', async () => {
-    data.clear()
-    await call('POST', { id: 'dev-4', platform: 'ios' })
-    const [key] = [...data.keys()]
-    const first = JSON.parse(data.get(key)).at
-    await new Promise(r => setTimeout(r, 5))
-    await call('POST', { id: 'dev-4', platform: 'ios' }, { city: 'Kraków', country: { code: 'PL' } })
-    expect(JSON.parse(data.get(key))).toMatchObject({ city: 'Kraków', at: first })
   })
 
   it('bez identyfikatora — 400', async () => {

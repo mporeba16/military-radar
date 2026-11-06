@@ -1,13 +1,12 @@
 // Licznik użytkowników — szczegóły w lib/usage.js.
 //   POST { id, standalone, push, platform } — sygnał „to urządzenie otworzyło
 //        dziś aplikację" (klient wysyła go raz na dobę),
-//   GET  — liczby dzienne / tygodniowe / miesięczne i lista urządzeń z 14 dni
-//        (platforma, przybliżone miasto, godzina) — bez identyfikatorów;
-//        pokazują je Statystyki.
+//   GET  — liczby dzienne / tygodniowe / miesięczne i podział każdego z 14 dni
+//        na platformy — bez identyfikatorów; pokazują je Statystyki.
 
 import { getStore } from '@netlify/blobs'
 import { corsHeaders, cleanDeviceId } from './lib/security.js'
-import { USAGE_STORE, warsawDay, deviceHash, usageRecord, geoFromContext, geoFromHeaders, lastDays, summarize } from './lib/usage.js'
+import { USAGE_STORE, warsawDay, deviceHash, usageRecord, lastDays, summarize } from './lib/usage.js'
 
 // Liczenie to 30 list kluczy w Blobs — wynik trzymamy w instancji i w CDN.
 const STATS_TTL_MS = 10 * 60 * 1000
@@ -30,11 +29,7 @@ async function computeStats(store, now) {
   return summarize(keysByDay, recordsByDay, now)
 }
 
-// Format `export default` (Request + context), nie `handler`: tylko on dostaje
-// od Netlify pełne położenie (context.geo z miastem). Stary format dostawał
-// sam kraj — na produkcji każde urządzenie miało „lokalizacja nieznana",
-// choć lokalnie (netlify dev) miasto było.
-export default async (req, context) => {
+export default async (req) => {
   const headers = corsHeaders({ headers: { origin: req.headers.get('origin') } })
   const reply = (status, body = null, extra = {}) =>
     new Response(body, { status, headers: { ...headers, ...extra } })
@@ -64,13 +59,7 @@ export default async (req, context) => {
   if (!id) return reply(400, JSON.stringify({ error: 'invalid-id' }))
 
   try {
-    const key = `${warsawDay(now)}/${deviceHash(id)}`
-    // Ponowny sygnał tego samego dnia (np. uzupełnienie miasta po wdrożeniu)
-    // nie przesuwa godziny pierwszego otwarcia.
-    const prev = await store.get(key, { type: 'json' }).catch(() => null)
-    const rec = usageRecord(body, geoFromContext(context) ?? geoFromHeaders(Object.fromEntries(req.headers)), now)
-    if (prev?.at) rec.at = prev.at
-    await store.set(key, JSON.stringify(rec))
+    await store.set(`${warsawDay(now)}/${deviceHash(id)}`, JSON.stringify(usageRecord(body)))
   } catch (err) {
     console.error('[usage] zapis:', err.message)
     return reply(502, JSON.stringify({ error: 'store-failed' }))

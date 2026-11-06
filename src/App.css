@@ -938,19 +938,18 @@
 .stat-chart__picked-day { font-weight: 600; color: #ffffff; text-transform: capitalize; }
 .stat-chart__picked-n { color: rgba(255, 255, 255, 0.6); }
 
-/* Urządzenia wybranego dnia: platforma, przybliżone miasto, godzina. */
+/* Wybrany dzień: liczba urządzeń na platformę. */
 .stat-devices { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .stat-devices__row {
   display: grid;
-  grid-template-columns: 8px 64px 1fr auto;
+  grid-template-columns: 8px 1fr auto;
   align-items: center;
   column-gap: 8px;
   min-height: 30px;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 .stat-devices__platform { color: #ffffff; }
-.stat-devices__place { color: rgba(255, 255, 255, 0.7); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.stat-devices__time { color: rgba(255, 255, 255, 0.45); font-variant-numeric: tabular-nums; }
+.stat-devices__n { color: #ffffff; font-weight: 600; font-variant-numeric: tabular-nums; }
 
 /* ══ Przyloty ═════════════════════════════════════════════════════════════ */
 .arr-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }

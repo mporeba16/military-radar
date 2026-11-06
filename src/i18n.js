@@ -62,7 +62,6 @@ const STRINGS = {
     USAGE_LABEL: 'Użytkownicy (urządzenia)',
     USAGE_TODAY: 'Dziś',
     USAGE_DAILY: 'Ostatnie 14 dni',
-    USAGE_NO_PLACE: 'lokalizacja nieznana',
     USAGE_ERROR: '✗ Nie udało się pobrać licznika.',
     FOLLOW_ON: 'Śledzę',
     FOLLOW_OFF: 'Śledź',

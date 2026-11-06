@@ -19,8 +19,6 @@ const PLATFORMS = [
 
 const dayLabel = d => `${Number(d.slice(8))}.${Number(d.slice(5, 7))}`
 const weekday = new Intl.DateTimeFormat('pl-PL', { weekday: 'short', timeZone: 'UTC' })
-// Godzina pierwszego otwarcia aplikacji tego dnia, czas polski.
-const timeFmt = new Intl.DateTimeFormat('pl-PL', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' })
 const dayLong = d => `${weekday.format(new Date(`${d}T12:00:00Z`))} ${dayLabel(d)}`
 const describe = d => `${dayLabel(d.day)}: ${d.n}` + (d.n
   ? ` — ${PLATFORMS.filter(p => d.platform?.[p.key]).map(p => `${p.label} ${d.platform[p.key]}`).join(', ')}`
@@ -93,23 +91,17 @@ function DailyBars({ daily }) {
           <span className="stat-chart__picked-day">{picked === last ? t('USAGE_TODAY') : dayLong(p.day)}</span>
           <span className="stat-chart__picked-n">{p.n} {plForm(p.n, 'urządzenie', 'urządzenia', 'urządzeń')}</span>
         </div>
-        {p.devices?.length > 0 && (
+        {/* Podział wybranego dnia na platformy (bez położenia — decyzja
+            użytkownika 06.11.2026). */}
+        {p.n > 0 && (
           <ul className="stat-devices">
-            {p.devices.map((dev, i) => {
-              const pl = PLATFORMS.find(x => x.key === dev.platform) || PLATFORMS[3]
-              return (
-                <li key={i} className="stat-devices__row">
-                  <span className="stat-chart__swatch" style={{ background: pl.color }} />
-                  <span className="stat-devices__platform">{pl.label}</span>
-                  <span className="stat-devices__place">
-                    {/* Miasto, a gdy baza położeń go nie zna (częste u operatorów
-                        komórkowych) — województwo. */}
-                    {[dev.city || dev.region, dev.country].filter(Boolean).join(', ') || t('USAGE_NO_PLACE')}
-                  </span>
-                  {dev.at && <span className="stat-devices__time">{timeFmt.format(dev.at)}</span>}
-                </li>
-              )
-            })}
+            {PLATFORMS.filter(pl => p.platform?.[pl.key]).map(pl => (
+              <li key={pl.key} className="stat-devices__row">
+                <span className="stat-chart__swatch" style={{ background: pl.color }} />
+                <span className="stat-devices__platform">{pl.label}</span>
+                <span className="stat-devices__n">{p.platform[pl.key]}</span>
+              </li>
+            ))}
           </ul>
         )}
       </div>
