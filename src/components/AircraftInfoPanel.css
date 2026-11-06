@@ -258,12 +258,11 @@
   justify-content: center;
   gap: 5px;
   padding: 0 8px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 3px;
-  color: rgba(255, 255, 255, 0.8);
-  font-family: inherit;
-  font-size: 11px;
+  background: var(--ctl-bg);
+  border: 1px solid var(--ctl-border);
+  border-radius: var(--ctl-radius);
+  color: #ffffff;
+  font: 600 12px var(--font);
   letter-spacing: 0.4px;
   text-decoration: none;
   white-space: nowrap;
@@ -280,8 +279,8 @@
 /* Oba przyciski w tym samym kolorze — zieleń tylko dla włączonego
    śledzenia, żeby kolor znaczył stan, a nie rodzaj przycisku. */
 .ac-info-action:hover {
-  color: #ffffff;
-  border-color: rgba(255, 255, 255, 0.45);
+  background: var(--ctl-bg-hover);
+  border-color: var(--ctl-border-hover);
 }
 
 .ac-info-follow--on,

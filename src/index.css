@@ -53,6 +53,13 @@
   --text: #dce8f5;
   --text-dim: #6a90b0;
   --border: #1a3350;
+  /* Kontrolki (przyciski, wiersze przełączników) — wspólne tło, ramka
+     i zaokrąglenie dla całej aplikacji. */
+  --ctl-bg: rgba(255, 255, 255, 0.04);
+  --ctl-bg-hover: rgba(255, 255, 255, 0.08);
+  --ctl-border: rgba(255, 255, 255, 0.14);
+  --ctl-border-hover: rgba(255, 255, 255, 0.3);
+  --ctl-radius: 8px;
   --radar-green: #00ff88;
 
   /* Paleta — lustro src/lib/palette.js, gdzie opisana jest zasada podziału na

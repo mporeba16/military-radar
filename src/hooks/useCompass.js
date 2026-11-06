@@ -41,6 +41,16 @@ export function smoothAngle(prev, next, k = SMOOTHING) {
   return ((prev + d * k) % 360 + 360) % 360
 }
 
+// Kąt obrotu stożka bez zawijania. Kurs przychodzi jako 0–360°, a CSS
+// animuje obrót liczbowo: przejście przez północ (359° → 1°) kręciło stożkiem
+// o 358° w drugą stronę — pełny obrót i powrót. Do poprzedniego kąta
+// dokładamy więc najkrótszą różnicę, a kąt może wyjść poza 0–360°.
+export function unwrapRotation(prev, heading) {
+  if (prev == null) return heading
+  const delta = ((heading - prev) % 360 + 540) % 360 - 180
+  return prev + delta
+}
+
 function screenAngle() {
   return (typeof screen !== 'undefined' && screen.orientation?.angle) || window.orientation || 0
 }

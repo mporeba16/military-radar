@@ -32,7 +32,17 @@ export function deviceHash(id) {
 
 const PLATFORMS = new Set(['ios', 'android', 'desktop', 'other'])
 
-// Przybliżone położenie z nagłówka `x-nf-geo`, który Netlify dokleja do
+// Przybliżone położenie z `context.geo` funkcji w nowym formacie Netlify
+// (miasto, kraj ustalone po adresie IP). To jest główne źródło.
+export function geoFromContext(context) {
+  const geo = context?.geo
+  const city = typeof geo?.city === 'string' && geo.city ? geo.city.slice(0, 60) : null
+  const code = geo?.country?.code
+  const country = typeof code === 'string' && /^[A-Z]{2}$/.test(code) ? code : null
+  return city || country ? { city, country } : null
+}
+
+// Zapas: położenie z nagłówka `x-nf-geo`, który Netlify dokleja do
 // zapytań do funkcji (base64 z JSON-em: miasto, kraj, region). Tylko miasto
 // i kod kraju; brak nagłówka albo śmieci → null.
 export function geoFromHeaders(headers = {}) {

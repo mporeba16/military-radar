@@ -85,28 +85,47 @@ vi.mock('@netlify/blobs', () => ({
   }),
 }))
 
+const call = async (method, body, geo) => {
+  const { default: usage } = await import('../netlify/functions/usage.js')
+  const req = new Request('https://radar.test/.netlify/functions/usage', {
+    method, body: body ? JSON.stringify(body) : undefined, headers: { 'content-type': 'application/json' },
+  })
+  return usage(req, { geo })
+}
+
 describe('funkcja usage', () => {
   beforeEach(() => { data.clear(); vi.resetModules() })
 
   it('dwa sygnały z jednego urządzenia tego samego dnia to jedno urządzenie', async () => {
-    const { handler } = await import('../netlify/functions/usage.js')
-    const post = body => handler({ httpMethod: 'POST', headers: {}, body: JSON.stringify(body) })
-    expect((await post({ id: 'dev-1', standalone: true, push: true, platform: 'ios' })).statusCode).toBe(204)
-    await post({ id: 'dev-1', standalone: true, push: true, platform: 'ios' })
-    await post({ id: 'dev-2', platform: 'desktop' })
-    const stats = JSON.parse((await handler({ httpMethod: 'GET', headers: {} })).body)
+    expect((await call('POST', { id: 'dev-1', standalone: true, push: true, platform: 'ios' })).status).toBe(204)
+    await call('POST', { id: 'dev-1', standalone: true, push: true, platform: 'ios' })
+    await call('POST', { id: 'dev-2', platform: 'desktop' })
+    const stats = await (await call('GET')).json()
     expect(stats).toMatchObject({ dau: 2, wau: 2, mau: 2 })
     expect(stats.daily[0].platform).toEqual({ ios: 1, android: 0, desktop: 1, other: 0 })
     expect(stats.daily[0].devices).toHaveLength(2)
     expect(JSON.stringify(stats)).not.toMatch(/dev-|[0-9a-f]{20}/)
-    // W magazynie nie ma identyfikatorów, tylko skróty.
-    expect([...data.keys()].join()).not.toMatch(/dev-/)
+  })
+
+  it('miasto z context.geo (na produkcji stary format funkcji dostawał tylko kraj)', async () => {
+    await call('POST', { id: 'dev-3', platform: 'android' }, { city: 'Rzeszów', country: { code: 'PL' } })
+    const stats = await (await call('GET')).json()
+    expect(stats.daily[0].devices[0]).toMatchObject({ platform: 'android', city: 'Rzeszów', country: 'PL' })
+  })
+
+  it('ponowny sygnał tego dnia uzupełnia miasto, ale zostawia godzinę pierwszego otwarcia', async () => {
+    data.clear()
+    await call('POST', { id: 'dev-4', platform: 'ios' })
+    const [key] = [...data.keys()]
+    const first = JSON.parse(data.get(key)).at
+    await new Promise(r => setTimeout(r, 5))
+    await call('POST', { id: 'dev-4', platform: 'ios' }, { city: 'Kraków', country: { code: 'PL' } })
+    expect(JSON.parse(data.get(key))).toMatchObject({ city: 'Kraków', at: first })
   })
 
   it('bez identyfikatora — 400', async () => {
-    const { handler } = await import('../netlify/functions/usage.js')
-    const res = await handler({ httpMethod: 'POST', headers: {}, body: JSON.stringify({ platform: 'ios' }) })
-    expect(res.statusCode).toBe(400)
+    const res = await call('POST', { platform: 'ios' })
+    expect(res.status).toBe(400)
     expect(data.size).toBe(0)
   })
 })

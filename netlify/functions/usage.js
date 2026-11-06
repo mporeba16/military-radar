@@ -5,9 +5,9 @@
 //        (platforma, przybliżone miasto, godzina) — bez identyfikatorów;
 //        pokazują je Statystyki.
 
-import { getStore, connectLambda } from '@netlify/blobs'
+import { getStore } from '@netlify/blobs'
 import { corsHeaders, cleanDeviceId } from './lib/security.js'
-import { USAGE_STORE, warsawDay, deviceHash, usageRecord, geoFromHeaders, lastDays, summarize } from './lib/usage.js'
+import { USAGE_STORE, warsawDay, deviceHash, usageRecord, geoFromContext, geoFromHeaders, lastDays, summarize } from './lib/usage.js'
 
 // Liczenie to 30 list kluczy w Blobs — wynik trzymamy w instancji i w CDN.
 const STATS_TTL_MS = 10 * 60 * 1000
@@ -30,42 +30,50 @@ async function computeStats(store, now) {
   return summarize(keysByDay, recordsByDay, now)
 }
 
-export const handler = async (event) => {
-  connectLambda(event)
-  const headers = corsHeaders(event)
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers }
+// Format `export default` (Request + context), nie `handler`: tylko on dostaje
+// od Netlify pełne położenie (context.geo z miastem). Stary format dostawał
+// sam kraj — na produkcji każde urządzenie miało „lokalizacja nieznana",
+// choć lokalnie (netlify dev) miasto było.
+export default async (req, context) => {
+  const headers = corsHeaders({ headers: { origin: req.headers.get('origin') } })
+  const reply = (status, body = null, extra = {}) =>
+    new Response(body, { status, headers: { ...headers, ...extra } })
+  if (req.method === 'OPTIONS') return reply(204)
   const store = getStore(USAGE_STORE)
   const now = Date.now()
 
-  if (event.httpMethod === 'GET') {
+  if (req.method === 'GET') {
     if (!statsCache || now - statsCache.at > STATS_TTL_MS) {
       try {
         statsCache = { at: now, body: JSON.stringify(await computeStats(store, now)) }
       } catch (err) {
         console.error('[usage] stats:', err.message)
-        return { statusCode: 502, headers, body: JSON.stringify({ error: 'stats-failed' }) }
+        return reply(502, JSON.stringify({ error: 'stats-failed' }))
       }
     }
-    return { statusCode: 200, headers: { ...headers, 'Cache-Control': 'public, max-age=0, s-maxage=600' }, body: statsCache.body }
+    return reply(200, statsCache.body, { 'Cache-Control': 'public, max-age=0, s-maxage=600' })
   }
 
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) }
-  }
+  if (req.method !== 'POST') return reply(405, JSON.stringify({ error: 'Method not allowed' }))
 
   let body
-  try { body = JSON.parse(event.body || '{}') } catch {
-    return { statusCode: 400, headers, body: JSON.stringify({ error: 'invalid-json' }) }
+  try { body = JSON.parse(await req.text() || '{}') } catch {
+    return reply(400, JSON.stringify({ error: 'invalid-json' }))
   }
   const id = cleanDeviceId(body.id)
-  if (!id) return { statusCode: 400, headers, body: JSON.stringify({ error: 'invalid-id' }) }
+  if (!id) return reply(400, JSON.stringify({ error: 'invalid-id' }))
 
   try {
-    await store.set(`${warsawDay(now)}/${deviceHash(id)}`,
-      JSON.stringify(usageRecord(body, geoFromHeaders(event.headers), now)))
+    const key = `${warsawDay(now)}/${deviceHash(id)}`
+    // Ponowny sygnał tego samego dnia (np. uzupełnienie miasta po wdrożeniu)
+    // nie przesuwa godziny pierwszego otwarcia.
+    const prev = await store.get(key, { type: 'json' }).catch(() => null)
+    const rec = usageRecord(body, geoFromContext(context) ?? geoFromHeaders(Object.fromEntries(req.headers)), now)
+    if (prev?.at) rec.at = prev.at
+    await store.set(key, JSON.stringify(rec))
   } catch (err) {
     console.error('[usage] zapis:', err.message)
-    return { statusCode: 502, headers, body: JSON.stringify({ error: 'store-failed' }) }
+    return reply(502, JSON.stringify({ error: 'store-failed' }))
   }
-  return { statusCode: 204, headers }
+  return reply(204)
 }

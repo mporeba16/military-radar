@@ -84,9 +84,9 @@ export default function DayPlanPanel({ zones, error, now, notams, onFocus, focus
 
       {past.length > 0 && (
         <>
-          <button className="plan-past-toggle" aria-expanded={pastOpen} onClick={() => setPastOpen(o => !o)}>
-            <span>Zakończone dziś ({past.length})</span>
-            <span className="plan-past-toggle__chev" aria-hidden="true">{pastOpen ? '▴' : '▾'}</span>
+          <button className="expander plan-past" aria-expanded={pastOpen} onClick={() => setPastOpen(o => !o)}>
+            <span className="expander__label">Zakończone dziś ({past.length})</span>
+            <span className="expander__chev" aria-hidden="true">{pastOpen ? '▴' : '▾'}</span>
           </button>
           {pastOpen && (
             <ul className="plan-list">

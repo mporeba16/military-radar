@@ -8,6 +8,10 @@ import { getDeviceId } from '../lib/deviceId'
 
 const dayFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Warsaw', year: 'numeric', month: '2-digit', day: '2-digit' })
 const SENT_KEY = 'radar.usageDay'
+// Podbijane, gdy sygnał niesie coś nowego, co warto uzupełnić jeszcze tego
+// samego dnia: urządzenie, które dziś już się zgłosiło, zgłosi się raz
+// jeszcze (serwer zachowa godzinę pierwszego otwarcia). v2 — miasto.
+const PING_VERSION = 'v2'
 
 export function detectPlatform(ua = navigator.userAgent, touch = navigator.maxTouchPoints || 0) {
   if (/iphone|ipad|ipod/i.test(ua) || (/Macintosh/.test(ua) && touch > 1)) return 'ios'
@@ -37,7 +41,7 @@ export function useUsagePing(subResolved, pushOn) {
 
   useEffect(() => {
     if (!ready) return
-    const today = dayFmt.format(Date.now())
+    const today = `${dayFmt.format(Date.now())}|${PING_VERSION}`
     try { if (localStorage.getItem(SENT_KEY) === today) return } catch { /* bez pamięci — wyślemy */ }
     const id = getDeviceId()
     if (!id) return

@@ -13,6 +13,7 @@ import { t } from '../i18n'
 import { buildTrailSegments } from '../lib/trailSegments'
 import AircraftLayer, { iconScaleForZoom } from './AircraftLayer'
 import { BASE_TILE } from '../lib/tiles'
+import { unwrapRotation } from '../hooks/useCompass'
 
 function MapClickHandler({ onSelect }) {
   useMapEvents({ click: () => onSelect(null) })
@@ -127,14 +128,14 @@ function SelectionFocus({ aircraft, selectedHex }) {
 }
 
 // Twoja pozycja jak w Google Maps: kropka (w kolorze okręgu zasięgu alertów,
-// żeby było jasne, że to środek tego okręgu), a gdy telefon ma
-// kompas — stożek w kierunku, w który patrzysz, obracany razem z telefonem.
-// Stożek mówi, w którą stronę się obrócić, żeby zobaczyć samolot.
+// żeby było jasne, że to środek tego okręgu), a gdy kompas jest włączony —
+// stożek w kierunku, w który patrzysz, obracany razem z telefonem. Stożek
+// mówi, w którą stronę się obrócić, żeby zobaczyć samolot. Zgodę na kompas
+// (iOS) daje się w panelu Powiadomienia — wcześniej plakietka „N" przy
+// kropce, której nikt nie rozumiał.
 // Marker powstaje raz; pozycja i obrót zmieniają się bez przebudowy ikony
-// (kompas potrafi podawać kilkanaście odczytów na sekundę). Klikalna jest
-// tylko kropka — stożek nie zasłania samolotów pod spodem. Na iOS kompas
-// wymaga zgody, o którą wolno poprosić dopiero po dotknięciu: kropka ma
-// wtedy plakietkę, a dotknięcie prosi o zgodę.
+// (kompas potrafi podawać kilkanaście odczytów na sekundę). Nic tu nie jest
+// klikalne — kropka nie zasłania samolotów pod spodem.
 const ME_HTML = `
   <div class="me">
     <svg class="me__cone" viewBox="-60 -60 120 120" aria-hidden="true">
@@ -148,14 +149,12 @@ const ME_HTML = `
     </svg>
     <span class="me__pulse"></span>
     <span class="me__dot"></span>
-    <span class="me__hint" title="Dotknij, aby włączyć kompas">N</span>
   </div>`
 
-function UserLocation({ position, heading, compassState, onCompassRequest }) {
+function UserLocation({ position, heading }) {
   const map = useMap()
   const markerRef = useRef(null)
-  const requestRef = useRef(onCompassRequest)
-  requestRef.current = onCompassRequest
+  const rotationRef = useRef(null)
 
   useEffect(() => {
     if (!position) return
@@ -163,10 +162,7 @@ function UserLocation({ position, heading, compassState, onCompassRequest }) {
       icon: L.divIcon({ html: ME_HTML, className: 'me-marker', iconSize: [120, 120], iconAnchor: [60, 60] }),
       zIndexOffset: -500,
       keyboard: false,
-    })
-    marker.on('click', e => {
-      if (e.originalEvent) e.originalEvent.stopPropagation()
-      requestRef.current?.()
+      interactive: false,
     })
     marker.addTo(map)
     markerRef.current = marker
@@ -179,13 +175,14 @@ function UserLocation({ position, heading, compassState, onCompassRequest }) {
   }, [position])
 
   useEffect(() => {
-    const el = markerRef.current?.getElement()
-    if (!el) return
-    const cone = el.querySelector('.me__cone')
+    const cone = markerRef.current?.getElement()?.querySelector('.me__cone')
+    if (!cone) return
     cone.style.display = heading == null ? 'none' : ''
-    if (heading != null) cone.style.transform = `rotate(${heading}deg)`
-    el.querySelector('.me__hint').style.display = compassState === 'needs-permission' ? '' : 'none'
-  }, [heading, compassState, position])
+    if (heading != null) {
+      rotationRef.current = unwrapRotation(rotationRef.current, heading)
+      cone.style.transform = `rotate(${rotationRef.current}deg)`
+    }
+  }, [heading, position])
 
   return null
 }
@@ -314,7 +311,7 @@ export default function RadarMap({
   aircraft, hasFetched, trails, serverTrails, center, gpsCenter, radius,
   selectedHex, focusHex, onSelect, showBases, showNatoBases, showRanges,
   airspace, showAirspace, recenterRef, planFocus, followHex,
-  heading, compassState, onCompassRequest,
+  heading,
 }) {
   const initialZoom = 6  // S4: was 5, but icons were too small at default view
   const [zoom, setZoom] = useState(initialZoom)
@@ -409,8 +406,7 @@ export default function RadarMap({
           }} />
         )}
 
-        <UserLocation position={gpsCenter} heading={heading}
-          compassState={compassState} onCompassRequest={onCompassRequest} />
+        <UserLocation position={gpsCenter} heading={heading} />
 
         {trailSegments && trailSegments.map(seg => (
           <Polyline key={seg.key} positions={seg.positions}

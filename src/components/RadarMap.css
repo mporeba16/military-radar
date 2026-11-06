@@ -275,8 +275,7 @@
 }
 
 /* ── Twoja pozycja (UserLocation) ────────────────────────────────────────
-   Klikalna tylko kropka — reszta (stożek, puls) przepuszcza kliknięcia
-   do samolotów pod spodem. */
+   Nic nie jest klikalne — kliknięcia przechodzą do samolotów pod spodem. */
 .leaflet-marker-icon.me-marker { pointer-events: none !important; background: none; border: none; }
 .me { position: relative; width: 120px; height: 120px; }
 .me__cone {
@@ -294,8 +293,7 @@
   background: rgba(0, 255, 136, 0.55);
   border: 1.5px solid rgba(0, 255, 136, 0.85);
   box-sizing: border-box;
-  pointer-events: auto;
-  cursor: pointer;
+  pointer-events: none;
 }
 .me__pulse {
   position: absolute; left: 50%; top: 50%;
@@ -308,15 +306,5 @@
 @keyframes me-pulse {
   from { transform: scale(1); opacity: 0.9; }
   to { transform: scale(3.4); opacity: 0; }
-}
-/* iOS: kompas czeka na zgodę — plakietka „N" przy kropce, dotknięcie prosi o zgodę. */
-.me__hint {
-  position: absolute; left: calc(50% + 7px); top: calc(50% - 20px);
-  min-width: 15px; height: 15px; padding: 0 3px;
-  border-radius: 8px;
-  background: #ffffff; color: #00663a;
-  font: 700 9px/15px var(--font); text-align: center;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
-  pointer-events: auto; cursor: pointer;
 }
 @media (prefers-reduced-motion: reduce) { .me__pulse { animation: none; } .me__cone { transition: none; } }

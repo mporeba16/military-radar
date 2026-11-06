@@ -25,14 +25,14 @@ function urlBase64ToUint8Array(base64String) {
   return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)))
 }
 
-async function syncToServer(sub, lat, lon, radius, kinds, arrivals, health) {
+async function syncToServer(sub, lat, lon, radius, kinds, arrivals) {
   if (!sub) return { ok: false, error: 'no-subscription' }
   try {
     const res = await fetch('/.netlify/functions/subscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        subscription: sub.toJSON(), lat, lon, radius, kinds, arrivals, health, deviceId: getDeviceId(),
+        subscription: sub.toJSON(), lat, lon, radius, kinds, arrivals, deviceId: getDeviceId(),
       }),
     })
     let payload = null
@@ -51,22 +51,7 @@ async function syncToServer(sub, lat, lon, radius, kinds, arrivals, health) {
   }
 }
 
-async function fetchStatus(sub) {
-  if (!sub) return null
-  try {
-    const res = await fetch('/.netlify/functions/status', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ endpoint: sub.endpoint }),
-    })
-    if (!res.ok) return null
-    return await res.json()
-  } catch {
-    return null
-  }
-}
-
-export function usePushNotifications(location, radius, kinds, arrivals, statusEnabled = false, healthAlerts = false) {
+export function usePushNotifications(location, radius, kinds, arrivals) {
   const [isSubscribed, setIsSubscribed] = useState(false)
   // Czy znamy już stan subskrypcji? Zanim asynchroniczne getSubscription() się
   // rozwiąże, isSubscribed jest false — gdyby klient w tym oknie odpalił lokalne
@@ -76,7 +61,6 @@ export function usePushNotifications(location, radius, kinds, arrivals, statusEn
   const [isSubscribing, setIsSubscribing] = useState(false)
   const [subscribeError, setSubscribeError] = useState(null)
   const [syncError, setSyncError] = useState(null)
-  const [serverStatus, setServerStatus] = useState(null)
   const [permissionState, setPermissionState] = useState(
     typeof Notification !== 'undefined' ? Notification.permission : 'unsupported'
   )
@@ -136,33 +120,14 @@ export function usePushNotifications(location, radius, kinds, arrivals, statusEn
     const id = setTimeout(() => {
       syncToServer(subRef.current, syncLat, syncLon, radius, {
         mil: wantMil, heli: wantHeli, heavy: wantHeavy, rare: wantRare,
-      }, arrivalsKey ? JSON.parse(arrivalsKey) : undefined, healthAlerts).then(res => {
+      }, arrivalsKey ? JSON.parse(arrivalsKey) : undefined).then(res => {
         if (cancelled) return
         setSyncError(res.ok ? null : res.error)
         if (res.retryAfterMs) retryId = setTimeout(() => setSyncNonce(n => n + 1), res.retryAfterMs + 250)
       })
     }, SYNC_DEBOUNCE_MS)
     return () => { cancelled = true; clearTimeout(id); clearTimeout(retryId) }
-  }, [isSubscribed, syncLat, syncLon, radius, wantMil, wantHeli, wantHeavy, wantRare, arrivalsKey, healthAlerts, syncNonce])
-
-  // Diagnostyka serwerowa, odświeżana co minutę — tylko gdy jest na ekranie
-  // (rozwinięta diagnostyka). Wcześniej każde urządzenie z pushem pytało co
-  // minutę, choć wynik widać wyłącznie tam. Nie zależy od pozycji: gdyby
-  // zależała, każdy fix GPS zerowałby interwał i od razu strzelał zapytaniem.
-  useEffect(() => {
-    if (!statusEnabled || !isSubscribed || !subRef.current) {
-      setServerStatus(null)
-      return
-    }
-    let cancelled = false
-    const refresh = async () => {
-      const s = await fetchStatus(subRef.current)
-      if (!cancelled) setServerStatus(s)
-    }
-    refresh()
-    const id = setInterval(refresh, 60_000)
-    return () => { cancelled = true; clearInterval(id) }
-  }, [isSubscribed, statusEnabled])
+  }, [isSubscribed, syncLat, syncLon, radius, wantMil, wantHeli, wantHeavy, wantRare, arrivalsKey, syncNonce])
 
   const subscribe = useCallback(async () => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
@@ -222,28 +187,6 @@ export function usePushNotifications(location, radius, kinds, arrivals, statusEn
       subRef.current = null
       setIsSubscribed(false)
       setSyncError(null)
-      setServerStatus(null)
-    }
-  }, [])
-
-  const sendTestPush = useCallback(async () => {
-    if (!subRef.current) return { ok: false, error: 'no-subscription' }
-    try {
-      const res = await fetch('/.netlify/functions/test-push', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ endpoint: subRef.current.endpoint }),
-      })
-      let payload = null
-      try { payload = await res.json() } catch {}
-      if (!res.ok) {
-        const code = payload?.error || `http-${res.status}`
-        const detail = payload?.detail ? `: ${payload.detail}` : ''
-        return { ok: false, error: `${code}${detail}` }
-      }
-      return { ok: true }
-    } catch (err) {
-      return { ok: false, error: err.message || 'network' }
     }
   }, [])
 
@@ -253,10 +196,8 @@ export function usePushNotifications(location, radius, kinds, arrivals, statusEn
     isSubscribing,
     subscribe,
     unsubscribe,
-    sendTestPush,
     permissionState,
     subscribeError,
     syncError,
-    serverStatus,
   }
 }

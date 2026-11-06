@@ -152,3 +152,13 @@ export function IconJumbo() {
     </Icon>
   )
 }
+
+// Kompas — kierunek patrzenia na mapie (panel Powiadomienia).
+export function IconCompass() {
+  return (
+    <Icon>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M15.5 8.5 13.4 13.4 8.5 15.5l2.1-4.9z" />
+    </Icon>
+  )
+}

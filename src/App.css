@@ -155,27 +155,6 @@
 .ok { color: var(--accent); }
 .err { color: var(--warning); }
 
-.link-btn {
-  background: none;
-  border: none;
-  color: var(--accent);
-  cursor: pointer;
-  font-family: var(--font);
-  font-size: 11px;
-  /* Tekstowy link, ale to realna akcja (wypis z push / ponów GPS) — dajemy
-     pełnowymiarowy tap-target 44px wysokości bez przesuwania layoutu. */
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-  padding: 0;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-.link-btn:focus-visible {
-  outline: 2px solid rgba(255, 255, 255, 0.5);
-  outline-offset: 2px;
-}
-
 .range-slider {
   position: relative;
   z-index: 1;
@@ -220,47 +199,59 @@
   gap: 10px;
 }
 
-.btn-refresh {
-  padding: 8px 16px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.25);
+/* ══ Przyciski i wiersze — jeden wzór dla całej aplikacji ══════════════════
+   Wcześniej każdy przycisk miał swoje zaokrąglenie (3, 6, 7 px), czcionkę
+   (11–13 px) i wysokość. Teraz:
+     .btn            — zwykły (testowy push, „Ponów")
+     .btn--primary   — główna akcja panelu (Włącz powiadomienia)
+     .btn--block     — na całą szerokość
+     .btn--sm        — mniejszy, w pasku stanu
+     .expander       — wiersz rozwijający sekcję (Statystyki, Zakończone),
+                       wygląda jak wiersz przełącznika: ta sama czcionka
+   Tło, ramka i zaokrąglenie te same co w wierszach przełączników (--ctl-*). */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+  background: var(--ctl-bg);
+  border: 1px solid var(--ctl-border);
+  border-radius: var(--ctl-radius);
   color: #ffffff;
+  font: 600 13px var(--font);
   cursor: pointer;
-  font-family: var(--font);
-  font-size: 12px;
-  transition: all 0.15s;
-  border-radius: 3px;
+  transition: background 0.15s, border-color 0.15s;
 }
+.btn:hover:not(:disabled) { background: var(--ctl-bg-hover); border-color: var(--ctl-border-hover); }
+.btn:disabled { opacity: 0.5; cursor: default; }
+.btn:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.5); outline-offset: 2px; }
+.btn--primary { background: rgba(0, 255, 136, 0.12); border-color: rgba(0, 255, 136, 0.6); color: #00ff88; }
+.btn--primary:hover:not(:disabled) { background: rgba(0, 255, 136, 0.2); border-color: #00ff88; }
+.btn--block { display: flex; width: 100%; }
+.btn--sm { min-height: 36px; padding: 0 12px; font-size: 12px; }
 
-.btn-refresh:hover {
-  background: rgba(255, 255, 255, 0.14);
-  border-color: #00ff88;
-  color: #00ff88;
-}
-
-.btn-subscribe {
+.expander {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   width: 100%;
-  padding: 10px;
-  background: rgba(0, 255, 136, 0.12);
-  border: 1px solid #00ff88;
-  color: #00ff88;
+  min-height: 44px;
+  padding: 0 12px;
+  background: var(--ctl-bg);
+  border: 1px solid var(--ctl-border);
+  border-radius: var(--ctl-radius);
+  color: #ffffff;
+  font: 13px var(--font);
+  text-align: left;
   cursor: pointer;
-  font-family: var(--font);
-  font-size: 12px;
-  letter-spacing: 1px;
-  transition: all 0.15s;
-  border-radius: 3px;
+  transition: background 0.15s, border-color 0.15s;
 }
-
-.btn-subscribe:hover:not(:disabled) {
-  background: var(--accent);
-  color: var(--bg-deep);
-}
-
-.btn-subscribe:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
+.expander:hover { background: var(--ctl-bg-hover); border-color: var(--ctl-border-hover); }
+.expander__label { display: inline-flex; align-items: center; gap: 10px; }
+.expander__chev { color: rgba(255, 255, 255, 0.55); font-size: 13px; }
 
 .info-text {
   font-family: var(--font);
@@ -284,16 +275,16 @@
   /* 44 px — minimum pola dotyku (Apple HIG); wcześniej 38–40 px. */
   min-height: 44px;
   padding: 9px 11px;
-  border-radius: 7px;
+  border-radius: var(--ctl-radius);
   cursor: pointer;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--ctl-border);
+  background: var(--ctl-bg);
   color: #fff;
   font: inherit;
   text-align: left;
   transition: background 0.15s, border-color 0.15s, opacity 0.15s;
 }
-.toggle-row:hover { background: rgba(255, 255, 255, 0.07); }
+.toggle-row:hover { background: var(--ctl-bg-hover); }
 .toggle-row[aria-pressed="true"] { background: rgba(255, 255, 255, 0.08); }
 .toggle-row:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.5); outline-offset: 2px; }
 .toggle-row__label { flex: 1; }
@@ -616,17 +607,7 @@
 .ready-bar__text { display: flex; flex-direction: column; min-width: 0; flex: 1; line-height: 1.25; }
 .ready-bar__title { font-size: 13px; font-weight: 600; color: var(--ready); }
 .ready-bar__reason { font-size: var(--t-small); color: rgba(255, 255, 255, 0.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ready-bar__action {
-  flex-shrink: 0;
-  min-height: 34px;
-  padding: 0 12px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  border-radius: 6px;
-  color: #ffffff;
-  font: 600 12px var(--font);
-  cursor: pointer;
-}
+.ready-bar__action { flex-shrink: 0; }
 
 /* ══ Suwak zasięgu ════════════════════════════════════════════════════════ */
 .range-block { display: flex; flex-direction: column; }
@@ -651,24 +632,9 @@
 /* ══ Stopka panelu i diagnostyka ══════════════════════════════════════════ */
 /* Panel Alerty: kolumna, żeby wersja mogła stać na samym dole (margin-top: auto). */
 .panel-body--footer { display: flex; flex-direction: column; }
+.stats-toggle { margin-top: 4px; }
+.stats-toggle .expander__label svg { color: #ffb74d; }
 
-.stats-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  min-height: 44px;
-  margin-top: 4px;
-  padding: 0 12px;
-  background: rgba(255, 183, 77, 0.06);
-  border: 1px solid rgba(255, 183, 77, 0.35);
-  border-radius: 7px;
-  color: #ffb74d;
-  font: 600 13px var(--font);
-  cursor: pointer;
-}
-.stats-toggle__label { display: inline-flex; align-items: center; gap: 8px; }
-.stats-toggle__chev { font-size: 13px; opacity: 0.8; }
 
 .panel-version {
   margin-top: auto;
@@ -693,11 +659,6 @@
   padding-top: 14px;
   border-top: 1px dashed rgba(255, 255, 255, 0.12);
 }
-.diag { font-size: 11px; font-family: var(--font); line-height: 1.7; }
-.diag__row { color: rgba(255, 255, 255, 0.55); }
-.diag__v { color: #ffffff; }
-.diag__ts { color: rgba(255, 255, 255, 0.7); font-size: 10px; }
-.diag__run { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.1); }
 
 /* ══ Drobiazgi wspólne ════════════════════════════════════════════════════ */
 .small { font-size: 11px; }
@@ -763,12 +724,12 @@
   gap: 2px 10px;
   padding: 10px 12px 10px 14px;
   text-align: left;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
+  background: var(--ctl-bg);
+  border: 1px solid var(--ctl-border);
   border-left: 3px solid rgba(227, 220, 85, 0.6);
-  border-radius: 6px;
+  border-radius: var(--ctl-radius);
   color: var(--text);
-  font-family: var(--font);
+  font: 13px var(--font);
   cursor: pointer;
 }
 .plan-row:hover { border-color: rgba(255, 255, 255, 0.3); }
@@ -815,27 +776,9 @@
   color: #9cb7cf;
 }
 
-/* „Zakończone (n)" — pełnoprawny wiersz, a nie blady napis: to jedyna droga
-   do dzisiejszej listy wieczorem, więc musi wyglądać na klikalny. */
-.plan-past-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  min-height: 44px;
-  margin-top: 10px;
-  padding: 0 14px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text);
-  font: 600 13px var(--font);
-  letter-spacing: 0.2px;
-  cursor: pointer;
-}
-.plan-past-toggle:hover { border-color: rgba(255, 255, 255, 0.3); }
-.plan-past-toggle__chev { color: rgba(255, 255, 255, 0.6); font-size: 14px; }
-.plan-past-toggle + .plan-list { margin-top: 8px; }
+/* Wiersz „Zakończone dziś (n)" — .expander. */
+.plan-past { margin-top: 10px; }
+.plan-past + .plan-list { margin-top: 8px; }
 
 .plan-notam {
   display: flex;
@@ -1019,15 +962,15 @@
   width: 100%;
   min-height: 52px;
   padding: 8px 11px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 7px;
+  background: var(--ctl-bg);
+  border: 1px solid var(--ctl-border);
+  border-radius: var(--ctl-radius);
   color: #ffffff;
   font: inherit;
   text-align: left;
   cursor: pointer;
 }
-.arr-row:hover { background: rgba(255, 255, 255, 0.07); }
+.arr-row:hover { background: var(--ctl-bg-hover); }
 .arr-row__ico { display: flex; color: var(--kind-heavy, #ffb300); }
 .arr-row__main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .arr-row__head { display: flex; align-items: baseline; gap: 8px; min-width: 0; }

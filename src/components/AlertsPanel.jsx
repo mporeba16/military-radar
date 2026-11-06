@@ -1,5 +1,5 @@
 import Toggle, { onOff } from './Toggle'
-import { IconSound, IconVibrate, IconLanding, IconRadar } from './UiIcons'
+import { IconSound, IconVibrate, IconLanding, IconRadar, IconCompass } from './UiIcons'
 import RangeSlider from './RangeSlider'
 import { t } from '../i18n'
 import { planeWord } from '../lib/plural'
@@ -26,9 +26,42 @@ function ReadyBar({ level, reason, onRetryGps }) {
       </span>
       {/* Ponowienie GPS — wcześniej robił to przycisk celownika na mapie. */}
       {reason === 'GPS' && onRetryGps && (
-        <button type="button" className="ready-bar__action" onClick={onRetryGps}>{t('READY_RETRY_GPS')}</button>
+        <button type="button" className="btn btn--sm ready-bar__action" onClick={onRetryGps}>{t('READY_RETRY_GPS')}</button>
       )}
     </div>
+  )
+}
+
+// Kompas widać tylko tam, gdzie może działać: na telefonie albo gdy już
+// podaje kierunek. Komputer kompasu nie ma.
+const IS_TOUCH = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches
+
+function CompassRow({ compass, on, setOn }) {
+  if (compass.state === 'unsupported' || (!IS_TOUCH && compass.state !== 'active')) return null
+  const blocked = compass.state === 'denied'
+  const working = on && compass.state === 'active'
+  const toggle = () => {
+    if (on && !blocked && compass.state !== 'needs-permission') { setOn(false); return }
+    setOn(true)
+    // iOS: prośba o zgodę musi paść w obsłudze dotknięcia — stąd tutaj.
+    if (compass.state === 'needs-permission') compass.request()
+  }
+  return (
+    <section className="cp-section">
+      <div className="cp-label">{t('COMPASS_SECTION')}</div>
+      <div className="toggle-list">
+        <Toggle
+          on={working}
+          onToggle={toggle}
+          label={t('COMPASS_LABEL')}
+          title={t('COMPASS_HINT')}
+          marker={<span className="toggle-ico"><IconCompass /></span>}
+          {...onOff(working)}
+        />
+      </div>
+      {on && compass.state === 'needs-permission' && <p className="layer-note">{t('COMPASS_NEEDS_PERMISSION')}</p>}
+      {blocked && <p className="layer-note">{t('COMPASS_DENIED')}</p>}
+    </section>
   )
 }
 
@@ -37,7 +70,7 @@ function ReadyBar({ level, reason, onRetryGps }) {
 // Wydzielony z dawnego panelu Ustawienia, który zebrał osiem niepowiązanych
 // sekcji: od zasięgu alertów po diagnostykę serwera.
 export default function AlertsPanel({
-  location, onRetryGps,
+  location, onRetryGps, compass, compassOn, setCompassOn,
   radius, setRadius, inRangeCount, alertsCount,
   kinds, setKinds,
   permissionState, isSubscribed, isSubscribing, subscribe, unsubscribe, subscribeError,
@@ -104,7 +137,7 @@ export default function AlertsPanel({
                 />
               </div>
             : <>
-                <button className="btn-subscribe" onClick={subscribe} disabled={isSubscribing}>
+                <button className="btn btn--primary btn--block" onClick={subscribe} disabled={isSubscribing}>
                   {isSubscribing ? t('PUSH_CONNECTING') : t('PUSH_ENABLE')}
                 </button>
                 {subscribeError && <p className="err small mt6">✗ {subscribeError}</p>}
@@ -134,6 +167,11 @@ export default function AlertsPanel({
           )}
         </div>
       </section>
+
+      {/* Kompas: stożek „tam patrzysz" przy Twojej pozycji na mapie. Tutaj,
+          a nie przy kropce na mapie — zgoda na czujniki (iOS) stoi obok
+          innych zgód, a włączenie przełącznika samo o nią prosi. */}
+      {compass && <CompassRow compass={compass} on={compassOn} setOn={setCompassOn} />}
 
       {/* 5. Wielkie transportowce z celem w Polsce — osobno dla każdego
           lotniska, bo interesujący bywa tylko jeden kierunek. */}

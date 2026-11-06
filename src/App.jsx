@@ -50,8 +50,6 @@ export default function App() {
   const [kinds, setKinds] = useLocalStorage('radar.kinds', { mil: true, heli: true, heavy: true, rare: true })
   const [soundOn, setSoundOn] = useLocalStorage('radar.sound', true)
   const [vibrateOn, setVibrateOn] = useLocalStorage('radar.vibrate', true)
-  // Alarmy o awariach serwera — przełącznik w diagnostyce (lib/health.js).
-  const [healthAlerts, setHealthAlerts] = useLocalStorage('radar.healthAlerts', false)
   const [selectedHex, setSelectedHex] = useState(null)
   // Maszyna, do której mapa ma dolecieć: TYLKO wybór spoza mapy (link #hex,
   // kliknięte powiadomienie). Kliknięcie ikony na mapie nigdy nie przesuwa
@@ -90,7 +88,6 @@ export default function App() {
   const [lastUpdated, setLastUpdated] = useState(null)
   const [alerts, setAlerts] = useState([])
   const [inRangeCount, setInRangeCount] = useState(0)
-  const [testPushStatus, setTestPushStatus] = useState(null)
   const [debugUnlocked, setDebugUnlocked] = useState(() => {
     try { return new URLSearchParams(window.location.search).has('debug') } catch { return false }
   })
@@ -111,15 +108,15 @@ export default function App() {
   const trailsRef = useRef(new Map())
   const isMountedRef = useRef(false)
   const fetchAbortRef = useRef(null)
-  const testPushTimerRef = useRef(null)
   const { location, requestLocation } = useGeolocation()
-  // Kierunek telefonu do stożka przy Twojej pozycji na mapie.
+  // Kierunek telefonu do stożka przy Twojej pozycji na mapie. Włączany
+  // w Powiadomieniach (tam też, na iOS, pada prośba o zgodę).
   const compass = useCompass()
+  const [compassOn, setCompassOn] = useLocalStorage('radar.compass', true)
   const {
-    isSubscribed, subResolved, isSubscribing, subscribe, unsubscribe, sendTestPush,
-    permissionState, subscribeError, syncError, serverStatus,
-  } = usePushNotifications(location, radius, kinds, arrivals,
-    debugUnlocked && debugOpen && activePanel === 'alerty', healthAlerts)
+    isSubscribed, subResolved, isSubscribing, subscribe, unsubscribe,
+    permissionState, subscribeError,
+  } = usePushNotifications(location, radius, kinds, arrivals)
 
   // Anonimowy licznik użytkowników — raz na dobę, gdy znamy już stan pusha.
   useUsagePing(subResolved, isSubscribed)
@@ -277,11 +274,6 @@ export default function App() {
   // Auto-start GPS tracking on mount
   useEffect(() => { requestLocation() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Clear the test-push status timeout on unmount (avoids setState on a gone
-  // component if the panel closes mid-countdown).
-  useEffect(() => () => {
-    if (testPushTimerRef.current) clearTimeout(testPushTimerRef.current)
-  }, [])
 
 
   // Radius change → recompute alerts locally, no network refetch. The API
@@ -431,17 +423,6 @@ export default function App() {
     meta.setAttribute('content', hasEmergency ? EMERGENCY_THEME_COLOR : '#080f1c')
   }, [hasEmergency])
 
-  async function handleTestPush() {
-    if (testPushTimerRef.current) clearTimeout(testPushTimerRef.current)
-    setTestPushStatus({ kind: 'loading' })
-    const res = await sendTestPush()
-    if (res.ok) setTestPushStatus({ kind: 'ok' })
-    else setTestPushStatus({ kind: 'err', detail: res.error })
-    testPushTimerRef.current = setTimeout(() => {
-      setTestPushStatus(null)
-      testPushTimerRef.current = null
-    }, 6000)
-  }
 
   const handleSelect = useCallback(hex => {
     setSelectedHex(prev => prev === hex ? null : hex)
@@ -504,9 +485,7 @@ export default function App() {
         recenterRef={recenterRef}
         planFocus={planFocus}
         followHex={followHex}
-        heading={compass.heading}
-        compassState={compass.state}
-        onCompassRequest={compass.request}
+        heading={compassOn ? compass.heading : null}
       />
 
       <MapMark isLoading={isLoading} error={error} lastUpdated={lastUpdated}
@@ -556,6 +535,9 @@ export default function App() {
             <AlertsPanel
               location={location}
               onRetryGps={requestLocation}
+              compass={compass}
+              compassOn={compassOn}
+              setCompassOn={setCompassOn}
               radius={radius}
               setRadius={setRadius}
               inRangeCount={inRangeCount}
@@ -576,19 +558,10 @@ export default function App() {
               setVibrateOn={setVibrateOn}
             >
               <PanelFooter
-                location={location}
-                radius={radius}
-                isSubscribed={isSubscribed}
                 error={error}
                 debugUnlocked={debugUnlocked}
                 debugOpen={debugOpen}
                 setDebugOpen={setDebugOpen}
-                handleTestPush={handleTestPush}
-                testPushStatus={testPushStatus}
-                syncError={syncError}
-                serverStatus={serverStatus}
-                healthAlerts={healthAlerts}
-                setHealthAlerts={setHealthAlerts}
                 version={version}
                 bumpVersionTap={bumpVersionTap}
               />
