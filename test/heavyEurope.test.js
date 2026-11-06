@@ -107,3 +107,23 @@ describe('przenoszenie z poprzedniej migawki (429 adsb.lol)', () => {
     expect(mergeHeavies([], { at: NOW, aircraft: [old] }, BOX, map, NOW)).toEqual([])
   })
 })
+
+describe('jumbo jety przy granicy', async () => {
+  const { willEnterPoland } = await import('../netlify/functions/lib/poland.js')
+
+  it('nad Czechami, kursem na południowy wschód (od Polski) — nie pokazujemy', () => {
+    expect(willEnterPoland({ lat: 50.38, lon: 15.26, track: 119, gs: 469 })).toBe(false)
+  })
+
+  it('nad Czechami, kursem na północ — wleci nad Polskę, pokazujemy', () => {
+    expect(willEnterPoland({ lat: 50.38, lon: 15.26, track: 10, gs: 469 })).toBe(true)
+  })
+
+  it('nad Polską — zawsze', () => {
+    expect(willEnterPoland({ lat: 52.2, lon: 21.0, track: 270, gs: 480 })).toBe(true)
+  })
+
+  it('stoi na lotnisku za granicą (bez prędkości) — nie', () => {
+    expect(willEnterPoland({ lat: 51.42, lon: 12.24, track: null, gs: 5 })).toBe(false)
+  })
+})

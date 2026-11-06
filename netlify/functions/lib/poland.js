@@ -61,3 +61,21 @@ export function distanceToPolandKm(lat, lon) {
 export function isNearPoland(lat, lon, km) {
   return distanceToPolandKm(lat, lon) <= km
 }
+
+// Czy maszyna jest nad Polską albo — przy obecnym kursie i prędkości — wleci
+// nad nią w ciągu `minutes`. Pozycję przesuwamy po linii kursu co `stepMin`
+// minut i sprawdzamy obrys. Bez kursu albo prędkości (np. stoi na lotnisku
+// za granicą) — tylko pozycja bieżąca.
+export function willEnterPoland(a, minutes = 20, stepMin = 2) {
+  if (isInPoland(a?.lat, a?.lon)) return true
+  if (typeof a?.gs !== 'number' || typeof a?.track !== 'number' || a.gs < 50) return false
+  const rad = (a.track * Math.PI) / 180
+  const cosLat = Math.cos((a.lat * Math.PI) / 180)
+  for (let t = stepMin; t <= minutes; t += stepMin) {
+    const distNm = (a.gs * t) / 60
+    const lat = a.lat + (distNm * Math.cos(rad)) / 60
+    const lon = a.lon + (distNm * Math.sin(rad)) / (60 * cosLat)
+    if (isInPoland(lat, lon)) return true
+  }
+  return false
+}

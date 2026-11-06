@@ -9,7 +9,7 @@
 import { getStore, connectLambda } from '@netlify/blobs'
 import { corsHeaders } from './lib/security.js'
 import { snapshotKey } from './lib/snapshot.js'
-import { isInPoland } from './lib/poland.js'
+import { isInPoland, willEnterPoland } from './lib/poland.js'
 import { HEAVY_KEY, HEAVY_STORE, mergeHeavies } from './lib/heavyEurope.js'
 import { filterMlatSpikes, MLAT_MIN_INTERVAL_MS } from '../../src/lib/trailFilter.js'
 import {
@@ -314,6 +314,14 @@ export const handler = async (event) => {
       const heavy = await getStore(HEAVY_STORE).get(HEAVY_KEY, { type: 'json' })
       result = { ...result, aircraft: mergeHeavies(result.aircraft, heavy, { lamin, lomin, lamax, lomax }, mapADSBfiRecord) }
     } catch { /* bez migawki — tylko jumbo jety blisko Polski */ }
+  }
+
+  // Jumbo jety za granicą tylko wtedy, gdy lecą do Polski. Przelot wzdłuż
+  // granicy (MPH9451 nad Czechami, kursem na południowy wschód) to szum —
+  // takie maszyny pojawiały się przy granicy i znikały. Nad Polską wszystkie;
+  // przyloty do Rzeszowa/Krakowa klient dokłada osobno (mergeArrivals).
+  if (Array.isArray(result.aircraft)) {
+    result = { ...result, aircraft: result.aircraft.filter(a => a.kind !== 'heavy' || willEnterPoland(a)) }
   }
 
   // Migawki awaryjnej NIE zapisujemy z nowym znacznikiem czasu: inaczej każde
