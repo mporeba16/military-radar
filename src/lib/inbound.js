@@ -102,6 +102,33 @@ export function leavingAirport(ac, airport) {
   return false
 }
 
+// ── Krążenie nad lotniskiem ───────────────────────────────────────────────
+// Przy mgle albo kolejce do pasa maszyna krąży w strefie oczekiwania kilka-
+// dziesiąt kilometrów od lotniska, na stałej wysokości. Połowę każdego okrążenia
+// leci OD lotniska — i wtedy wypadała z przylotów (CMB366 07.11.2026 nad
+// Rzeszowem na 3000 m). Maszyna, która była już przylotem do lotniska, jest
+// blisko niego i w powietrzu, zostaje; zakręty z kolejnych przebiegów (co
+// 2 min) sumujemy, a ponad 3/4 okręgu znaczy, że krąży, a nie podchodzi.
+export const HOLD_MAX_KM = 60
+const HOLD_MAX_FT = 20000
+const HOLD_CLIMB_FPM = 1000
+const HOLD_TURN_DEG = 270
+
+export function holdingUpdate(ac, airport, prev = null) {
+  if (!ac || !airport || ac.on_ground || ac.lat == null || ac.lon == null) return null
+  if (typeof ac.alt_baro !== 'number' || ac.alt_baro > HOLD_MAX_FT) return null
+  if (haversine(ac.lat, ac.lon, airport.lat, airport.lon) > HOLD_MAX_KM) return null
+  // Wznosi się — odlatuje albo odchodzi na drugi krąg; to nie oczekiwanie.
+  const vr = verticalRate(ac)
+  if (vr != null && vr >= HOLD_CLIMB_FPM) return null
+  const same = prev?.route?.to === airport.icao
+  const prevTurn = same ? prev.hold?.turn || 0 : 0
+  const delta = same && prev.track != null && ac.track != null ? headingDiff(prev.track, ac.track) : 0
+  return { turn: Math.min(prevTurn + delta, 1080) }
+}
+
+export const isHolding = hold => (hold?.turn ?? 0) >= HOLD_TURN_DEG
+
 // ── Podejście do lądowania rozpoznane z samego lotu ───────────────────────
 // Trasa z adsbdb zna loty rozkładowe, ale ruch, który tu najbardziej
 // interesuje — czartery towarowe do Rzeszowa (NCR, GTI, CKS) — leci pod
@@ -244,6 +271,9 @@ export function landingClock(min, now = Date.now()) {
  * przełączniki lotnisk ({ EPRZ: false } wyłącza Rzeszów), `keepHex` — maszyna,
  * która zostaje mimo wyłączonego lotniska.
  */
+// Krążenie jest stanem maszyny, nie trasy — karta czyta je z `arrival`.
+const withHolding = x => (x.holding ? { ...x.route, holding: true } : x.route)
+
 export function mergeArrivals(aircraft, inbound, arrivals, keepHex = null) {
   // `keepHex` — maszyna wybrana z listy Przylotów zostaje na mapie, nawet gdy
   // jej lotnisko jest wyłączone (inaczej kliknięcie nie otwierało karty).
@@ -254,13 +284,13 @@ export function mergeArrivals(aircraft, inbound, arrivals, keepHex = null) {
     const x = byHex.get(ac.hex)
     if (!x) return ac
     byHex.delete(ac.hex)
-    return { ...ac, arrival: x.route }
+    return { ...ac, arrival: withHolding(x) }
   })
   for (const x of byHex.values()) {
     merged.push({
       hex: x.hex, flight: x.flight, t: x.t, reg: x.reg,
       lat: x.lat, lon: x.lon, alt_baro: x.alt_baro, gs: x.gs, track: x.track,
-      on_ground: x.on_ground, mlat: false, kind: 'heavy', arrival: x.route,
+      on_ground: x.on_ground, mlat: false, kind: 'heavy', arrival: withHolding(x),
     })
   }
   return merged

@@ -993,6 +993,7 @@
 .arr-row__note { font-size: var(--t-small); color: rgba(255, 255, 255, 0.55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .arr-row__eta { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
 .arr-row__clock { font-size: 15px; font-weight: 600; color: #ffffff; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.arr-row__clock--hold { color: #ffb300; }
 .arr-row__in { font-size: var(--t-micro); color: rgba(255, 255, 255, 0.55); white-space: nowrap; }
 .arr-empty { margin: 0; font-size: 13px; color: rgba(255, 255, 255, 0.6); }
 .arr-off { margin: 0 0 8px; font-size: var(--t-small); color: rgba(255, 255, 255, 0.5); }

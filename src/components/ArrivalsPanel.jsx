@@ -44,7 +44,8 @@ function Row({ x, airport, onOpen }) {
   // Czas liczony tu, z bieżącej pozycji — wartość z serwera bywa sprzed
   // kilku minut (tak samo jak na karcie maszyny).
   const min = etaMinutes(x, airport)
-  const note = sourceNote(x.route)
+  // Krąży nad lotniskiem (mgła, kolejka do pasa) — czas lądowania nieznany.
+  const note = x.holding ? t('ARR_HOLDING_NOTE') : sourceNote(x.route)
   return (
     <li>
       <button type="button" className="arr-row" onClick={() => onOpen(x.hex)}>
@@ -57,7 +58,9 @@ function Row({ x, airport, onOpen }) {
           {note && <span className="arr-row__note">{note}</span>}
         </span>
         <span className="arr-row__eta">
-          {min != null
+          {x.holding
+            ? <><span className="arr-row__clock arr-row__clock--hold">{t('ARR_HOLDING')}</span><span className="arr-row__in">{t('ARR_HOLDING_WAIT')}</span></>
+            : min != null
             // Na wierzchu „za ile", godzina mniejsza pod spodem — tak samo
             // jak na karcie maszyny.
             ? <><span className="arr-row__clock">{t('INFO_ARRIVAL_IN')} {formatEta(min)}</span><span className="arr-row__in">{t('INFO_ARRIVAL_ABOUT')} {landingClock(min)}</span></>

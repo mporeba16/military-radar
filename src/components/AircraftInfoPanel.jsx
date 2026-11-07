@@ -176,6 +176,7 @@ export default function AircraftInfoPanel({ ac, onClose, following = false, onTo
       // a nie z planu — karta mówi to wprost.
       guess: ac.arrival.guess === true,
       learned: ac.arrival.learned === true,
+      holding: ac.arrival.holding === true,
     }
   }, [ac])
 
@@ -266,11 +267,14 @@ export default function AircraftInfoPanel({ ac, onClose, following = false, onTo
             {/* Cel z pamięci (ten rejs albo przewoźnik) to tylko przypuszczenie
                 — krótko „Prawdopodobnie ląduje", bez wyjaśniania skąd
                 (decyzja użytkownika 07.11.2026). */}
-            {arrival.guess ? t('INFO_ARRIVAL_GUESS')
-              : arrival.learned ? t('INFO_ARRIVAL_LIKELY')
-                : t('INFO_ARRIVAL')} <strong>{arrival.airport.name}</strong>
+            {arrival.holding ? t('INFO_ARRIVAL_HOLDING')
+              : arrival.guess ? t('INFO_ARRIVAL_GUESS')
+                : arrival.learned ? t('INFO_ARRIVAL_LIKELY')
+                  : t('INFO_ARRIVAL')} <strong>{arrival.airport.name}</strong>
             {arrival.from && <span className="ac-info-arrival-from"> {t('INFO_ARRIVAL_FROM')} {arrival.from}</span>}
-            {arrival.clock && (
+            {/* Przy krążeniu czas lądowania byłby zgadywaniem. */}
+            {arrival.holding && <div className="ac-info-arrival-eta">{t('ARR_HOLDING_WAIT')}</div>}
+            {!arrival.holding && arrival.clock && (
               <div className="ac-info-arrival-eta">
                 {t('INFO_ARRIVAL_IN')} <strong>{arrival.eta}</strong> · {t('INFO_ARRIVAL_ABOUT')} {arrival.clock}
               </div>

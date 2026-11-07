@@ -411,6 +411,53 @@ describe('pamięć lądowań', () => {
   }, 30000)
 })
 
+describe('krążenie nad lotniskiem', () => {
+  afterEach(() => vi.unstubAllGlobals())
+  const fakeStore = () => {
+    const data = new Map()
+    return { data, get: async (k) => data.get(k) ?? null, set: async (k, v) => { data.set(k, JSON.parse(v)) } }
+  }
+  // CMB366 07.11.2026: 11 km od Rzeszowa, 10 000 ft, kurs 37° — od lotniska.
+  const cmb = track => ({ hex: 'a9876e', flight: 'CMB366', t: 'B744', lat: 50.21, lon: 22.03, gs: 235, track, alt_baro: 10000, baro_rate: 0 })
+  const route = { to: 'EPRZ', toCity: 'Rzeszów', learned: true, fleet: 'CMB' }
+  const run = async (records, prevInbound) => {
+    vi.stubGlobal('fetch', async (url) => {
+      if (/adsb\.fi/.test(String(url))) return { ok: true, status: 200, json: async () => ({ ac: [] }) }
+      return { ok: true, status: 200, json: async () => ({ response: { flightroute: null } }) }
+    })
+    vi.resetModules()
+    const mod = await import('../netlify/functions/inbound.js')
+    return mod.collect({ store: fakeStore(), typeRecords: mod.watchedRecords(records), prevInbound })
+  }
+
+  it('lecąc od lotniska w strefie oczekiwania zostaje przylotem', async () => {
+    const prev = [{ ...cmb(200), route }]
+    const out = await run([cmb(37)], prev)
+    expect(out).toHaveLength(1)
+    expect(out[0]).toMatchObject({ flight: 'CMB366', route: { to: 'EPRZ' } })
+    // Jeden nawrót to jeszcze nie krążenie (może to być wejście na pas).
+    expect(out[0].holding).toBeUndefined()
+  }, 30000)
+
+  it('po ponad 3/4 okręgu: „krąży"', async () => {
+    const prev = [{ ...cmb(200), route, hold: { turn: 180 } }]
+    const out = await run([cmb(37)], prev)
+    expect(out[0].holding).toBe(true)
+    expect(out[0].hold.turn).toBeGreaterThanOrEqual(270)
+  }, 30000)
+
+  it('wznoszący się albo na ziemi — nie (odlot, lądowanie)', async () => {
+    const prev = [{ ...cmb(200), route }]
+    expect(await run([{ ...cmb(37), baro_rate: 2000 }], prev)).toHaveLength(0)
+    expect(await run([{ ...cmb(37), alt_baro: 'ground', gs: 10 }], prev)).toHaveLength(0)
+  }, 30000)
+
+  it('daleko od lotniska (80 km) — nie', async () => {
+    const prev = [{ ...cmb(200), route }]
+    expect(await run([{ ...cmb(37), lat: 50.8 }], prev)).toHaveLength(0)
+  }, 30000)
+})
+
 describe('pamięć przewoźnika', () => {
   afterEach(() => vi.unstubAllGlobals())
 

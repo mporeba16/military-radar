@@ -19,6 +19,7 @@ import { BlobBook } from './lib/blobBook.js'
 import {
   ARRIVAL_AIRPORTS, etaMinutes, distanceKm, isWatchedType, approachGuess,
   airportByIcao, verticalRate, leavingAirport, headingDiff, bearingTo,
+  holdingUpdate, isHolding,
 } from '../../src/lib/inbound.js'
 
 const UA = POLITE_HEADERS
@@ -242,6 +243,7 @@ async function mapLimit(items, limit, fn) {
 // nad Polską już pobrany przez `tick` (bez nich pytamy adsb.fi sami).
 export async function collect({
   store: injected = null, observed = null, nearRecords = null, typeRecords = [], landedEvents = null,
+  prevInbound = [],
 } = {}) {
   let store = injected
   if (!store) {
@@ -264,7 +266,8 @@ export async function collect({
   }
   if (observed) for (const hex of seen.keys()) observed.add(hex)
 
-  const resolved = await mapLimit([...seen.values()], RESOLVE_CONCURRENCY, resolveArrival)
+  const prevByHex = new Map((prevInbound || []).map(x => [x.hex, x]))
+  const resolved = await mapLimit([...seen.values()], RESOLVE_CONCURRENCY, a => resolveArrival(a, prevByHex))
   await routes.save(store).catch(err => console.error('[inbound] zapis tras:', err.message))
   const out = resolved.filter(Boolean)
   // Najbliżej lądowania na górze.
@@ -272,10 +275,32 @@ export async function collect({
   return out
 }
 
-// Rekord z ADS-B → wpis przylotu albo null (nie leci do Rzeszowa/Krakowa).
-async function resolveArrival(a) {
+// Przylot z uwzględnieniem krążenia nad lotniskiem (patrz holdingUpdate):
+// maszyna, która w poprzednim przebiegu leciała do lotniska, a teraz krąży
+// obok niego, zostaje przylotem, choć połowę okrążenia leci od lotniska.
+async function resolveArrival(a, prevByHex = new Map()) {
+  const prev = prevByHex.get(a.hex)
+  let r = await resolveRoute(a)
+  if (!r && prev?.route) {
+    const airport = airportByIcao(prev.route.to)
+    const ac = toArrivalAc(a)
+    if (airport && holdingUpdate(ac, airport, prev)) {
+      r = { ...ac, route: prev.route, distKm: distanceKm(ac, airport), etaMin: etaMinutes(ac, airport) }
+    }
+  }
+  if (r) {
+    const hold = holdingUpdate(r, airportByIcao(r.route.to), prev)
+    if (hold) {
+      r.hold = hold
+      if (isHolding(hold)) r.holding = true
+    }
+  }
+  return r
+}
+
+function toArrivalAc(a) {
   const callsign = (a.flight || '').trim()
-  const ac = {
+  return {
     hex: a.hex,
     flight: callsign,
     t: a.t || '',
@@ -288,6 +313,12 @@ async function resolveArrival(a) {
     vr: verticalRate(a) != null ? Math.round(verticalRate(a)) : null,
     on_ground: a.alt_baro === 'ground',
   }
+}
+
+// Rekord z ADS-B → wpis przylotu albo null (nie leci do Rzeszowa/Krakowa).
+async function resolveRoute(a) {
+  const ac = toArrivalAc(a)
+  const callsign = ac.flight
 
   // Trasa z bazy ma pierwszeństwo: mówi wprost, dokąd lot jest zgłoszony,
   // i działa już nad Atlantykiem. Dopiero gdy jej nie ma, patrzymy, czy
@@ -358,10 +389,10 @@ export async function collectInbound(geoRecords) {
   const landedEvents = []
   let inbound, deepInbound
   if (full) {
-    inbound = deepInbound = await collect({ observed, nearRecords: geoRecords, typeRecords: raw.aircraft, landedEvents })
+    inbound = deepInbound = await collect({ observed, nearRecords: geoRecords, typeRecords: raw.aircraft, landedEvents, prevInbound: prev?.inbound })
   } else {
     deepInbound = rawFresh ? prev?.deepInbound || [] : []
-    const found = await collect({ observed, nearRecords: geoRecords, landedEvents })
+    const found = await collect({ observed, nearRecords: geoRecords, landedEvents, prevInbound: prev?.inbound })
     inbound = carryForward(found, deepInbound, observed)
   }
   // `landed` — historia do panelu Przyloty; `justLanded` — lądowania z tego

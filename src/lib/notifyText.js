@@ -176,6 +176,8 @@ export function inboundText(x, airportName, clock, eta) {
   //                przewoźnik tam już siadał — tak samo jak na karcie maszyny)
   const guess = x.route?.guess === true
   const learned = x.route?.learned === true
+  // Krąży nad lotniskiem — bez godziny, bo ta byłaby zgadywaniem.
+  if (x.holding) return { title: `${name} krąży nad lotniskiem: ${airportName}`, body: [x.flight, 'czeka na lądowanie'].filter(Boolean).join(' · ') }
   const title = guess
     ? `${name} podchodzi: ${airportName}`
     : learned
