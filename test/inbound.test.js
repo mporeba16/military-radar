@@ -411,8 +411,12 @@ describe('pamięć przewoźnika', () => {
     expect(await run([{ ...cmb366, track: 150 }], cmbLanded)).toHaveLength(0)
   }, 30000)
 
-  it('jedno lądowanie albo tylko wpisy niepewne to za mało', async () => {
-    expect(await run([cmb366], { CMB365: cmbLanded.CMB365 })).toHaveLength(0)
+  it('wystarczy jedno pewne lądowanie przewoźnika', async () => {
+    const out = await run([cmb366], { CMB365: cmbLanded.CMB365 })
+    expect(out[0]).toMatchObject({ flight: 'CMB366', route: { to: 'EPRZ', fleet: 'CMB' } })
+  }, 30000)
+
+  it('same wpisy niepewne (sprzed poprawki) to za mało', async () => {
     expect(await run([cmb366], {
       CMB350: { at: now - 86400_000, to: 'EPRZ', unverified: true },
       CMB352: { at: now - 86400_000, to: 'EPRZ', unverified: true },

@@ -142,10 +142,11 @@ function learnedRoute(callsign, now = Date.now()) {
 
 // Pamięć przewoźnika. Numer lotu zmienia się co rejs (CMB365 wczoraj, CMB366
 // dziś), więc pamięć po pełnym znaku wywoławczym nie rozpoznaje kolejnego
-// rejsu. Ten sam przewoźnik lata jednak tą samą trasą: jeśli jego maszyny
-// już kilka razy siadały na lotnisku, a ta leci kursem prosto na nie, to
-// prawie na pewno tam leci — widać to już nad zachodnią Polską.
-const FLEET_MIN_LANDINGS = 2
+// rejsu. Ten sam przewoźnik lata jednak tą samą trasą: jeśli jego maszyna
+// choć raz pewnie wylądowała na lotnisku (decyzja użytkownika 07.11.2026),
+// a ta leci kursem prosto na nie, to prawie na pewno tam leci — widać to już
+// nad zachodnią Polską.
+const FLEET_MIN_LANDINGS = 1
 const FLEET_MAX_KM = 1500
 const FLEET_MAX_OFF_DEG = 15
 
