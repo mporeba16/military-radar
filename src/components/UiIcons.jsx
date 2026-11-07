@@ -18,6 +18,18 @@ export function IconClose({ size = 16 }) {
   return <Icon size={size} strokeWidth={1.8}><path d="M5 5l14 14M19 5 5 19" /></Icon>
 }
 
+// Dzwonek (Lucide) — przełącznik powiadomień przy lotnisku w Przylotach;
+// przekreślony, gdy wyłączone.
+export function IconBell({ on = true, size = 16 }) {
+  return (
+    <Icon size={size}>
+      <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+      <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+      {!on && <path d="M3 3l18 18" />}
+    </Icon>
+  )
+}
+
 export function IconSound({ on = true }) {
   return (
     <Icon>

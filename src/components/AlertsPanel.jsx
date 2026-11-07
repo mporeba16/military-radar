@@ -1,9 +1,8 @@
 import Toggle, { onOff } from './Toggle'
-import { IconSound, IconVibrate, IconLanding, IconRadar, IconCompass } from './UiIcons'
+import { IconSound, IconVibrate, IconRadar, IconCompass } from './UiIcons'
 import RangeSlider from './RangeSlider'
 import { t } from '../i18n'
 import { planeWord } from '../lib/plural'
-import { ARRIVAL_AIRPORTS } from '../lib/inbound'
 import { alertsLevel, kindsOnCount } from '../lib/alertsState'
 
 // iPadOS 13+ reports as "MacIntel" but has a touch screen — catch it too.
@@ -75,7 +74,6 @@ export default function AlertsPanel({
   kinds, setKinds,
   permissionState, isSubscribed, isSubscribing, subscribe, unsubscribe, subscribeError,
   soundOn, setSoundOn, vibrateOn, setVibrateOn,
-  arrivals, setArrivals,
   children,
 }) {
   const kindsOn = kindsOnCount(kinds)
@@ -172,28 +170,6 @@ export default function AlertsPanel({
           a nie przy kropce na mapie — zgoda na czujniki (iOS) stoi obok
           innych zgód, a włączenie przełącznika samo o nią prosi. */}
       {compass && <CompassRow compass={compass} on={compassOn} setOn={setCompassOn} />}
-
-      {/* 5. Wielkie transportowce z celem w Polsce — osobno dla każdego
-          lotniska, bo interesujący bywa tylko jeden kierunek. */}
-      <section className="cp-section">
-        <div className="cp-label">{t('ARRIVALS_LABEL')}</div>
-        <div className="toggle-list">
-          {ARRIVAL_AIRPORTS.map(ap => {
-            const on = arrivals[ap.icao] !== false
-            return (
-              <Toggle
-                key={ap.icao}
-                on={on}
-                onToggle={() => setArrivals(prev => ({ ...prev, [ap.icao]: prev[ap.icao] === false }))}
-                label={`${ap.name} (${ap.icao})`}
-                title={t('ARRIVALS_HINT')}
-                marker={<span className="toggle-ico"><IconLanding /></span>}
-                {...onOff(on)}
-              />
-            )
-          })}
-        </div>
-      </section>
 
       {children}
     </div>

@@ -2,12 +2,27 @@ import { useMemo } from 'react'
 import { t } from '../i18n'
 import { ARRIVAL_AIRPORTS, etaMinutes, formatEta, landingClock } from '../lib/inbound'
 import { typeLabel } from '../lib/typeNames'
-import { IconLanding } from './UiIcons'
+import { IconLanding, IconBell } from './UiIcons'
+import { ON_COLOR, OFF_COLOR } from './Toggle'
 
 // Panel „Przyloty": jumbo jety i An-124 lecące do Rzeszowa i Krakowa, osobno
 // dla każdego lotniska, od najwcześniej lądującego. Wcześniej te maszyny były
 // tylko znacznikami na mapie — trzeba było ich szukać, często nad Atlantykiem.
-// Kliknięcie wiersza zaznacza maszynę i przesuwa do niej mapę.
+// Kliknięcie wiersza zaznacza maszynę i przesuwa do niej mapę. Dzwonek przy
+// nazwie lotniska włącza powiadomienia i znaczniki na mapie dla tego lotniska
+// (wcześniej osobna sekcja na dole Powiadomień — decyzja użytkownika
+// 07.11.2026: ustawienie stoi tam, gdzie widać przyloty).
+
+function Bell({ airport, on, onToggle }) {
+  return (
+    <button type="button" className="arr-bell" aria-pressed={on} onClick={onToggle}
+      style={{ color: on ? ON_COLOR : OFF_COLOR }}
+      aria-label={`${t('ARR_BELL_A11Y')} ${airport.name}`} title={t('ARR_BELL_HINT')}>
+      <IconBell on={on} />
+      <span>{on ? t('SOUND_ON') : t('SOUND_OFF')}</span>
+    </button>
+  )
+}
 
 // Skąd wiemy, że leci właśnie tutaj — ta sama gradacja co na karcie maszyny.
 function sourceNote(route) {
@@ -45,7 +60,7 @@ function Row({ x, airport, onOpen }) {
   )
 }
 
-export default function ArrivalsPanel({ inbound, arrivals, onOpen }) {
+export default function ArrivalsPanel({ inbound, arrivals, setArrivals, onOpen }) {
   const byAirport = useMemo(() => ARRIVAL_AIRPORTS.map(airport => ({
     airport,
     list: inbound
@@ -57,7 +72,11 @@ export default function ArrivalsPanel({ inbound, arrivals, onOpen }) {
     <div className="panel-body">
       {byAirport.map(({ airport, list }) => (
         <section key={airport.icao} className="cp-section">
-          <div className="cp-label">{airport.name} ({airport.icao})</div>
+          <div className="cp-label arr-head">
+            <span>{airport.name} ({airport.icao})</span>
+            <Bell airport={airport} on={arrivals[airport.icao] !== false}
+              onToggle={() => setArrivals(prev => ({ ...prev, [airport.icao]: prev[airport.icao] === false }))} />
+          </div>
           {arrivals[airport.icao] === false && <p className="arr-off">{t('ARR_AIRPORT_OFF')}</p>}
           {list.length
             ? <ul className="arr-list">{list.map(x => <Row key={x.hex} x={x} airport={airport} onOpen={onOpen} />)}</ul>

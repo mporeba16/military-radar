@@ -980,5 +980,22 @@
 .arr-row__clock { font-size: 16px; font-weight: 600; color: #ffffff; font-variant-numeric: tabular-nums; }
 .arr-row__in { font-size: var(--t-micro); color: rgba(255, 255, 255, 0.55); white-space: nowrap; }
 .arr-empty { margin: 0; font-size: 13px; color: rgba(255, 255, 255, 0.6); }
-.arr-off { margin: 0 0 8px; font-size: var(--t-small); color: #ffb74d; }
+.arr-off { margin: 0 0 8px; font-size: var(--t-small); color: rgba(255, 255, 255, 0.55); }
+/* Nagłówek lotniska z dzwonkiem: kreska sekcji między nazwą a dzwonkiem. */
+.arr-head > span:first-child { order: 0; }
+.arr-head::after { order: 1; }
+.arr-bell {
+  order: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+  padding: 0 10px;
+  font: 600 var(--t-small) var(--font);
+  background: var(--ctl-bg);
+  border: 1px solid var(--ctl-border);
+  border-radius: var(--ctl-radius);
+  cursor: pointer;
+}
+.arr-bell:hover { background: var(--ctl-bg-hover); border-color: var(--ctl-border-hover); }
 .arr-foot { margin: 4px 0 0; font-size: var(--t-micro); line-height: 1.45; color: rgba(255, 255, 255, 0.45); }

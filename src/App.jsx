@@ -544,8 +544,6 @@ export default function App() {
               alertsCount={alerts.length}
               kinds={kinds}
               setKinds={setKinds}
-              arrivals={arrivals}
-              setArrivals={setArrivals}
               permissionState={permissionState}
               isSubscribed={isSubscribed}
               isSubscribing={isSubscribing}
@@ -591,7 +589,7 @@ export default function App() {
           )}
 
           {activePanel === 'przyloty' && (
-            <ArrivalsPanel inbound={inboundRaw} arrivals={arrivals}
+            <ArrivalsPanel inbound={inboundRaw} arrivals={arrivals} setArrivals={setArrivals}
               onOpen={hex => { arrivalPickRef.current = hex; openHex(hex) }} />
           )}
 
