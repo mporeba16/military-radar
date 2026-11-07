@@ -75,9 +75,12 @@ function buildLeafletIcon(ac, isSelected, zoomScale) {
 // Krótki opis maszyny: dymek po najechaniu (komputer) i nazwa dla czytnika
 // ekranu. Bez niego na komputerze trzeba było klikać każdą ikonę po kolei,
 // żeby się dowiedzieć, co to jest.
-export function aircraftLabel(ac) {
+// Opis znacznika: pełny (z typem) dla czytnika ekranu, a w dymku po
+// najechaniu tylko znak i wysokość — typ widać po kliknięciu, a w dymku
+// wydłużał go i zasłaniał sąsiednie maszyny (decyzja użytkownika 07.11.2026).
+export function aircraftLabel(ac, { withType = true } = {}) {
   const name = ac.flight?.trim() || ac.hex
-  const type = typeLabel(resolvedType(ac))
+  const type = withType ? typeLabel(resolvedType(ac)) : null
   const altM = ftToM(ac.alt_baro)
   const alt = ac.on_ground ? t('AC_ON_GROUND')
     : altM != null ? `${altM.toLocaleString('pl-PL')} m` : null
@@ -156,13 +159,14 @@ export default function AircraftLayer({ aircraft, selectedHex, onSelect, zoomSca
       const iconKey = `${trackQ}|${altQ}|${v22Slow}|${ac.t || ''}|${ac.kind || ''}|${squawkAlertColor(ac.squawk) || ''}|${isSelected ? 1 : 0}|${ac.on_ground ? 1 : 0}|${zoomScale}`
 
       const label = aircraftLabel(ac)
+      const tip = aircraftLabel(ac, { withType: false })
       const z = zOffset(ac, isSelected)
       const existing = markersRef.current.get(ac.hex)
       if (existing) {
         if (existing.label !== label) {
           existing.label = label
           existing.marker.getElement()?.setAttribute('aria-label', label)
-          if (CAN_HOVER) existing.marker.setTooltipContent(label)
+          if (CAN_HOVER) existing.marker.setTooltipContent(tip)
         }
         if (existing.z !== z) {
           existing.z = z
@@ -205,7 +209,7 @@ export default function AircraftLayer({ aircraft, selectedHex, onSelect, zoomSca
         })
         marker.on('add', () => marker.getElement()?.setAttribute('aria-label', markersRef.current.get(hex)?.label || label))
         if (CAN_HOVER) {
-          marker.bindTooltip(label, { direction: 'top', offset: [0, -14], className: 'ac-tooltip', opacity: 1 })
+          marker.bindTooltip(tip, { direction: 'top', offset: [0, -14], className: 'ac-tooltip', opacity: 1 })
         }
         markersRef.current.set(ac.hex, { marker, posKey, iconKey, label, z, lastUpdateTs: Date.now() })
         additions.push(marker)

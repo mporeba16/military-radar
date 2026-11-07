@@ -995,39 +995,45 @@
 .arr-row__clock { font-size: 15px; font-weight: 600; color: #ffffff; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .arr-row__in { font-size: var(--t-micro); color: rgba(255, 255, 255, 0.55); white-space: nowrap; }
 .arr-empty { margin: 0; font-size: 13px; color: rgba(255, 255, 255, 0.6); }
-.arr-off { margin: 0 0 8px; font-size: var(--t-small); color: rgba(255, 255, 255, 0.55); }
-/* Nagłówek lotniska z dzwonkiem: kreska sekcji między nazwą a dzwonkiem. */
-.arr-head > span:first-child { order: 0; }
-.arr-head::after { order: 1; }
+.arr-off { margin: 0 0 8px; font-size: var(--t-small); color: rgba(255, 255, 255, 0.5); }
+/* Nagłówek lotniska: nazwa jako tytuł sekcji, dzwonek mały po prawej. */
+.arr-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.arr-head__name { font-size: 15px; font-weight: 600; color: #ffffff; }
+.arr-head__icao { margin-left: 4px; font-size: var(--t-small); font-weight: 500; letter-spacing: 0.4px; color: rgba(255, 255, 255, 0.45); }
 .arr-bell {
-  order: 2;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  min-height: 32px;
-  padding: 0 10px;
-  font: 600 var(--t-small) var(--font);
+  gap: 4px;
+  height: 28px;
+  padding: 0 9px;
+  font: 600 11px var(--font);
+  letter-spacing: 0.3px;
   background: var(--ctl-bg);
   border: 1px solid var(--ctl-border);
-  border-radius: var(--ctl-radius);
+  border-radius: 14px;
   cursor: pointer;
 }
 .arr-bell:hover { background: var(--ctl-bg-hover); border-color: var(--ctl-border-hover); }
-.arr-nopush { margin: 0 0 14px; padding: 8px 10px; font-size: var(--t-small); line-height: 1.45; color: rgba(255, 255, 255, 0.75); background: var(--ctl-bg); border: 1px solid var(--ctl-border); border-radius: var(--ctl-radius); }
-.arr-nopush__link { padding: 0; font: inherit; font-weight: 600; color: var(--kind-mil, #00ff88); background: none; border: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
-/* Ostatnio lądowały: znak, typ, lotnisko, kiedy — w jednej linii. */
+.arr-empty { margin: 0; font-size: 13px; color: rgba(255, 255, 255, 0.6); display: flex; flex-direction: column; gap: 2px; }
+.arr-empty__last { font-size: var(--t-small); color: rgba(255, 255, 255, 0.45); }
+/* Baner „powiadomienia wyłączone": jedna linia z przyciskiem. */
+.arr-nopush { display: flex; align-items: center; gap: 8px; margin: 0 0 16px; padding: 6px 6px 6px 10px; background: var(--ctl-bg); border: 1px solid var(--ctl-border); border-radius: var(--ctl-radius); }
+.arr-nopush__ico { display: flex; flex-shrink: 0; color: #ff4757; }
+.arr-nopush__text { flex: 1; min-width: 0; font-size: var(--t-small); line-height: 1.35; color: rgba(255, 255, 255, 0.75); }
+.arr-nopush .btn { flex-shrink: 0; }
+/* Ostatnio lądowały: ikona, znak, typ — po prawej lotnisko i kiedy. */
 .arr-landed { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .arr-landed__row {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
-  align-items: baseline;
+  grid-template-columns: 14px auto minmax(0, 1fr) auto;
+  align-items: center;
   column-gap: 8px;
-  padding: 7px 0;
-  font-size: 13px;
+  min-height: 34px;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 .arr-landed__row:first-child { border-top: 0; }
-.arr-landed__type { font-size: var(--t-small); color: rgba(255, 255, 255, 0.55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.arr-landed__where { color: rgba(255, 255, 255, 0.8); }
-.arr-landed__when { font-size: var(--t-small); color: rgba(255, 255, 255, 0.55); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.arr-landed__ico { display: flex; color: rgba(255, 179, 0, 0.7); }
+.arr-landed__flight { font-size: 13px; font-weight: 600; letter-spacing: 0.5px; color: rgba(255, 255, 255, 0.9); }
+.arr-landed__type { font-size: var(--t-small); color: rgba(255, 255, 255, 0.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.arr-landed__when { font-size: var(--t-small); color: rgba(255, 255, 255, 0.5); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .arr-foot { margin: 4px 0 0; font-size: var(--t-micro); line-height: 1.45; color: rgba(255, 255, 255, 0.45); }

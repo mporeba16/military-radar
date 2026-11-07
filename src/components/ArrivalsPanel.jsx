@@ -18,8 +18,8 @@ function Bell({ airport, on, onToggle }) {
     <button type="button" className="arr-bell" aria-pressed={on} onClick={onToggle}
       style={{ color: on ? ON_COLOR : OFF_COLOR }}
       aria-label={`${t('ARR_BELL_A11Y')} ${airport.name}`} title={t('ARR_BELL_HINT')}>
-      <IconBell on={on} />
-      <span>{on ? t('SOUND_ON') : t('SOUND_OFF')}</span>
+      <IconBell on={on} size={15} />
+      <span>{on ? t('ARR_BELL_ON') : t('ARR_BELL_OFF')}</span>
     </button>
   )
 }
@@ -37,7 +37,7 @@ function sourceNote(route) {
 // w sobie nie odróżnia spokojnego dnia od niedziałającej aplikacji.
 function lastAt(landed, icao) {
   const last = landed.find(x => x.to === icao)
-  return last ? ` ${t('ARR_LAST_LANDED')} ${landedWhen(last.at)} (${last.flight}).` : ''
+  return last ? `${t('ARR_LAST_LANDED')} ${last.flight}, ${landedWhen(last.at)}` : ''
 }
 
 function Row({ x, airport, onOpen }) {
@@ -85,10 +85,10 @@ function Landed({ landed }) {
       <ul className="arr-landed">
         {landed.map(x => (
           <li key={`${x.flight}-${x.at}`} className="arr-landed__row">
-            <span className="arr-row__flight">{x.flight}</span>
+            <span className="arr-landed__ico"><IconLanding size={14} /></span>
+            <span className="arr-landed__flight">{x.flight}</span>
             <span className="arr-landed__type">{typeLabel(x.t) || x.t || ''}</span>
-            <span className="arr-landed__where">{airportByIcao(x.to)?.name || x.to}</span>
-            <span className="arr-landed__when">{landedWhen(x.at)}</span>
+            <span className="arr-landed__when">{airportByIcao(x.to)?.name || x.to} · {landedWhen(x.at)}</span>
           </li>
         ))}
       </ul>
@@ -110,22 +110,23 @@ export default function ArrivalsPanel({ inbound, landed = [], arrivals, setArriv
       {/* Dzwonek bez włączonych powiadomień steruje tylko znacznikiem na
           mapie — mówimy to wprost, zamiast obiecywać push, który nie przyjdzie. */}
       {!isSubscribed && anyBell && (
-        <p className="arr-nopush">
-          {t('ARR_NO_PUSH')}{' '}
-          <button type="button" className="arr-nopush__link" onClick={onOpenAlerts}>{t('ARR_NO_PUSH_LINK')}</button>
-        </p>
+        <div className="arr-nopush">
+          <span className="arr-nopush__ico"><IconBell on={false} /></span>
+          <span className="arr-nopush__text">{t('ARR_NO_PUSH')}</span>
+          <button type="button" className="btn btn--sm" onClick={onOpenAlerts}>{t('ARR_NO_PUSH_LINK')}</button>
+        </div>
       )}
       {byAirport.map(({ airport, list }) => (
         <section key={airport.icao} className="cp-section">
-          <div className="cp-label arr-head">
-            <span>{airport.name} ({airport.icao})</span>
+          <div className="arr-head">
+            <span className="arr-head__name">{airport.name} <span className="arr-head__icao">{airport.icao}</span></span>
             <Bell airport={airport} on={arrivals[airport.icao] !== false}
               onToggle={() => setArrivals(prev => ({ ...prev, [airport.icao]: prev[airport.icao] === false }))} />
           </div>
           {arrivals[airport.icao] === false && <p className="arr-off">{t('ARR_AIRPORT_OFF')}</p>}
           {list.length
             ? <ul className="arr-list">{list.map(x => <Row key={x.hex} x={x} airport={airport} onOpen={onOpen} />)}</ul>
-            : <p className="arr-empty">{t('ARR_EMPTY')}{lastAt(landed, airport.icao)}</p>}
+            : <p className="arr-empty">{t('ARR_EMPTY')}{lastAt(landed, airport.icao) && <span className="arr-empty__last">{lastAt(landed, airport.icao)}</span>}</p>}
         </section>
       ))}
       <Landed landed={landed} />
