@@ -27,8 +27,7 @@ function Bell({ airport, on, onToggle }) {
 // Skąd wiemy, że leci właśnie tutaj — ta sama gradacja co na karcie maszyny.
 function sourceNote(route) {
   if (route?.guess) return t('ARR_SOURCE_GUESS')
-  // Pamięć przewoźnika: inne rejsy tego przewoźnika tam siadały.
-  if (route?.fleet) return `${route.fleet} ${t('ARR_SOURCE_FLEET')}`
+  // Pamięć (ten rejs albo przewoźnik) — krótko, jak na karcie maszyny.
   if (route?.learned) return t('ARR_SOURCE_LEARNED')
   const from = route?.fromCity || route?.from
   return from ? `${t('INFO_ARRIVAL_FROM')} ${from}` : null
@@ -52,7 +51,9 @@ function Row({ x, airport, onOpen }) {
         </span>
         <span className="arr-row__eta">
           {min != null
-            ? <><span className="arr-row__clock">{landingClock(min)}</span><span className="arr-row__in">{t('INFO_ARRIVAL_IN')} {formatEta(min)}</span></>
+            // Na wierzchu „za ile", godzina mniejsza pod spodem — tak samo
+            // jak na karcie maszyny.
+            ? <><span className="arr-row__clock">{t('INFO_ARRIVAL_IN')} {formatEta(min)}</span><span className="arr-row__in">{t('INFO_ARRIVAL_ABOUT')} {landingClock(min)}</span></>
             : <span className="arr-row__in">{t('ARR_NO_ETA')}</span>}
         </span>
       </button>

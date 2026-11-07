@@ -9,7 +9,7 @@ import { typePhoto, isSameAirframe } from '../lib/typePhotos'
 import { knownAircraft, resolvedType } from '../lib/knownAircraft'
 import { airportByIcao, etaMinutes, formatEta, landingClock } from '../lib/inbound'
 import { fr24Url } from '../lib/externalLinks'
-import { IconClose } from './UiIcons'
+import { IconClose, IconLanding } from './UiIcons'
 import './AircraftInfoPanel.css'
 
 // V4: ICAO special transponder codes that mean something serious
@@ -176,7 +176,6 @@ export default function AircraftInfoPanel({ ac, onClose, following = false, onTo
       // a nie z planu — karta mówi to wprost.
       guess: ac.arrival.guess === true,
       learned: ac.arrival.learned === true,
-      fleet: !!ac.arrival.fleet,
     }
   }, [ac])
 
@@ -262,16 +261,18 @@ export default function AircraftInfoPanel({ ac, onClose, following = false, onTo
 
       {arrival && (
         <div className="ac-info-arrival">
-          <span className="ac-info-arrival-ico">🛬</span>
+          <span className="ac-info-arrival-ico"><IconLanding size={18} /></span>
           <span>
+            {/* Cel z pamięci (ten rejs albo przewoźnik) to tylko przypuszczenie
+                — krótko „Prawdopodobnie ląduje", bez wyjaśniania skąd
+                (decyzja użytkownika 07.11.2026). */}
             {arrival.guess ? t('INFO_ARRIVAL_GUESS')
-              : arrival.fleet ? t('INFO_ARRIVAL_FLEET')
-              : arrival.learned ? t('INFO_ARRIVAL_LEARNED')
+              : arrival.learned ? t('INFO_ARRIVAL_LIKELY')
                 : t('INFO_ARRIVAL')} <strong>{arrival.airport.name}</strong>
             {arrival.from && <span className="ac-info-arrival-from"> {t('INFO_ARRIVAL_FROM')} {arrival.from}</span>}
             {arrival.clock && (
               <div className="ac-info-arrival-eta">
-                {t('INFO_ARRIVAL_AT')} <strong>{arrival.clock}</strong> · {t('INFO_ARRIVAL_IN')} {arrival.eta}
+                {t('INFO_ARRIVAL_IN')} <strong>{arrival.eta}</strong> · {t('INFO_ARRIVAL_ABOUT')} {arrival.clock}
               </div>
             )}
           </span>
