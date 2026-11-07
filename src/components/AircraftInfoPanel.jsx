@@ -176,6 +176,7 @@ export default function AircraftInfoPanel({ ac, onClose, following = false, onTo
       // a nie z planu — karta mówi to wprost.
       guess: ac.arrival.guess === true,
       learned: ac.arrival.learned === true,
+      fleet: !!ac.arrival.fleet,
     }
   }, [ac])
 
@@ -264,6 +265,7 @@ export default function AircraftInfoPanel({ ac, onClose, following = false, onTo
           <span className="ac-info-arrival-ico">🛬</span>
           <span>
             {arrival.guess ? t('INFO_ARRIVAL_GUESS')
+              : arrival.fleet ? t('INFO_ARRIVAL_FLEET')
               : arrival.learned ? t('INFO_ARRIVAL_LEARNED')
                 : t('INFO_ARRIVAL')} <strong>{arrival.airport.name}</strong>
             {arrival.from && <span className="ac-info-arrival-from"> {t('INFO_ARRIVAL_FROM')} {arrival.from}</span>}

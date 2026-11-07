@@ -12,6 +12,8 @@ import { IconLanding } from './UiIcons'
 // Skąd wiemy, że leci właśnie tutaj — ta sama gradacja co na karcie maszyny.
 function sourceNote(route) {
   if (route?.guess) return t('ARR_SOURCE_GUESS')
+  // Pamięć przewoźnika: inne rejsy tego przewoźnika tam siadały.
+  if (route?.fleet) return `${route.fleet} ${t('ARR_SOURCE_FLEET')}`
   if (route?.learned) return t('ARR_SOURCE_LEARNED')
   const from = route?.fromCity || route?.from
   return from ? `${t('INFO_ARRIVAL_FROM')} ${from}` : null

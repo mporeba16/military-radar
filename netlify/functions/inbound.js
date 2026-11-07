@@ -140,6 +140,39 @@ function learnedRoute(callsign, now = Date.now()) {
   return { from: null, fromCity: null, to: airport.icao, toCity: airport.name, learned: true }
 }
 
+// Pamięć przewoźnika. Numer lotu zmienia się co rejs (CMB365 wczoraj, CMB366
+// dziś), więc pamięć po pełnym znaku wywoławczym nie rozpoznaje kolejnego
+// rejsu. Ten sam przewoźnik lata jednak tą samą trasą: jeśli jego maszyny
+// już kilka razy siadały na lotnisku, a ta leci kursem prosto na nie, to
+// prawie na pewno tam leci — widać to już nad zachodnią Polską.
+const FLEET_MIN_LANDINGS = 2
+const FLEET_MAX_KM = 1500
+const FLEET_MAX_OFF_DEG = 15
+
+const operatorOf = callsign => /^[A-Z]{3}(?=\d)/.exec(callsign)?.[0] || null
+
+export function fleetRoute(ac, now = Date.now()) {
+  const op = operatorOf(ac.flight)
+  if (!op || ac.track == null || ac.on_ground || !landings.entries) return null
+  if (ac.gs != null && ac.gs < 150) return null
+  const counts = new Map()
+  for (const [callsign] of landings.entries) {
+    if (operatorOf(callsign) !== op) continue
+    const rec = landings.get(callsign, now)
+    // Tylko pewne lądowania — wpisy sprzed poprawki bywały odlotami.
+    if (!rec || rec.unverified) continue
+    counts.set(rec.to, (counts.get(rec.to) || 0) + 1)
+  }
+  for (const [icao, n] of counts) {
+    const airport = airportByIcao(icao)
+    if (!airport || n < FLEET_MIN_LANDINGS) continue
+    if (distanceKm(ac, airport) > FLEET_MAX_KM) continue
+    if (headingDiff(ac.track, bearingTo(ac, airport)) > FLEET_MAX_OFF_DEG) continue
+    return { from: null, fromCity: null, to: airport.icao, toCity: airport.name, learned: true, fleet: op }
+  }
+  return null
+}
+
 // Migawka leży w Blobs, żeby czytał ją też cron powiadomień — inaczej każdy
 // przebieg powiadomień musiałby sam pytać adsb.lol.
 export const SNAPSHOT_STORE = 'inbound-snapshot'
@@ -257,7 +290,7 @@ async function resolveArrival(a) {
       airport = guess.airport
       route = { from: null, fromCity: null, to: airport.icao, toCity: airport.name, guess: true }
     } else {
-      const remembered = learnedRoute(callsign)
+      const remembered = learnedRoute(callsign) || fleetRoute(ac)
       if (!remembered) return null
       airport = airportByIcao(remembered.to)
       // Pamięć to tylko przesłanka (a przed poprawką z 02.11.2026 zapisywała

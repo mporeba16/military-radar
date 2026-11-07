@@ -376,6 +376,54 @@ describe('pamięć lądowań', () => {
   }, 30000)
 })
 
+describe('pamięć przewoźnika', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  const fakeStore = (entries) => {
+    const data = new Map([['book-landings', { entries }]])
+    return { data, get: async (k) => data.get(k) ?? null, set: async (k, v) => { data.set(k, JSON.parse(v)) } }
+  }
+  // CMB366 z 07.11.2026: nad zachodnią Polską, kursem 109° — prosto na Rzeszów.
+  const cmb366 = { hex: 'a1b2c3', flight: 'CMB366', t: 'B744', lat: 51.37, lon: 15.12, gs: 445, track: 109, alt_baro: 37000 }
+  const run = async (records, entries) => {
+    vi.stubGlobal('fetch', async (url) => {
+      const u = String(url)
+      if (/adsb\.fi/.test(u)) return { ok: true, status: 200, json: async () => ({ ac: [] }) }
+      return { ok: true, status: 200, json: async () => ({ response: { flightroute: null } }) }
+    })
+    vi.resetModules()
+    const mod = await import('../netlify/functions/inbound.js')
+    return mod.collect({ store: fakeStore(entries), typeRecords: mod.watchedRecords(records) })
+  }
+  const now = Date.now()
+  const cmbLanded = {
+    CMB355: { at: now - 3 * 86400_000, to: 'EPRZ' },
+    CMB365: { at: now - 86400_000, to: 'EPRZ' },
+  }
+
+  it('nowy numer rejsu, ale przewoźnik siada w Rzeszowie i kurs się zgadza', async () => {
+    const out = await run([cmb366], cmbLanded)
+    expect(out).toHaveLength(1)
+    expect(out[0]).toMatchObject({ flight: 'CMB366', route: { to: 'EPRZ', learned: true, fleet: 'CMB' } })
+  }, 30000)
+
+  it('ten sam przewoźnik, ale kurs obok lotniska — nie', async () => {
+    expect(await run([{ ...cmb366, track: 150 }], cmbLanded)).toHaveLength(0)
+  }, 30000)
+
+  it('jedno lądowanie albo tylko wpisy niepewne to za mało', async () => {
+    expect(await run([cmb366], { CMB365: cmbLanded.CMB365 })).toHaveLength(0)
+    expect(await run([cmb366], {
+      CMB350: { at: now - 86400_000, to: 'EPRZ', unverified: true },
+      CMB352: { at: now - 86400_000, to: 'EPRZ', unverified: true },
+    })).toHaveLength(0)
+  }, 30000)
+
+  it('inny przewoźnik tym samym kursem — nie', async () => {
+    expect(await run([{ ...cmb366, flight: 'GTI366' }], cmbLanded)).toHaveLength(0)
+  }, 30000)
+})
+
 describe('mergeArrivals', async () => {
   const { mergeArrivals } = await import('../src/lib/inbound.js')
   const route = to => ({ from: 'KORD', to })
