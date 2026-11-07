@@ -75,7 +75,7 @@ function IconAppMark() {
 }
 
 // Kolejność od góry: Powiadomienia, Mapy, Plan dnia, Przyloty.
-export function MapPanelButtons({ activePanel, onTogglePanel, alertsLevel }) {
+export function MapPanelButtons({ activePanel, onTogglePanel, alertsLevel, arrivalsCount = 0 }) {
   const panelBtn = (id, label, icon, extra = null) => (
     <button
       className={`icon-btn ${activePanel === id ? 'active' : ''}`}
@@ -94,7 +94,8 @@ export function MapPanelButtons({ activePanel, onTogglePanel, alertsLevel }) {
         <span className={`icon-btn__dot icon-btn__dot--${alertsLevel}`} aria-hidden="true" />)}
       {panelBtn('mapy', t('NAV_MAPS_A11Y'), <IconLayers />)}
       {panelBtn('plan', t('NAV_PLAN_A11Y'), <IconCalendar />)}
-      {panelBtn('przyloty', t('NAV_ARRIVALS_A11Y'), <IconLanding size={20} />)}
+      {panelBtn('przyloty', arrivalsCount ? `${t('NAV_ARRIVALS_A11Y')}: ${arrivalsCount}` : t('NAV_ARRIVALS_A11Y'), <IconLanding size={20} />,
+        arrivalsCount > 0 && <span className="icon-btn__badge" aria-hidden="true">{arrivalsCount}</span>)}
     </div>
   )
 }

@@ -108,7 +108,7 @@ const RELEARN_MS = 24 * 60 * 60 * 1000
 
 // Zapamiętuje lądowanie: maszyna obserwowanego typu tuż przy lotnisku, nisko
 // i schodząca — to podejście końcowe, nie przelot ani start.
-export async function learnLandings(records, store, now = Date.now()) {
+export async function learnLandings(records, store, now = Date.now(), events = null) {
   if (!store) return []
   await landings.load(store, now)
   const learned = []
@@ -127,10 +127,27 @@ export async function learnLandings(records, store, now = Date.now()) {
     // na dobę, chyba że zmienił się cel albo wpis był niepewny.
     const prev = landings.get(callsign, now)
     if (prev?.to === airport.icao && !prev.unverified && now - prev.at < RELEARN_MS) continue
-    landings.set(callsign, { at: now, to: airport.icao })
+    landings.set(callsign, { at: now, to: airport.icao, t: a.t || null, hex: a.hex || null })
+    // Nowe lądowanie (nie odnowienie tego samego podejścia) — powiadomienie
+    // „ląduje" i wpis w historii w panelu Przyloty.
+    events?.push({ flight: callsign, to: airport.icao, t: a.t || null, hex: a.hex || null, at: now })
   }
   await landings.save(store, now).catch(err => console.error('[inbound] zapis lądowań:', err.message))
   return learned
+}
+
+// Ostatnie pewne lądowania (bez wpisów sprzed poprawki z 02.11.2026) — do
+// sekcji „Ostatnio lądowały" w panelu Przyloty. Dane są już w pamięci
+// lądowań, więc nie kosztuje to żadnego zapytania.
+const LANDED_SHOWN = 8
+export function recentLandings(now = Date.now(), n = LANDED_SHOWN) {
+  if (!landings.entries) return []
+  const out = []
+  for (const [flight] of landings.entries) {
+    const rec = landings.get(flight, now)
+    if (rec && !rec.unverified) out.push({ flight, to: rec.to, t: rec.t || null, at: rec.at })
+  }
+  return out.sort((a, b) => b.at - a.at).slice(0, n)
 }
 
 function learnedRoute(callsign, now = Date.now()) {
@@ -224,7 +241,7 @@ async function mapLimit(items, limit, fn) {
 // maszyny, którą właśnie odsialiśmy jako startującą. `nearRecords` to ruch
 // nad Polską już pobrany przez `tick` (bez nich pytamy adsb.fi sami).
 export async function collect({
-  store: injected = null, observed = null, nearRecords = null, typeRecords = [],
+  store: injected = null, observed = null, nearRecords = null, typeRecords = [], landedEvents = null,
 } = {}) {
   let store = injected
   if (!store) {
@@ -240,7 +257,7 @@ export async function collect({
   const nearPoland = await fetchNearPoland(nearRecords)
   // Zanim cokolwiek policzymy: zapamiętaj, kto właśnie siada w Rzeszowie
   // albo Krakowie. To wiedza na następny raz.
-  const learned = await learnLandings(nearPoland, store)
+  const learned = await learnLandings(nearPoland, store, Date.now(), landedEvents)
   if (learned.length) console.log(`[inbound] zapamiętane lądowania: ${learned.join(', ')}`)
   for (const a of nearPoland) {
     if (!seen.has(a.hex)) seen.set(a.hex, a)
@@ -338,16 +355,20 @@ export async function collectInbound(geoRecords) {
   const rawFresh = !!raw && startedAt - raw.at < DEEP_MAX_AGE_MS
   const full = rawFresh && raw.at !== prev?.deepAt
   const observed = new Set()
+  const landedEvents = []
   let inbound, deepInbound
   if (full) {
-    inbound = deepInbound = await collect({ observed, nearRecords: geoRecords, typeRecords: raw.aircraft })
+    inbound = deepInbound = await collect({ observed, nearRecords: geoRecords, typeRecords: raw.aircraft, landedEvents })
   } else {
     deepInbound = rawFresh ? prev?.deepInbound || [] : []
-    const found = await collect({ observed, nearRecords: geoRecords })
+    const found = await collect({ observed, nearRecords: geoRecords, landedEvents })
     inbound = carryForward(found, deepInbound, observed)
   }
+  // `landed` — historia do panelu Przyloty; `justLanded` — lądowania z tego
+  // przebiegu, z których notify w tym samym ticku wysyła „ląduje".
   await store.set(SNAPSHOT_KEY, JSON.stringify({
     at: Date.now(), deepAt: rawFresh ? raw.at : null, deepInbound, inbound,
+    landed: recentLandings(), justLanded: landedEvents,
   }))
   const note = full ? ' pełny' : rawFresh ? '' : ' (brak świeżej listy z Cloudflare)'
   return `inbound n=${inbound.length}${note} in ${Date.now() - startedAt}ms`
@@ -367,14 +388,15 @@ export const handler = async (event) => {
       // Najpierw migawka z crona (tick co 2 min) — wtedy otwarcie
       // aplikacji nie generuje ani jednego zapytania na zewnątrz.
       let inbound = null
+      let landed = null
       try {
         const snap = await getStore(SNAPSHOT_STORE).get(SNAPSHOT_KEY, { type: 'json' })
-        if (snap && now - snap.at < 15 * 60 * 1000) inbound = snap.inbound
+        if (snap && now - snap.at < 15 * 60 * 1000) { inbound = snap.inbound; landed = snap.landed }
       } catch { /* brak migawki → pobierzemy sami */ }
       // Zapas, gdy tick nie działa: sam ruch nad Polską. Bez zapytań o typy —
       // z przerwami między nimi trwają kilka sekund, a tu czeka użytkownik.
-      if (!inbound) inbound = await collect()
-      cache = { at: now, body: JSON.stringify({ updated: new Date(now).toISOString(), inbound }) }
+      if (!inbound) { inbound = await collect(); landed = recentLandings() }
+      cache = { at: now, body: JSON.stringify({ updated: new Date(now).toISOString(), inbound, landed: landed || [] }) }
     } catch (err) {
       if (!cache || now - cache.at > STALE_MAX_MS) {
         console.error('[inbound]', err.message)

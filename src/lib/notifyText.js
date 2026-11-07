@@ -172,22 +172,32 @@ export function inboundText(x, airportName, clock, eta) {
   // Trzy stopnie pewności i każdy mówi o sobie prawdę:
   //   plan lotu  — „Rzeszów: Jumbo Jet ok. 17:10"
   //   podejście  — „Jumbo Jet podchodzi: Rzeszów" (widać to z geometrii lotu)
-  //   pamięć     — „Jumbo Jet → Rzeszów" (ten znak wywoławczy tam już siadał)
+  //   pamięć     — „Jumbo Jet prawdopodobnie ląduje: Rzeszów" (ten rejs albo
+  //                przewoźnik tam już siadał — tak samo jak na karcie maszyny)
   const guess = x.route?.guess === true
   const learned = x.route?.learned === true
   const title = guess
     ? `${name} podchodzi: ${airportName}`
     : learned
-      ? (clock ? `${name} → ${airportName} ok. ${clock}` : `${name} → ${airportName}`)
+      ? `${name} prawdopodobnie ląduje: ${airportName}`
       : (clock ? `${airportName}: ${name} ok. ${clock}` : `${airportName}: ${name}`)
   const parts = []
   if (!guess && !learned) parts.push(name)
   const from = x.route?.fromCity || x.route?.from
   if (from) parts.push(`z ${from}`)
-  if (guess && clock) parts.push(`ok. ${clock}`)
   if (eta) parts.push(`za ${eta}`)
-  if (learned) parts.push('cel z wcześniejszych lotów')
+  if ((guess || learned) && clock) parts.push(`ok. ${clock}`)
   return { title, body: parts.join(' · ') }
+}
+
+// Maszyna na podejściu końcowym: „Jumbo Jet ląduje: Rzeszów", w treści znak
+// wywoławczy i godzina.
+export function landedText(x, airportName, clock) {
+  const name = shortTypeName(x) || (x.t || '').trim() || 'transportowiec'
+  return {
+    title: `${name} ląduje: ${airportName}`,
+    body: [x.flight, clock].filter(Boolean).join(' · '),
+  }
 }
 
 // Kilka maszyn w jednym przebiegu: dystans najbliższej w tytule, reszta listą.

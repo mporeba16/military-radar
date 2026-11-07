@@ -15,6 +15,16 @@ describe('etaMinutes', () => {
     expect(etaMinutes(ac, EPRZ)).toBeLessThan(40)
   })
 
+  it('dolicza zwalnianie przed lądowaniem (CMB366: 250 km przy 445 kt to ok. 25 min, nie 18)', () => {
+    // 250 km na zachód od Rzeszowa.
+    const ac = { lat: 50.11, lon: 22.019 - 250 / (111.32 * Math.cos(50.11 * Math.PI / 180)), gs: 445 }
+    expect(etaMinutes(ac, EPRZ)).toBeGreaterThanOrEqual(23)
+    expect(etaMinutes(ac, EPRZ)).toBeLessThanOrEqual(27)
+    // Na podejściu (wolno, blisko) bez zmian: 20 km przy 160 kt ≈ 4 min.
+    const close = { lat: 50.11, lon: 22.019 - 20 / (111.32 * Math.cos(50.11 * Math.PI / 180)), gs: 160 }
+    expect(etaMinutes(close, EPRZ)).toBe(4)
+  })
+
   it('nie zgaduje bez prędkości ani dla maszyny na ziemi', () => {
     expect(etaMinutes({ lat: 50, lon: 20, gs: null }, EPRZ)).toBeNull()
     expect(etaMinutes({ lat: 50, lon: 20, gs: 12 }, EPRZ)).toBeNull()
@@ -258,13 +268,12 @@ describe('treść powiadomienia', () => {
     expect(body).toContain('za 22 min')
   })
 
-  it('cel z pamięci mówi, skąd go zna', async () => {
+  it('cel z pamięci: „prawdopodobnie ląduje", jak na karcie maszyny', async () => {
     const { inboundText } = await import('../src/lib/notifyText.js')
     const zPamieci = { ...x, route: { to: 'EPRZ', learned: true } }
     const { title, body } = inboundText(zPamieci, 'Rzeszów', '17:10', '6 h 20 min')
-    expect(title).toBe('Jumbo Jet → Rzeszów ok. 17:10')
-    expect(body).toContain('cel z wcześniejszych lotów')
-    expect(body).toContain('za 6 h 20 min')
+    expect(title).toBe('Jumbo Jet prawdopodobnie ląduje: Rzeszów')
+    expect(body).toBe('za 6 h 20 min · ok. 17:10')
   })
 
   it('bez godziny nie zmyśla', async () => {
@@ -328,7 +337,22 @@ describe('pamięć lądowań', () => {
     const now = Date.now()
     store.data.set('book-landings', { entries: { CMB358: { at: now - 3600_000, to: 'EPRZ', unverified: true } } })
     await learnLandings([{ flight: 'CMB358', t: 'B744', lat: 50.11, lon: 22.02, alt_baro: 800, baro_rate: -700 }], store, now)
-    expect(store.data.get('book-landings').entries.CMB358).toEqual({ at: now, to: 'EPRZ' })
+    expect(store.data.get('book-landings').entries.CMB358).toEqual({ at: now, to: 'EPRZ', t: 'B744', hex: null })
+  })
+
+  it('nowe lądowanie to jedno zdarzenie „ląduje", kolejne przebiegi podejścia już nie', async () => {
+    vi.resetModules()
+    const { learnLandings, recentLandings } = await import('../netlify/functions/inbound.js')
+    const store = fakeStore()
+    const now = Date.now()
+    const podejscie = [{ hex: 'a9876e', flight: 'CMB366', t: 'B744', lat: 50.11, lon: 22.0, alt_baro: 1200, baro_rate: -700 }]
+    const e1 = []
+    await learnLandings(podejscie, store, now, e1)
+    const e2 = []
+    await learnLandings(podejscie, store, now + 120_000, e2)
+    expect(e1).toEqual([{ flight: 'CMB366', to: 'EPRZ', t: 'B744', hex: 'a9876e', at: now }])
+    expect(e2).toEqual([])
+    expect(recentLandings(now + 120_000)).toEqual([{ flight: 'CMB366', to: 'EPRZ', t: 'B744', at: now }])
   })
 
   it('nie zapamiętuje odlotu: kołowanie, rozbieg ani wznoszenie', async () => {

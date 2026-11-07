@@ -74,3 +74,51 @@ describe('notify — jedno powiadomienie na samolot', () => {
     expect(sent).toEqual([])
   })
 })
+
+describe('notify — przylot z pamięci przewoźnika', () => {
+  beforeEach(() => {
+    stores.clear(); sent.length = 0
+    const subs = store('push-subscriptions')
+    for (const [k, v] of [sub('gda', 54.35, 18.65)]) subs.set(k, v)
+    sky = []
+  })
+  const snap = (lon) => store('inbound-snapshot').set('latest', JSON.stringify({
+    at: Date.now(),
+    inbound: [{ hex: 'a9876e', flight: 'CMB366', t: 'B744', lat: 50.11, lon, gs: 445, track: 90,
+      route: { to: 'EPRZ', toCity: 'Rzeszów', learned: true, fleet: 'CMB' } }],
+  }))
+
+  it('daleko (500 km) — jeszcze bez powiadomienia, bliżej (200 km) — jest', async () => {
+    await snap(15.0)
+    const { runNotify: notify } = await import('../netlify/functions/lib/notifyJob.js')
+    await notify()
+    expect(sent.filter(p => p.tag === 'inbound-a9876e')).toHaveLength(0)
+    await snap(19.2)
+    await notify()
+    const push = sent.filter(p => p.tag === 'inbound-a9876e')
+    expect(push).toHaveLength(1)
+    expect(push[0].title).toBe('Jumbo Jet prawdopodobnie ląduje: Rzeszów')
+  })
+})
+
+describe('notify — „ląduje"', () => {
+  beforeEach(() => {
+    stores.clear(); sent.length = 0
+    const subs = store('push-subscriptions')
+    for (const [k, v] of [sub('gda', 54.35, 18.65)]) subs.set(k, v)
+    sky = []
+  })
+
+  it('jedno powiadomienie na lądowanie, drugi przebieg z tym samym nic nie wysyła', async () => {
+    const at = Date.now()
+    const snap = { at, inbound: [], justLanded: [{ flight: 'CMB366', to: 'EPRZ', t: 'B744', hex: 'a9876e', at }] }
+    await store('inbound-snapshot').set('latest', JSON.stringify(snap))
+    const { runNotify: notify } = await import('../netlify/functions/lib/notifyJob.js')
+    await notify()
+    await notify()
+    const push = sent.filter(p => p.tag === 'landed-a9876e')
+    expect(push).toHaveLength(1)
+    expect(push[0].title).toBe('Jumbo Jet ląduje: Rzeszów')
+    expect(push[0].body).toMatch(/^CMB366 · \d{2}:\d{2}$/)
+  })
+})

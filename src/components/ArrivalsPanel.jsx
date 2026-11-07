@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { t } from '../i18n'
-import { ARRIVAL_AIRPORTS, etaMinutes, formatEta, landingClock } from '../lib/inbound'
+import { ARRIVAL_AIRPORTS, airportByIcao, etaMinutes, formatEta, landingClock } from '../lib/inbound'
 import { typeLabel } from '../lib/typeNames'
 import { IconLanding, IconBell } from './UiIcons'
 import { ON_COLOR, OFF_COLOR } from './Toggle'
@@ -33,6 +33,13 @@ function sourceNote(route) {
   return from ? `${t('INFO_ARRIVAL_FROM')} ${from}` : null
 }
 
+// Pusty stan mówi, kiedy ostatnio coś tu siadało — „brak przylotów" sam
+// w sobie nie odróżnia spokojnego dnia od niedziałającej aplikacji.
+function lastAt(landed, icao) {
+  const last = landed.find(x => x.to === icao)
+  return last ? ` ${t('ARR_LAST_LANDED')} ${landedWhen(last.at)} (${last.flight}).` : ''
+}
+
 function Row({ x, airport, onOpen }) {
   // Czas liczony tu, z bieżącej pozycji — wartość z serwera bywa sprzed
   // kilku minut (tak samo jak na karcie maszyny).
@@ -61,7 +68,36 @@ function Row({ x, airport, onOpen }) {
   )
 }
 
-export default function ArrivalsPanel({ inbound, arrivals, setArrivals, onOpen }) {
+// „Ostatnio lądowały": dzień i godzina po polsku, typ jak na liście przylotów.
+const whenFmt = new Intl.DateTimeFormat('pl-PL', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' })
+const dayFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Warsaw' })
+const timeFmt = new Intl.DateTimeFormat('pl-PL', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' })
+function landedWhen(at) {
+  if (dayFmt.format(at) === dayFmt.format(Date.now())) return `${t('USAGE_TODAY').toLowerCase()} ${timeFmt.format(at)}`
+  return whenFmt.format(at).replace(',', '')
+}
+
+function Landed({ landed }) {
+  if (!landed.length) return null
+  return (
+    <section className="cp-section">
+      <div className="cp-label">{t('ARR_LANDED_LABEL')}</div>
+      <ul className="arr-landed">
+        {landed.map(x => (
+          <li key={`${x.flight}-${x.at}`} className="arr-landed__row">
+            <span className="arr-row__flight">{x.flight}</span>
+            <span className="arr-landed__type">{typeLabel(x.t) || x.t || ''}</span>
+            <span className="arr-landed__where">{airportByIcao(x.to)?.name || x.to}</span>
+            <span className="arr-landed__when">{landedWhen(x.at)}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+export default function ArrivalsPanel({ inbound, landed = [], arrivals, setArrivals, isSubscribed, onOpenAlerts, onOpen }) {
+  const anyBell = ARRIVAL_AIRPORTS.some(a => arrivals[a.icao] !== false)
   const byAirport = useMemo(() => ARRIVAL_AIRPORTS.map(airport => ({
     airport,
     list: inbound
@@ -71,6 +107,14 @@ export default function ArrivalsPanel({ inbound, arrivals, setArrivals, onOpen }
 
   return (
     <div className="panel-body">
+      {/* Dzwonek bez włączonych powiadomień steruje tylko znacznikiem na
+          mapie — mówimy to wprost, zamiast obiecywać push, który nie przyjdzie. */}
+      {!isSubscribed && anyBell && (
+        <p className="arr-nopush">
+          {t('ARR_NO_PUSH')}{' '}
+          <button type="button" className="arr-nopush__link" onClick={onOpenAlerts}>{t('ARR_NO_PUSH_LINK')}</button>
+        </p>
+      )}
       {byAirport.map(({ airport, list }) => (
         <section key={airport.icao} className="cp-section">
           <div className="cp-label arr-head">
@@ -81,9 +125,10 @@ export default function ArrivalsPanel({ inbound, arrivals, setArrivals, onOpen }
           {arrivals[airport.icao] === false && <p className="arr-off">{t('ARR_AIRPORT_OFF')}</p>}
           {list.length
             ? <ul className="arr-list">{list.map(x => <Row key={x.hex} x={x} airport={airport} onOpen={onOpen} />)}</ul>
-            : <p className="arr-empty">{t('ARR_EMPTY')}</p>}
+            : <p className="arr-empty">{t('ARR_EMPTY')}{lastAt(landed, airport.icao)}</p>}
         </section>
       ))}
+      <Landed landed={landed} />
       <p className="arr-foot">{t('ARR_FOOT')}</p>
     </div>
   )

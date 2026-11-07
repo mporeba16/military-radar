@@ -9,7 +9,7 @@ import { rareRoleFor } from '../../../src/lib/rareTypes.js'
 import { AIRFIELDS } from '../../../src/airfields.js'
 // Treść alertów mieszka we wspólnym module — ten sam kod składa push z serwera
 // i lokalne powiadomienie w otwartej aplikacji, więc nie mogą się rozjechać.
-import { alertText, groupText, rareText, rareGroupText, inboundText, CLOSE_RANGE_KM } from '../../../src/lib/notifyText.js'
+import { alertText, groupText, rareText, rareGroupText, inboundText, landedText, CLOSE_RANGE_KM } from '../../../src/lib/notifyText.js'
 import { airportByIcao, etaMinutes, formatEta, landingClock } from '../../../src/lib/inbound.js'
 import { SNAPSHOT_STORE, SNAPSHOT_KEY } from '../inbound.js'
 import { USAGE_STORE, USAGE_KEEP_DAYS, warsawDay } from './usage.js'
@@ -35,6 +35,10 @@ const INBOUND_COOLDOWN_MS = 18 * 60 * 60 * 1000
 // Zbyt wcześnie nie ma sensu: przy dwunastu godzinach do lądowania szacunek
 // jest bardzo zgrubny, a maszyna może jeszcze zawrócić.
 const INBOUND_MAX_ETA_MIN = 10 * 60
+// Cel z pamięci przewoźnika to przypuszczenie z samego kursu — z daleka kurs
+// „na Rzeszów” mają też przeloty dalej na wschód. W Przylotach widać go od
+// razu, ale powiadomienie dopiero, gdy maszyna jest bliżej i nadal tam leci.
+const FLEET_PUSH_MAX_KM = 300
 const PL_AIRFIELDS = AIRFIELDS.filter(a => a.icao.startsWith('EP'))
 
 // Rzadkie maszyny w powietrzu nad Polską z listy /mil. Czysta funkcja, żeby
@@ -305,6 +309,10 @@ async function run() {
     console.error('[notify] inbound pass failed:', err.message)
     stats.inboundError = err.message
   })
+  await processLanded(loaded, stats, inboundSnap).catch(err => {
+    console.error('[notify] landed pass failed:', err.message)
+    stats.landedError = err.message
+  })
 
   // Pass 3 — rzadkie maszyny nad całą Polską. Nie zależą od pozycji
   // użytkownika, więc idą też do subskrypcji bez GPS.
@@ -356,6 +364,38 @@ async function broadcast(recipients, payloadsFor, stats, counter, label) {
 
 const allRecipients = loaded => dedupeByDevice(loaded.filter(v => v.raw?.subscription))
 
+// „Ląduje": jumbo jet albo An-124 na podejściu końcowym w Rzeszowie lub
+// Krakowie (przyloty wykrywa lib inbound — learnLandings). Jedno
+// powiadomienie na rejs; cooldown na wypadek odejścia na drugi krąg.
+const LANDED_COOLDOWN_MS = 6 * 60 * 60 * 1000
+
+async function processLanded(loaded, stats, snap) {
+  const list = snap?.justLanded || []
+  if (!list.length) return
+  const now = Date.now()
+  const store = cooldownStore('push-landed')
+  const prev = (await store.get('alerted', { type: 'json' }).catch(() => null))?.alerted || {}
+  const next = pruneCooldown(prev, LANDED_COOLDOWN_MS, now)
+  const fresh = []
+  for (const x of list) {
+    const airport = airportByIcao(x.to)
+    if (!airport) continue
+    const key = `${x.flight}|${x.to}`
+    if (!prev[key] || now - prev[key] > LANDED_COOLDOWN_MS) fresh.push({ x, airport })
+    next[key] = now
+  }
+  await store.set('alerted', JSON.stringify({ alerted: next, ts: now }))
+  if (!fresh.length) return
+  const recipients = allRecipients(loaded)
+  await broadcast(recipients, v => fresh
+    .filter(({ airport }) => v.raw.arrivals?.[airport.icao] !== false)
+    .map(({ x, airport }) => ({
+      ...landedText(x, airport.name, landingClock(0, x.at)),
+      tag: `landed-${x.hex || x.flight}`, hex: x.hex,
+    })), stats, 'landedSent', 'landed')
+  console.log(`[notify] landed: ${fresh.map(f => `${f.x.flight}→${f.airport.icao}`).join(', ')} → ${recipients.length} subs`)
+}
+
 async function processInbound(loaded, stats, snap, inRangeByKey) {
   const list = snap?.inbound || []
   if (!list.length) return
@@ -371,6 +411,8 @@ async function processInbound(loaded, stats, snap, inRangeByKey) {
     if (!airport) continue
     const min = etaMinutes(x, airport)
     if (min == null || min > INBOUND_MAX_ETA_MIN) continue
+    // Bez wpisu do `next` — powiadomienie przyjdzie, gdy podleci bliżej.
+    if (x.route.fleet && haversine(x.lat, x.lon, airport.lat, airport.lon) > FLEET_PUSH_MAX_KM) continue
     const key = `${x.hex}|${x.route.to}`
     if (!prev[key] || now - prev[key] > INBOUND_COOLDOWN_MS) fresh.push({ x, airport, min })
     next[key] = now
@@ -436,12 +478,10 @@ const HOUSEKEEPING_BUDGET_MS = 4000
 
 async function writeRunStats(stats, runStart) {
   try {
-    const runsStore = getStore('push-runs')
     // Housekeeping gated to ~once/hour so we don't list() stores every run:
     // expire stale rate-limit records (their `ts` is >24h old → the window is
     // long gone), wyrzuć dawno porzucone subskrypcje i posprzątaj po nich mapy
-    // cooldownu. Idzie PRZED zapisem `latest`, żeby liczniki sprzątania trafiły
-    // do podsumowania. Okno 2 minut, bo cron chodzi co 2 minuty — w każdej
+    // cooldownu. Liczniki sprzątania trafiają do logu przebiegu. Okno 2 minut, bo cron chodzi co 2 minuty — w każdej
     // godzinie trafia w nie dokładnie jeden przebieg.
     if (runStart % 3_600_000 < 120_000) {
       const work = Promise.allSettled([
@@ -457,9 +497,8 @@ async function writeRunStats(stats, runStart) {
       clearTimeout(timer)
       if (timedOut) stats.housekeeping = 'przerwane po limicie czasu'
     }
-    // Keep only the latest run summary — status.js reads this. Per-run
-    // `run-<ts>` blobs are gone: nothing ever read them back.
-    await runsStore.set('latest', JSON.stringify(stats))
+    // Podsumowania przebiegu (`push-runs/latest`) już nie zapisujemy: czytała
+    // je tylko diagnostyka (funkcja status), usunięta 07.11.2026.
   } catch (err) {
     console.error('[notify] Failed to write run stats:', err.message)
   }

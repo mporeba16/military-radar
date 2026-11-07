@@ -36,11 +36,21 @@ export function isWatchedType(t) {
 // przy godzinie. Bez prędkości (albo przy maszynie stojącej) nie zgadujemy.
 const MIN_GS_KT = 100
 
+// Ostatnie ~100 km to zniżanie i podejście: maszyna zwalnia z prędkości
+// przelotowej do ok. 150 kt. Liczenie całej drogi z prędkością przelotową
+// zaniżało czas o 10–15 min (CMB366 07.11.2026: „za 18 min” z 250 km,
+// a lądował po ok. 30). Ten odcinek liczymy ze średnią ok. 250 kt — albo
+// z bieżącą prędkością, jeśli maszyna już tak zwolniła.
+const APPROACH_KM = 100
+const APPROACH_KT = 250
+
 export function etaMinutes(ac, airport) {
   if (!ac || ac.gs == null || ac.gs < MIN_GS_KT) return null
   const km = haversine(ac.lat, ac.lon, airport.lat, airport.lon)
-  const kmh = ac.gs * 1.852
-  return Math.round((km / kmh) * 60)
+  const cruiseKmh = ac.gs * 1.852
+  const approachKmh = Math.min(ac.gs, APPROACH_KT) * 1.852
+  const near = Math.min(km, APPROACH_KM)
+  return Math.round(((km - near) / cruiseKmh + near / approachKmh) * 60)
 }
 
 export function distanceKm(ac, airport) {

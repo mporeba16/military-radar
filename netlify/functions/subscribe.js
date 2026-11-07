@@ -115,8 +115,6 @@ export const handler = async (event) => {
     // Lotniska, o których przylotach wielkich transportowców to urządzenie
     // chce wiedzieć. Brak pola = zostaje poprzednie, a domyślnie oba włączone.
     arrivals: normalizeArrivals(arrivals ?? existing?.arrivals),
-    // Alarmy o awariach serwera (lib/health.js) — włączane w diagnostyce.
-    health: typeof body.health === 'boolean' ? body.health : existing?.health === true,
   }
 
   let serialized

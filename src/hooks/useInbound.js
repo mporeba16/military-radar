@@ -4,13 +4,15 @@ import { useEffect, useState } from 'react'
 // częściej nie ma po co pytać.
 const REFRESH_MS = 3 * 60 * 1000
 
-// Jumbo jety i An-124 lecące do Rzeszowa albo Krakowa. Pobierane tylko wtedy,
-// gdy włączony jest choć jeden z dwóch przełączników w ustawieniach.
+// Jumbo jety i An-124 lecące do Rzeszowa albo Krakowa (`inbound`) i ostatnie
+// lądowania tam (`landed`, do panelu Przyloty). Pobierane tylko wtedy, gdy
+// włączony jest choć jeden dzwonek lotniska albo otwarty jest panel.
+const EMPTY = { inbound: [], landed: [] }
 export function useInbound(enabled) {
-  const [inbound, setInbound] = useState([])
+  const [data, setData] = useState(EMPTY)
 
   useEffect(() => {
-    if (!enabled) { setInbound([]); return }
+    if (!enabled) { setData(EMPTY); return }
     let ctrl = null
     const load = async () => {
       ctrl?.abort()
@@ -18,8 +20,11 @@ export function useInbound(enabled) {
       try {
         const r = await fetch('/.netlify/functions/inbound', { signal: ctrl.signal })
         if (!r.ok) return
-        const data = await r.json()
-        setInbound(Array.isArray(data.inbound) ? data.inbound : [])
+        const body = await r.json()
+        setData({
+          inbound: Array.isArray(body.inbound) ? body.inbound : [],
+          landed: Array.isArray(body.landed) ? body.landed : [],
+        })
       } catch { /* brak danych zostawia poprzednie */ }
     }
     load()
@@ -27,5 +32,5 @@ export function useInbound(enabled) {
     return () => { ctrl?.abort(); clearInterval(id) }
   }, [enabled])
 
-  return inbound
+  return data
 }

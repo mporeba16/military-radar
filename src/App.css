@@ -440,6 +440,21 @@
 .icon-btn__dot--ok { background: var(--kind-mil); }
 .icon-btn__dot--warn { background: var(--watch); }
 .icon-btn__dot--off { background: var(--alert); }
+/* Liczba przylotów na przycisku Przyloty — bursztyn jak znaczniki dużych maszyn. */
+.icon-btn__badge {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  font: 700 10px/16px var(--font);
+  text-align: center;
+  color: #1a1200;
+  background: var(--kind-heavy, #ffb300);
+  border: 1px solid rgba(0, 0, 0, 0.55);
+}
 
 /* GPS: przygaszony bez pozycji, zielony z pozycją — to on jest warunkiem
    działania alertów zasięgowych. */
@@ -998,4 +1013,21 @@
   cursor: pointer;
 }
 .arr-bell:hover { background: var(--ctl-bg-hover); border-color: var(--ctl-border-hover); }
+.arr-nopush { margin: 0 0 14px; padding: 8px 10px; font-size: var(--t-small); line-height: 1.45; color: rgba(255, 255, 255, 0.75); background: var(--ctl-bg); border: 1px solid var(--ctl-border); border-radius: var(--ctl-radius); }
+.arr-nopush__link { padding: 0; font: inherit; font-weight: 600; color: var(--kind-mil, #00ff88); background: none; border: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+/* Ostatnio lądowały: znak, typ, lotnisko, kiedy — w jednej linii. */
+.arr-landed { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.arr-landed__row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: baseline;
+  column-gap: 8px;
+  padding: 7px 0;
+  font-size: 13px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.arr-landed__row:first-child { border-top: 0; }
+.arr-landed__type { font-size: var(--t-small); color: rgba(255, 255, 255, 0.55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.arr-landed__where { color: rgba(255, 255, 255, 0.8); }
+.arr-landed__when { font-size: var(--t-small); color: rgba(255, 255, 255, 0.55); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .arr-foot { margin: 4px 0 0; font-size: var(--t-micro); line-height: 1.45; color: rgba(255, 255, 255, 0.45); }

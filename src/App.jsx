@@ -79,8 +79,11 @@ export default function App() {
   // z tej listy musi zostać w danych po zamknięciu panelu — inaczej przy
   // wyłączonych lotniskach lista się czyściła i karta się nie otwierała.
   const arrivalPickRef = useRef(null)
-  const inboundRaw = useInbound(ARRIVAL_AIRPORTS.some(a => arrivals[a.icao] !== false) ||
+  const { inbound: inboundRaw, landed } = useInbound(ARRIVAL_AIRPORTS.some(a => arrivals[a.icao] !== false) ||
     activePanel === 'przyloty' || (selectedHex != null && arrivalPickRef.current === selectedHex))
+  // Plakietka na przycisku Przyloty: ile maszyn leci na lotniska z włączonym
+  // dzwonkiem — widać bez otwierania panelu, że warto zajrzeć.
+  const arrivalsCount = inboundRaw.filter(x => arrivals[x.route?.to] !== false).length
   const inboundHexesRef = useRef(new Set())
   useEffect(() => {
     inboundHexesRef.current = new Set(inboundRaw.map(x => x.hex))
@@ -494,6 +497,7 @@ export default function App() {
         activePanel={activePanel}
         onTogglePanel={togglePanel}
         alertsLevel={alertsDot}
+        arrivalsCount={arrivalsCount}
       />
 
       {/* Karta maszyny — pływający panel przy lewej krawędzi, pod paskiem
@@ -589,7 +593,8 @@ export default function App() {
           )}
 
           {activePanel === 'przyloty' && (
-            <ArrivalsPanel inbound={inboundRaw} arrivals={arrivals} setArrivals={setArrivals}
+            <ArrivalsPanel inbound={inboundRaw} landed={landed} arrivals={arrivals} setArrivals={setArrivals}
+              isSubscribed={isSubscribed} onOpenAlerts={() => setActivePanel('alerty')}
               onOpen={hex => { arrivalPickRef.current = hex; openHex(hex) }} />
           )}
 

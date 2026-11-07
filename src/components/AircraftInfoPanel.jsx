@@ -140,6 +140,15 @@ function ExtLink({ href, title, children }) {
   )
 }
 
+// Lotnicza wysokość obok metrów — tak, jak podają ją FR24 i ATC: powyżej
+// wysokości przejściowej w Polsce (6500 ft) poziom lotu, niżej stopy.
+const TRANSITION_FT = 6500
+function flightLevel(ft) {
+  if (typeof ft !== 'number') return null
+  if (ft >= TRANSITION_FT) return `FL${String(Math.round(ft / 100)).padStart(3, '0')}`
+  return `${(Math.round(ft / 100) * 100).toLocaleString('pl-PL')} ft`
+}
+
 export default function AircraftInfoPanel({ ac, onClose, following = false, onToggleFollow }) {
   const { photo, state: photoState } = useAircraftPhoto(ac.hex, ac.reg, ac)
   const [imgError, setImgError] = useState(false)
@@ -306,7 +315,9 @@ export default function AircraftInfoPanel({ ac, onClose, following = false, onTo
             </span>
             <span className="ac-info-metric__unit">m</span>
           </span>
-          <span className="ac-info-metric__label">{t('INFO_ALTITUDE')}</span>
+          <span className="ac-info-metric__label">
+            {t('INFO_ALTITUDE')}{flightLevel(ac.alt_baro) && <span className="ac-info-metric__fl"> · {flightLevel(ac.alt_baro)}</span>}
+          </span>
         </div>
         <div className="ac-info-metric">
           <span className="ac-info-metric__line">
