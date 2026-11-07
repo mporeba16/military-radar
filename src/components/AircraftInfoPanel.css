@@ -376,7 +376,6 @@
   color: rgba(255, 255, 255, 0.5);
 }
 
-.ac-info-metric__fl { font-variant-numeric: tabular-nums; }
 .ac-info-metric__label {
   font-size: var(--t-micro);
   color: rgba(255, 255, 255, 0.4);
