@@ -23,8 +23,8 @@ export const WATCHED_TYPES = ['A124', 'B748', 'B744']
 const WATCHED_TYPE_RE = /^(B74[0-9A-Z]?|A124|A225)$/
 
 export const ARRIVAL_AIRPORTS = [
-  { icao: 'EPRZ', name: 'Rzeszów', lat: 50.11, lon: 22.019 },
-  { icao: 'EPKK', name: 'Kraków', lat: 50.0777, lon: 19.7848 },
+  { icao: 'EPRZ', name: 'Rzeszów', lat: 50.11, lon: 22.019, elevFt: 693 },
+  { icao: 'EPKK', name: 'Kraków', lat: 50.0777, lon: 19.7848, elevFt: 791 },
 ]
 
 export function isWatchedType(t) {
@@ -44,9 +44,20 @@ const MIN_GS_KT = 100
 const APPROACH_KM = 100
 const APPROACH_KT = 250
 
+// Wysokość też wyznacza drogę: z 3° ścieżki podejścia (ok. 318 ft na milę)
+// maszyna na 10 000 ft potrzebuje jeszcze ok. 55 km, nawet jeśli jest tuż
+// nad lotniskiem. CMB366 07.11.2026 na 3000 m przelatywał obok Rzeszowa
+// przed zawróceniem na pas — karta pokazywała „za 1 min”. Lecąca od
+// lotniska maszyna musi jeszcze wrócić, więc ta droga dochodzi do odległości.
+const GLIDE_FT_PER_NM = 318
+
 export function etaMinutes(ac, airport) {
   if (!ac || ac.gs == null || ac.gs < MIN_GS_KT) return null
-  const km = haversine(ac.lat, ac.lon, airport.lat, airport.lon)
+  const straightKm = haversine(ac.lat, ac.lon, airport.lat, airport.lon)
+  const aboveFt = typeof ac.alt_baro === 'number' ? ac.alt_baro - (airport.elevFt || 0) : 0
+  const glideKm = Math.max(0, aboveFt) / GLIDE_FT_PER_NM * 1.852
+  const away = ac.track != null && straightKm > 3 && headingDiff(ac.track, bearingTo(ac, airport)) > 90
+  const km = away ? straightKm + glideKm : Math.max(straightKm, glideKm)
   const cruiseKmh = ac.gs * 1.852
   const approachKmh = Math.min(ac.gs, APPROACH_KT) * 1.852
   const near = Math.min(km, APPROACH_KM)

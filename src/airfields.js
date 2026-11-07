@@ -32,7 +32,10 @@ export const AIRFIELDS = [
   { icao: 'EPWA', name: 'Warszawa-Okęcie',   lat: 52.1657, lon: 20.9671, mil: true, joint: true },
   { icao: 'EPMO', name: 'Warszawa-Modlin',   lat: 52.4511, lon: 20.6518 },
   { icao: 'EPKK', name: 'Kraków-Balice',     lat: 50.0777, lon: 19.7848, mil: true, joint: true },
-  { icao: 'EPRZ', name: 'Rzeszów-Jasionka',  lat: 50.1100, lon: 22.0190 },
+  // Rzeszów: węzeł logistyczny NATO/USA dla Ukrainy — C-17, 747 CMB, An-124
+  // lądują tu codziennie (decyzja użytkownika 07.11.2026). `joint` jak
+  // Balice: na mapie jako baza, plan PAŻP i NOTAM-y dalej jako cywilne.
+  { icao: 'EPRZ', name: 'Rzeszów-Jasionka',  lat: 50.1100, lon: 22.0190, mil: true, joint: true },
   { icao: 'EPRA', name: 'Radom',             lat: 51.3892, lon: 21.2133, mil: true },
   { icao: 'EPGD', name: 'Gdańsk',            lat: 54.3776, lon: 18.4662 },
   { icao: 'EPPO', name: 'Poznań-Ławica',     lat: 52.4210, lon: 16.8263 },
@@ -61,11 +64,20 @@ export const AIRFIELDS = [
   { icao: 'ETNT', name: 'Wittmundhafen',     lat: 53.5478, lon: 7.6673,  mil: true, nato: true },
   { icao: 'ETNW', name: 'Wunstorf',          lat: 52.4573, lon: 9.4272,  mil: true, nato: true },
   { icao: 'ETSN', name: 'Neuburg',           lat: 48.7110, lon: 11.2115, mil: true, nato: true },
+  // Dopisane 07.11.2026: Büchel (Tornado/F-35, broń jądrowa NATO), Kolonia-Wahn
+  // (wysunięta baza tankowców MMF i rządowa flota Luftwaffe), Lipsk/Halle
+  // (przerzut wojsk USA, baza An-124).
+  { icao: 'ETSB', name: 'Büchel',            lat: 50.1738, lon: 7.0633,  mil: true, nato: true },
+  { icao: 'EDDK', name: 'Kolonia-Wahn (MMF)', short: 'Kolonia-Wahn', lat: 50.8659, lon: 7.1427, mil: true, nato: true },
+  { icao: 'EDDP', name: 'Lipsk/Halle',       lat: 51.4324, lon: 12.2416, mil: true, nato: true },
   // Beneluks
   { icao: 'EHVK', name: 'Volkel',            lat: 51.6572, lon: 5.7078,  mil: true, nato: true },
   { icao: 'EHLW', name: 'Leeuwarden',        lat: 53.2286, lon: 5.7606,  mil: true, nato: true },
   { icao: 'EBBL', name: 'Kleine Brogel',     lat: 51.1683, lon: 5.4700,  mil: true, nato: true },
   { icao: 'EBFS', name: 'Florennes',         lat: 50.2433, lon: 4.6458,  mil: true, nato: true },
+  // Eindhoven: główna baza wielonarodowej floty tankowców A330 MRTT (MMF) —
+  // to ich tankowce latają nad Polską.
+  { icao: 'EHEH', name: 'Eindhoven (MMF)',   short: 'Eindhoven', lat: 51.4501, lon: 5.3745, mil: true, nato: true },
   // Wielka Brytania
   { icao: 'EGUL', name: 'RAF Lakenheath',    lat: 52.4095, lon: 0.5612,  mil: true, nato: true },
   { icao: 'EGUN', name: 'RAF Mildenhall',    lat: 52.3619, lon: 0.4864,  mil: true, nato: true },
@@ -88,6 +100,8 @@ export const AIRFIELDS = [
   { icao: 'ENBO', name: 'Bodø',              lat: 67.2692, lon: 14.3653, mil: true, nato: true },
   { icao: 'ESPA', name: 'Luleå-Kallax', short: 'Luleå',      lat: 65.5438, lon: 22.1220, mil: true, nato: true },
   { icao: 'ESDF', name: 'Ronneby',           lat: 56.2667, lon: 15.2650, mil: true, nato: true },
+  { icao: 'EKSP', name: 'Skrydstrup',        lat: 55.2256, lon: 9.2639,  mil: true, nato: true },
+  { icao: 'ENEV', name: 'Evenes',            lat: 68.4913, lon: 16.6781, mil: true, nato: true },
   { icao: 'EFRO', name: 'Rovaniemi',         lat: 66.5633, lon: 25.8298, mil: true, nato: true },
   { icao: 'EFKU', name: 'Kuopio-Rissala', short: 'Kuopio',    lat: 63.0071, lon: 27.7978, mil: true, nato: true },
   // Flanka wschodnia — Bałtyk
@@ -98,9 +112,14 @@ export const AIRFIELDS = [
   { icao: 'LKCV', name: 'Čáslav',            lat: 49.9397, lon: 15.3818, mil: true, nato: true },
   { icao: 'LKNA', name: 'Náměšť',            lat: 49.1663, lon: 16.1240, mil: true, nato: true },
   { icao: 'LZSL', name: 'Sliač',             lat: 48.6378, lon: 19.1341, mil: true, nato: true },
+  { icao: 'LZMC', name: 'Malacky-Kuchyňa',   short: 'Malacky', lat: 48.4020, lon: 17.1189, mil: true, nato: true },
   { icao: 'LHKE', name: 'Kecskemét',         lat: 46.9175, lon: 19.7492, mil: true, nato: true },
   { icao: 'LHPA', name: 'Pápa (NATO HAW)',   lat: 47.3636, lon: 17.5008, mil: true, nato: true },
   { icao: 'LRCK', name: 'Mihail Kogălniceanu', lat: 44.3622, lon: 28.4883, mil: true, nato: true },
+  // Rumunia rozbudowuje się najszybciej: Câmpia Turzii (MQ-9, F-16 USA)
+  // i Fetești (F-16, europejskie centrum szkolenia F-16).
+  { icao: 'LRCT', name: 'Câmpia Turzii',     lat: 46.5032, lon: 23.8853, mil: true, nato: true },
+  { icao: 'LRFT', name: 'Fetești',           lat: 44.3923, lon: 27.7267, mil: true, nato: true },
   { icao: 'LBPG', name: 'Graf Ignatiewo',    lat: 42.2904, lon: 24.7140, mil: true, nato: true },
   { icao: 'LDZD', name: 'Zemunik / Zadar', short: 'Zadar',   lat: 44.0970, lon: 15.3536, mil: true, nato: true },
   { icao: 'LGSA', name: 'Souda Bay',         lat: 35.5312, lon: 24.1507, mil: true, nato: true },

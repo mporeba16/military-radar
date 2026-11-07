@@ -25,6 +25,17 @@ describe('etaMinutes', () => {
     expect(etaMinutes(close, EPRZ)).toBe(4)
   })
 
+  it('wysoko nad lotniskiem to nie „za 1 min" (CMB366: 3000 m obok Rzeszowa)', () => {
+    // 6 km na zachód od pasa, 10 000 ft, 242 kt, kursem na wschód.
+    const ac = { lat: 50.11, lon: 22.019 - 6 / (111.32 * Math.cos(50.11 * Math.PI / 180)), gs: 242, track: 89, alt_baro: 10000 }
+    expect(etaMinutes(ac, EPRZ)).toBeGreaterThanOrEqual(6)
+    // Ta sama maszyna już za lotniskiem, lecąca od niego — musi zawrócić.
+    const past = { ...ac, lon: 22.019 + 6 / (111.32 * Math.cos(50.11 * Math.PI / 180)) }
+    expect(etaMinutes(past, EPRZ)).toBeGreaterThan(etaMinutes(ac, EPRZ))
+    // Nisko na prostej do pasa — bez zmian, kilka minut.
+    expect(etaMinutes({ ...ac, alt_baro: 1500, gs: 150 }, EPRZ)).toBeLessThanOrEqual(3)
+  })
+
   it('nie zgaduje bez prędkości ani dla maszyny na ziemi', () => {
     expect(etaMinutes({ lat: 50, lon: 20, gs: null }, EPRZ)).toBeNull()
     expect(etaMinutes({ lat: 50, lon: 20, gs: 12 }, EPRZ)).toBeNull()
